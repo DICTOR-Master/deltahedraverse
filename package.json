@@ -11,7 +11,8 @@
     "verify:attach": "tsx scripts/verify-attach.ts",
     "verify:twist": "tsx scripts/verify-twist.ts",
     "verify:rewrite": "tsx scripts/verify-rewrite.ts",
-    "verify:graph": "tsx scripts/verify-graph.ts"
+    "verify:graph": "tsx scripts/verify-graph.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "next": "16.3.4",
@@ -20,6 +21,7 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

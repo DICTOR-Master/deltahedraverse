@@ -250,6 +250,38 @@ deploy; the "Later" section below covers genuinely-speculative
 additions (Platonic/Archimedean packs, Johnson solids, face-snap mode)
 that were never part of these 8 stages.
 
+## Permanent browser test suite
+
+Every stage above was, at the time, verified only via lint/tsc/geometry
+scripts and direct API calls — never by actually clicking through the UI in
+a browser, since this machine has none. That gap got closed once (real
+manual click-through on a separate headless machine, `dicto-node`, over
+Playwright), and the same scenarios are now a permanent suite under
+`tests/e2e/` (`npm run test:e2e`, config in `playwright.config.ts`):
+
+- `render.spec.ts` — page loads, canvas renders, all 8 shape buttons present.
+- `attach.spec.ts` — select a free vertex, attach, twist, confirm; and the
+  cancel path frees the vertex again.
+- `rewrite.spec.ts` — D10 body offers "Transform to D12"; applying it swaps
+  the shape (checked by the node then offering the reverse transform).
+- `delete.spec.ts` — deleting a root with one attached child cascades
+  correctly and leaves the canvas empty.
+- `persistence.spec.ts` — Save, reload, and the same vertex reads occupied
+  again (the attached child specifically survived, not just the root shape).
+
+This machine still has no browser, so `test:e2e` can't run here — it needs
+Chromium (`npx playwright install --with-deps chromium`) on a machine that
+has one, same as this session used `dicto-node` for. One real lesson from
+building this suite: vertices are cheap to find by sweeping the mouse across
+the canvas and reading the hover tooltip (they're small, scattered targets),
+but a *node's body* is not — most of a small polyhedron's visible face is
+within a vertex's hit radius, so few sweep positions are "face, no vertex
+nearby," and a blind sweep for one was slow enough to blow past a 90s test
+timeout. Fix: a root node's centroid is always the world origin, which
+projects to the canvas center under the default camera, so
+`findNodeBody()`/`readTooltipAt()` check dead-center directly first and only
+fall back to a full sweep if that misses.
+
 ## Later (additive, not a rewrite)
 
 Platonic/Archimedean packs, Johnson solid packs, dual/face-snap mode — all
