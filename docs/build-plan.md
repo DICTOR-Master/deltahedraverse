@@ -30,10 +30,19 @@ don't start the next one until the current "Done when" passes.
   server response + lint; no local/extension browser was available this
   session to click through interactively — worth a manual sanity check).
 
-- [ ] **Stage 3 — Vertex picking**
-  Raycast against small invisible spheres at each vertex (not faces). Hover
-  highlights; show remaining capacity from the degree data.
+- [x] **Stage 3 — Vertex picking** ✅ done
+  `ShapeViewer.tsx`: an invisible (opacity 0), `depthTest: false` sphere
+  per vertex (`buildVertexGroup`), raycast on `pointermove` against that
+  group only (not the shape's faces). On hit: sphere opacity → 1, scale
+  1.6x, and a floating label reads `vertex {id} — capacity {degree}`
+  straight from `spec.connectors[i].degree` — no separate stored field,
+  same derive-don't-duplicate rule as the rest of the geometry core.
+  "Capacity" is the full vertex degree for now since nothing has been
+  attached yet (Stage 4/6 will start consuming it).
   Done when: hovering any vertex on any shape shows correct capacity.
+  ✅ (verified via dev server response + lint + tsc; no local/extension
+  browser was available this session to hover-test interactively —
+  worth a manual sanity check, same caveat as Stage 2).
 
 - [ ] **Stage 4 — Attach**
   Align a chosen shape's vertex to the target vertex: rotate its local

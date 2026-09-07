@@ -15,7 +15,7 @@ export default function Home() {
     <div className="flex h-screen w-full flex-col bg-black">
       <header className="px-6 py-4 text-zinc-50">
         <h1 className="text-lg font-semibold tracking-tight">Deltahedraverse</h1>
-        <p className="text-sm text-zinc-400">Stage 2 — static render + palette</p>
+        <p className="text-sm text-zinc-400">Stage 3 — vertex picking (hover a vertex to see capacity)</p>
       </header>
       <nav className="flex flex-wrap gap-2 px-6 pb-4">
         {DELTAHEDRON_IDS.map((id) => (
