@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Deltaverse",
+  title: "Deltahedraverse",
   description: "A vertex-snapping construction kit for the 8 convex deltahedra.",
 };
 

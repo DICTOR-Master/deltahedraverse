@@ -1,4 +1,4 @@
-# Deltaverse Build Plan
+# Deltahedraverse Build Plan
 
 Check off stages as they're completed. Each stage is a focused session —
 don't start the next one until the current "Done when" passes.
@@ -61,5 +61,5 @@ don't start the next one until the current "Done when" passes.
 ## Later (additive, not a rewrite)
 
 Platonic/Archimedean packs, Johnson solid packs, dual/face-snap mode — all
-slot into the Stage 1 data format. Treat as speculative until Deltaverse
+slot into the Stage 1 data format. Treat as speculative until Deltahedraverse
 ships independently; see vercel-deployment-plan.md.
