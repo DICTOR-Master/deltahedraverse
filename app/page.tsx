@@ -9,16 +9,21 @@ const ShapeViewer = dynamic(() => import('./components/ShapeViewer'), {
   ssr: false,
 });
 
+interface Pending {
+  specId: string;
+}
+
 export default function Home() {
   const handleRef = useRef<ShapeViewerHandle | null>(null);
   const [selection, setSelection] = useState<ShapeSelection | null>(null);
+  const [pending, setPending] = useState<Pending | null>(null);
 
   return (
     <div className="flex h-screen w-full flex-col bg-black">
       <header className="px-6 py-4 text-zinc-50">
         <h1 className="text-lg font-semibold tracking-tight">Deltahedraverse</h1>
         <p className="text-sm text-zinc-400">
-          Stage 4 — attach (click a free vertex, then pick a shape to attach)
+          Stage 5 — rotate, then confirm (drag to twist the pending piece)
         </p>
       </header>
 
@@ -40,7 +45,27 @@ export default function Home() {
       </nav>
 
       <nav className="flex min-h-11 flex-wrap items-center gap-2 px-6 pb-4">
-        {selection ? (
+        {pending ? (
+          <>
+            <span className="text-xs uppercase tracking-wide text-pink-400">
+              Placing {pending.specId} — drag the view to twist it, then:
+            </span>
+            <button
+              type="button"
+              onClick={() => handleRef.current?.confirmAttach()}
+              className="rounded-full bg-emerald-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-400"
+            >
+              Confirm
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRef.current?.cancelAttach()}
+              className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
+            >
+              Cancel (Esc)
+            </button>
+          </>
+        ) : selection ? (
           <>
             <span className="text-xs uppercase tracking-wide text-zinc-500">
               Attach to {selection.specId} vertex {selection.vertexId} (capacity{' '}
@@ -50,7 +75,7 @@ export default function Home() {
               <button
                 key={id}
                 type="button"
-                onClick={() => handleRef.current?.attach(id)}
+                onClick={() => handleRef.current?.beginAttach(id)}
                 className="rounded-full bg-blue-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-400"
               >
                 {id}
@@ -68,6 +93,7 @@ export default function Home() {
         <ShapeViewer
           initialShapeId={DELTAHEDRON_IDS[0]}
           onSelectionChange={setSelection}
+          onPendingChange={setPending}
           onReady={(handle) => {
             handleRef.current = handle;
           }}

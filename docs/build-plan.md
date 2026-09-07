@@ -81,9 +81,31 @@ don't start the next one until the current "Done when" passes.
   no browser was available this session to click-test interactively —
   same caveat as Stages 2–3, worth a manual pass.
 
-- [ ] **Stage 5 — Rotate, then confirm**
-  Drag spins the pending node around the remaining axis. Confirm commits to
-  the graph; Esc cancels and restores capacity.
+- [x] **Stage 5 — Rotate, then confirm** ✅ done
+  `beginAttach()` now places the incoming shape as a *pending* attach
+  instead of committing immediately: `OrbitControls.enabled = false`
+  (so drag means twist, not camera orbit) while pending, and dragging
+  updates `twistAngle`, applying
+  `baseQuaternion.multiply(setFromAxisAngle(attachLocalDir, twistAngle))`
+  each move — twisting around the incoming shape's own connection axis
+  never moves that axis itself, so the shared point stays fixed no
+  matter the angle. `confirmAttach()` locks it into the assembly
+  (occupied markers stay set, orbit re-enabled); `cancelAttach()` —
+  wired to both a Cancel button and the Esc key — removes the pending
+  piece and flips its target vertex back to free ("restores capacity").
+  `page.tsx`'s attach row is replaced by a "Placing {shape} — drag to
+  twist" row with Confirm/Cancel while pending.
+  Done when: drag rotates the pending piece, Confirm commits, Esc
+  cancels and restores capacity. ✅ `npm run verify:twist` checks the
+  core claim directly (1152 cases: 8×8 shape pairs, first/last root
+  vertex, 9 angles from 0–359°) — the incoming shape's connecting
+  vertex stays coincident with the target to within 1e-9 at every
+  angle, i.e. twisting truly is the one free rotational DOF and never
+  drifts the shared point. `npm run lint` / `npx tsc --noEmit` /
+  `verify:attach` / `validate:deltahedra` all still pass, dev server
+  serves the new UI with no errors; no browser was available this
+  session to actually drag-test the twist by eye — same caveat as
+  Stages 2–4.
 
 - [ ] **Stage 6 — Assembly graph**
   Real data structure: `{ nodes: [{id, shape, transform}], connections:

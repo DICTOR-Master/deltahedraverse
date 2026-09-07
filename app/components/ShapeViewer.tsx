@@ -9,11 +9,13 @@ const VERTEX_RADIUS = 0.06; // relative to unit edge length
 const COLOR_FREE = 0xffcc33;
 const COLOR_SELECTED = 0x33ff88;
 const COLOR_OCCUPIED = 0x777777;
+const COLOR_PENDING = 0xff6688;
+const TWIST_SENSITIVITY = 0.012; // radians per pixel of horizontal drag
 
 // Which vertex of an *incoming* shape serves as its own connection point.
-// Stage 4 doesn't ask the user to choose this — that would need an
-// interactive preview, which is what Stage 5's rotate-then-confirm step
-// is for. Vertex 0 is an arbitrary but fixed convention for now.
+// Stage 4/5 don't ask the user to choose this — that would need its own
+// interaction step, which isn't part of either stage's spec. Vertex 0 is an
+// arbitrary but fixed convention for now.
 const ATTACH_VERTEX_INDEX = 0;
 
 interface VertexUserData {
@@ -27,11 +29,23 @@ interface PlacedShape {
   vertexGroup: THREE.Group;
 }
 
+interface PendingAttach {
+  placed: PlacedShape;
+  targetSphere: THREE.Mesh;
+  baseQuaternion: THREE.Quaternion; // orientation before twist
+  attachLocalDir: THREE.Vector3; // the incoming shape's own local connection axis
+  twistAngle: number;
+}
+
 export interface ShapeViewerHandle {
   /** Clears the scene and places a single instance of `specId` at the origin. */
   reset(specId: string): void;
-  /** Attaches a new instance of `specId` to the currently selected target vertex, if any. */
-  attach(specId: string): void;
+  /** Places `specId` at the currently selected target vertex as a pending (draggable) attach. */
+  beginAttach(specId: string): void;
+  /** Locks the pending attach in place. */
+  confirmAttach(): void;
+  /** Removes the pending attach and frees its target vertex again. */
+  cancelAttach(): void;
 }
 
 export interface ShapeSelection {
@@ -119,10 +133,16 @@ function disposePlacedShape(placed: PlacedShape) {
   });
 }
 
-/** Paints a vertex sphere according to its current state (free/selected/occupied). */
-function paintVertex(sphere: THREE.Mesh, opts: { selected?: boolean; hovered?: boolean }) {
+/** Paints a vertex sphere according to its current state (free/selected/occupied/pending). */
+function paintVertex(sphere: THREE.Mesh, opts: { selected?: boolean; hovered?: boolean; pending?: boolean }) {
   const data = sphere.userData as VertexUserData;
   const material = sphere.material as THREE.MeshBasicMaterial;
+  if (opts.pending) {
+    material.color.setHex(COLOR_PENDING);
+    material.opacity = 1;
+    sphere.scale.setScalar(1.6);
+    return;
+  }
   if (data.occupied) {
     material.color.setHex(COLOR_OCCUPIED);
     material.opacity = 0.6;
@@ -149,10 +169,12 @@ function paintVertex(sphere: THREE.Mesh, opts: { selected?: boolean; hovered?: b
 export default function ShapeViewer({
   initialShapeId,
   onSelectionChange,
+  onPendingChange,
   onReady,
 }: {
   initialShapeId: string;
   onSelectionChange?: (selection: ShapeSelection | null) => void;
+  onPendingChange?: (pending: { specId: string } | null) => void;
   onReady?: (handle: ShapeViewerHandle) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -161,12 +183,18 @@ export default function ShapeViewer({
   const placedRef = useRef<PlacedShape[]>([]);
   const hoveredRef = useRef<THREE.Mesh | null>(null);
   const selectedRef = useRef<THREE.Mesh | null>(null);
+  const pendingRef = useRef<PendingAttach | null>(null);
   const onSelectionChangeRef = useRef(onSelectionChange);
+  const onPendingChangeRef = useRef(onPendingChange);
   const onReadyRef = useRef(onReady);
 
   useEffect(() => {
     onSelectionChangeRef.current = onSelectionChange;
   }, [onSelectionChange]);
+
+  useEffect(() => {
+    onPendingChangeRef.current = onPendingChange;
+  }, [onPendingChange]);
 
   useEffect(() => {
     onReadyRef.current = onReady;
@@ -212,7 +240,25 @@ export default function ShapeViewer({
       onSelectionChangeRef.current?.(null);
     };
 
+    const cancelAttach = () => {
+      const pending = pendingRef.current;
+      if (!pending) return;
+
+      scene.remove(pending.placed.object);
+      disposePlacedShape(pending.placed);
+
+      const targetData = pending.targetSphere.userData as VertexUserData;
+      targetData.occupied = false;
+      paintVertex(pending.targetSphere, {});
+
+      pendingRef.current = null;
+      controls.enabled = true;
+      label.style.display = 'none';
+      onPendingChangeRef.current?.(null);
+    };
+
     const resetScene = () => {
+      cancelAttach();
       for (const placed of placedRef.current) {
         scene.remove(placed.object);
         disposePlacedShape(placed);
@@ -233,10 +279,10 @@ export default function ShapeViewer({
       onSelectionChangeRef.current?.(null);
     };
 
-    const attach = (specId: string) => {
+    const beginAttach = (specId: string) => {
       const target = selectedRef.current;
       const spec = DELTAHEDRA[specId];
-      if (!target || !spec) return;
+      if (!target || !spec || pendingRef.current) return;
 
       scene.updateMatrixWorld(true); // ensure target's world matrix reflects any prior attach
 
@@ -257,32 +303,52 @@ export default function ShapeViewer({
 
       // Rotate the incoming shape's outward direction to point opposite the
       // target's outward normal, so it continues growing away from the
-      // existing structure instead of overlapping it.
+      // existing structure instead of overlapping it. This leaves exactly
+      // one rotational freedom open: twisting around attachLocalDir itself,
+      // since that axis maps to itself under any rotation around it.
       const desiredWorldDir = targetWorldNormal.clone().negate();
-      const quat = new THREE.Quaternion().setFromUnitVectors(attachLocalDir, desiredWorldDir);
-      placed.object.quaternion.copy(quat);
+      const baseQuaternion = new THREE.Quaternion().setFromUnitVectors(attachLocalDir, desiredWorldDir);
+      placed.object.quaternion.copy(baseQuaternion);
 
-      const rotatedAttachVertex = new THREE.Vector3(...attachVertex).applyQuaternion(quat);
+      const rotatedAttachVertex = new THREE.Vector3(...attachVertex).applyQuaternion(baseQuaternion);
       placed.object.position.copy(targetWorldPos).sub(rotatedAttachVertex);
 
       scene.add(placed.object);
-      placedRef.current.push(placed);
 
-      targetData.occupied = true;
-      paintVertex(target, {});
+      targetData.occupied = true; // reserved while pending; cancelAttach restores this
+      paintVertex(target, { pending: true });
 
       const newAttachSphere = placed.vertexGroup.children[ATTACH_VERTEX_INDEX] as THREE.Mesh;
       (newAttachSphere.userData as VertexUserData).occupied = true;
+      paintVertex(newAttachSphere, { pending: true });
+
+      pendingRef.current = { placed, targetSphere: target, baseQuaternion, attachLocalDir, twistAngle: 0 };
+      controls.enabled = false;
+      clearSelection();
+      onPendingChangeRef.current?.({ specId });
+    };
+
+    const confirmAttach = () => {
+      const pending = pendingRef.current;
+      if (!pending) return;
+
+      placedRef.current.push(pending.placed);
+      paintVertex(pending.targetSphere, {});
+      const newAttachSphere = pending.placed.vertexGroup.children[ATTACH_VERTEX_INDEX] as THREE.Mesh;
       paintVertex(newAttachSphere, {});
 
-      clearSelection();
+      pendingRef.current = null;
+      controls.enabled = true;
+      label.style.display = 'none';
+      onPendingChangeRef.current?.(null);
     };
 
     placeRoot(initialShapeId);
-    onReadyRef.current?.({ reset: placeRoot, attach });
+    onReadyRef.current?.({ reset: placeRoot, beginAttach, confirmAttach, cancelAttach });
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
+    let isDragging = false;
 
     const allVertexSpheres = () => placedRef.current.flatMap((p) => p.vertexGroup.children);
 
@@ -296,7 +362,24 @@ export default function ShapeViewer({
     };
 
     const onPointerMove = (event: PointerEvent) => {
+      const pending = pendingRef.current;
       const rect = container.getBoundingClientRect();
+
+      if (pending) {
+        if (isDragging) {
+          pending.twistAngle += event.movementX * TWIST_SENSITIVITY;
+          const twistQuat = new THREE.Quaternion().setFromAxisAngle(pending.attachLocalDir, pending.twistAngle);
+          pending.placed.object.quaternion.copy(pending.baseQuaternion).multiply(twistQuat);
+
+          const degrees = THREE.MathUtils.radToDeg(pending.twistAngle) % 360;
+          label.textContent = `twist ${degrees.toFixed(0)}°`;
+          label.style.left = `${event.clientX - rect.left + 14}px`;
+          label.style.top = `${event.clientY - rect.top + 14}px`;
+          label.style.display = 'block';
+        }
+        return; // selection/hover raycasting is locked while a piece is pending
+      }
+
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
@@ -322,7 +405,24 @@ export default function ShapeViewer({
       }
     };
 
+    const onPointerDown = (event: PointerEvent) => {
+      if (!pendingRef.current) return;
+      isDragging = true;
+      container.setPointerCapture(event.pointerId);
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      if (!isDragging) return;
+      isDragging = false;
+      try {
+        container.releasePointerCapture(event.pointerId);
+      } catch {
+        // pointer capture may already be released (e.g. pointercancel) — harmless
+      }
+    };
+
     const onClick = () => {
+      if (pendingRef.current) return; // confirm/cancel drive pending state, not vertex clicks
       const hit = hoveredRef.current;
 
       if (selectedRef.current && selectedRef.current !== hit) {
@@ -349,9 +449,16 @@ export default function ShapeViewer({
       onSelectionChangeRef.current?.({ specId, vertexId, degree });
     };
 
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') cancelAttach();
+    };
+
     container.addEventListener('pointermove', onPointerMove);
     container.addEventListener('pointerleave', clearHover);
+    container.addEventListener('pointerdown', onPointerDown);
+    container.addEventListener('pointerup', onPointerUp);
     container.addEventListener('click', onClick);
+    window.addEventListener('keydown', onKeyDown);
 
     let frameId: number;
     const animate = () => {
@@ -372,8 +479,11 @@ export default function ShapeViewer({
     return () => {
       cancelAnimationFrame(frameId);
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('keydown', onKeyDown);
       container.removeEventListener('pointermove', onPointerMove);
       container.removeEventListener('pointerleave', clearHover);
+      container.removeEventListener('pointerdown', onPointerDown);
+      container.removeEventListener('pointerup', onPointerUp);
       container.removeEventListener('click', onClick);
       resetScene();
       controls.dispose();
@@ -381,8 +491,8 @@ export default function ShapeViewer({
       renderer.dispose();
       sceneRef.current = null;
     };
-    // Intentionally mount-once: `reset`/`attach` are exposed imperatively via
-    // onReady, so this component doesn't need to react to prop changes.
+    // Intentionally mount-once: the handle methods are exposed imperatively
+    // via onReady, so this component doesn't need to react to prop changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
