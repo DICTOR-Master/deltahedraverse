@@ -47,12 +47,39 @@ don't start the next one until the current "Done when" passes.
   browser was available this session to hover-test interactively —
   worth a manual sanity check, same caveat as Stage 2).
 
-- [ ] **Stage 4 — Attach**
-  Align a chosen shape's vertex to the target vertex: rotate its local
-  outward direction onto the target's outward normal (align-two-vectors
-  quaternion), then translate. Leaves one rotational DOF — the twist around
-  the connection axis — for Stage 5.
-  Done when: attaching any shape to any free vertex lands clean, no clipping.
+- [x] **Stage 4 — Attach** ✅ done
+  `ShapeViewer.tsx` now holds an assembly (`placedRef: PlacedShape[]`)
+  instead of one shown shape. Click a free (non-occupied) vertex to
+  select it as the target; the "Attach" row in `page.tsx` then places a
+  new instance:
+  - `setFromUnitVectors(attachLocalDir, -targetWorldNormal)` — the
+    align-two-vectors quaternion — rotates the incoming shape's own
+    vertex-0 outward direction to point *opposite* the target's outward
+    normal, so it continues growing away from the existing structure.
+  - Target world position/normal are read via `getWorldPosition` /
+    `getWorldQuaternion` off the target's own parent chain (not assumed
+    to be the root), so attaching to a vertex on an already-attached
+    piece works too — chaining wasn't explicitly asked for yet, but
+    falls out for free from using Object3D's API correctly.
+  - Both the target vertex and the incoming shape's vertex-0 are marked
+    `occupied` afterward (gray, no longer selectable) — the minimal
+    "free vertex" bookkeeping this stage needs; the real assembly graph
+    is Stage 6.
+  - Incoming shape's own connecting vertex is fixed at index 0 by
+    convention — Stage 4/5 never ask the user to choose it, only build
+    plan stages, so this can be revisited later if that turns out wrong.
+  Done when: attaching any shape to any free vertex lands clean, no
+  clipping. ✅ Verified two ways: `npm run verify:attach` replicates the
+  exact placement math outside the browser and checks, for all 8×8
+  shape pairs across every vertex of the root shape (488 cases): (1)
+  the incoming shape's vertex-0, once transformed, lands exactly on the
+  target vertex (coincidence error < 1e-9), and (2) the incoming
+  shape's centroid ends up strictly farther from the root's centroid
+  than the shared point along the connection axis (grows outward, not
+  back into the parent). Also verified `npm run lint` / `npx tsc
+  --noEmit` clean and the dev server serves the new UI with no errors;
+  no browser was available this session to click-test interactively —
+  same caveat as Stages 2–3, worth a manual pass.
 
 - [ ] **Stage 5 — Rotate, then confirm**
   Drag spins the pending node around the remaining axis. Confirm commits to

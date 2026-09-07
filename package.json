@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "validate:deltahedra": "tsx scripts/validate-deltahedra.ts"
+    "validate:deltahedra": "tsx scripts/validate-deltahedra.ts",
+    "verify:attach": "tsx scripts/verify-attach.ts"
   },
   "dependencies": {
     "next": "16.3.4",
