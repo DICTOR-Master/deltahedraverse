@@ -21,6 +21,13 @@ export interface AssemblyConnection {
   vertexA: number;
   nodeB: string;
   vertexB: number;
+  // Set by Stage 7's rewrite rule when a node's shape changes and no
+  // compatible vertex exists on the new shape for this connection's side.
+  // vertexA/vertexB then keep their last-known (possibly now out-of-range
+  // for the new shape) value purely as a historical record — orphaned
+  // connections are excluded from vertex-range validation and from
+  // occupied-vertex bookkeeping on load.
+  orphaned?: boolean;
 }
 
 export interface Assembly {
@@ -52,12 +59,15 @@ function isNode(v: unknown): v is AssemblyNode {
 function isConnection(v: unknown): v is AssemblyConnection {
   if (typeof v !== 'object' || v === null) return false;
   const c = v as Record<string, unknown>;
-  return (
-    typeof c.nodeA === 'string' &&
-    typeof c.nodeB === 'string' &&
-    typeof c.vertexA === 'number' &&
-    typeof c.vertexB === 'number'
-  );
+  if (
+    typeof c.nodeA !== 'string' ||
+    typeof c.nodeB !== 'string' ||
+    typeof c.vertexA !== 'number' ||
+    typeof c.vertexB !== 'number'
+  ) {
+    return false;
+  }
+  return c.orphaned === undefined || typeof c.orphaned === 'boolean';
 }
 
 /** Structural validation for untrusted input (the API route body, a fetch response). */
@@ -85,6 +95,9 @@ export function isValidAssembly(v: unknown): v is Assembly {
     const a = nodeById.get(conn.nodeA);
     const b = nodeById.get(conn.nodeB);
     if (!a || !b) return false;
+    // Orphaned connections keep a deliberately stale vertex index (see
+    // AssemblyConnection.orphaned) — only the node references matter for them.
+    if (conn.orphaned) continue;
     if (conn.vertexA < 0 || conn.vertexA >= DELTAHEDRA[a.shape].vertices.length) return false;
     if (conn.vertexB < 0 || conn.vertexB >= DELTAHEDRA[b.shape].vertices.length) return false;
   }

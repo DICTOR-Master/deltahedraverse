@@ -9,7 +9,8 @@
     "lint": "eslint",
     "validate:deltahedra": "tsx scripts/validate-deltahedra.ts",
     "verify:attach": "tsx scripts/verify-attach.ts",
-    "verify:twist": "tsx scripts/verify-twist.ts"
+    "verify:twist": "tsx scripts/verify-twist.ts",
+    "verify:rewrite": "tsx scripts/verify-rewrite.ts"
   },
   "dependencies": {
     "next": "16.3.4",

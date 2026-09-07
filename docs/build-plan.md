@@ -149,12 +149,50 @@ don't start the next one until the current "Done when" passes.
   the persistence layer itself (the part that's actually new here) was
   exercised end-to-end over real HTTP.
 
-- [ ] **Stage 7 — D10↔D12 rewrite rule**
-  Swap the mesh; re-anchor existing connections where a compatible vertex
-  exists in roughly the same role, otherwise surface the orphaned connection
-  rather than guessing.
-  Done when: transforming a D10 with 2 attached neighbors doesn't send them
-  flying.
+- [x] **Stage 7 — D10↔D12 rewrite rule** ✅ done
+  - `app/lib/rewrite.ts`: `matchRewriteVertices(oldSpecId, newSpecId,
+    oldVertexIndices)` — a pure, `three`-free function (plain number
+    tuples), factored out rather than duplicated like the earlier
+    verify scripts, because a greedy bipartite match is genuinely
+    non-trivial and worth keeping in one place. "Roughly the same
+    role" = most similar outward direction (both shapes centered, so
+    vertex position doubles as direction), assigned highest-score-first,
+    1:1. Threshold (cos ≥ 0.5, i.e. within 60°) checked empirically in
+    `scripts/verify-rewrite.ts` against real D10/D12 data — every
+    single vertex's best possible match is within 36.7° worst-case, so
+    for this specific pair orphaning only ever comes from genuine
+    greedy-assignment conflicts, never from poor geometric fit.
+  - Clicking a D10 or D12 node's *body* (not a vertex — a second,
+    lower-priority raycast against face meshes, checked only when no
+    vertex sphere is hit) selects that whole node for rewrite; a
+    "Transform to D12/D10" button appears in `page.tsx`.
+  - `rewriteSelectedNode()` in `ShapeViewer.tsx`: swaps the node's
+    `PlacedShape` in place (same node id, same world position/quaternion),
+    matches its active (non-orphaned) connections' old vertices onto the
+    new shape, updates `graphRef` (the node's `shape` field, and each
+    matched connection's vertex index) — and, critically, **never reads
+    or writes any other node's transform or graph record**. Orphaned
+    connections get `orphaned: true` (schema addition — see
+    `AssemblyConnection.orphaned` in `app/lib/assembly.ts`; validation
+    skips the now-stale vertex-index range check for them, and
+    `loadAssembly()` skips marking anything occupied for them). The
+    result (`{fromSpecId, toSpecId, reattached, orphaned}`) surfaces to
+    the user as a transient banner rather than a guessed placement.
+  Done when: transforming a D10 with 2 attached neighbors doesn't send
+  them flying. ✅ Verified past pure-function level: built the exact
+  scenario (D10 root, two D4 neighbors each attached at a different
+  root vertex) as a real assembly, POSTed it to the running dev
+  server, computed the rewrite bookkeeping the same way
+  `rewriteSelectedNode` does, POSTed the result, and confirmed via a
+  fresh GET that both neighbor node records are **byte-identical**
+  before and after (the actual "didn't send them flying" claim,
+  checked at the data level since neighbor transforms are never in any
+  code path this stage touches) while the root's shape flipped to D12
+  and both connections reattached with no orphans. `npm run lint` /
+  `npx tsc --noEmit` / `validate:deltahedra` / `verify:attach` /
+  `verify:twist` / `verify:rewrite` all still pass. No browser to click
+  a node body and watch the swap by eye — same caveat as every prior
+  stage.
 
 - [ ] **Stage 8 — Polish**
   Capacity glow states, cascade-remove on delete, cycle detection for

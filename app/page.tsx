@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { DELTAHEDRA, DELTAHEDRON_IDS } from './lib/deltahedra';
-import type { ShapeSelection, ShapeViewerHandle } from './components/ShapeViewer';
+import type { NodeSelection, ShapeSelection, ShapeViewerHandle } from './components/ShapeViewer';
 
 const ShapeViewer = dynamic(() => import('./components/ShapeViewer'), {
   ssr: false,
@@ -19,6 +19,8 @@ export default function Home() {
   const handleRef = useRef<ShapeViewerHandle | null>(null);
   const [selection, setSelection] = useState<ShapeSelection | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [nodeSelection, setNodeSelection] = useState<NodeSelection | null>(null);
+  const [rewriteNote, setRewriteNote] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
 
   const handleSave = async () => {
@@ -28,13 +30,24 @@ export default function Home() {
     setTimeout(() => setSaveStatus('idle'), 2000);
   };
 
+  const handleRewrite = () => {
+    const result = handleRef.current?.rewriteSelectedNode();
+    if (!result) return;
+    const note =
+      result.orphaned > 0
+        ? `${result.fromSpecId} → ${result.toSpecId}: ${result.reattached} reattached, ${result.orphaned} orphaned (no compatible vertex found)`
+        : `${result.fromSpecId} → ${result.toSpecId}: ${result.reattached} connection(s) reattached`;
+    setRewriteNote(note);
+    setTimeout(() => setRewriteNote(null), 4000);
+  };
+
   return (
     <div className="flex h-screen w-full flex-col bg-black">
       <header className="flex items-start justify-between px-6 py-4 text-zinc-50">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Deltahedraverse</h1>
           <p className="text-sm text-zinc-400">
-            Stage 6 — assembly graph (Save persists it; reload restores it)
+            Stage 7 — D10↔D12 rewrite (click a D10/D12 body to transform it)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -68,7 +81,7 @@ export default function Home() {
         ))}
       </nav>
 
-      <nav className="flex min-h-11 flex-wrap items-center gap-2 px-6 pb-4">
+      <nav className="flex min-h-11 flex-wrap items-center gap-2 px-6 pb-2">
         {pending ? (
           <>
             <span className="text-xs uppercase tracking-wide text-pink-400">
@@ -87,6 +100,19 @@ export default function Home() {
               className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
             >
               Cancel (Esc)
+            </button>
+          </>
+        ) : nodeSelection ? (
+          <>
+            <span className="text-xs uppercase tracking-wide text-amber-400">
+              Selected {nodeSelection.specId} node:
+            </span>
+            <button
+              type="button"
+              onClick={handleRewrite}
+              className="rounded-full bg-amber-500 px-4 py-1.5 text-sm font-medium text-black transition-colors hover:bg-amber-400"
+            >
+              Transform to {nodeSelection.rewriteTarget}
             </button>
           </>
         ) : selection ? (
@@ -108,16 +134,24 @@ export default function Home() {
           </>
         ) : (
           <span className="text-xs text-zinc-600">
-            Click a highlighted, free vertex to pick an attachment point.
+            Click a highlighted, free vertex to attach a shape, or click a D10/D12 body to
+            transform it.
           </span>
         )}
       </nav>
+
+      {rewriteNote && (
+        <div className="px-6 pb-2">
+          <span className="text-xs text-amber-300">{rewriteNote}</span>
+        </div>
+      )}
 
       <main className="flex-1">
         <ShapeViewer
           initialShapeId={DELTAHEDRON_IDS[0]}
           onSelectionChange={setSelection}
           onPendingChange={setPending}
+          onNodeSelectionChange={setNodeSelection}
           onReady={(handle) => {
             handleRef.current = handle;
           }}
