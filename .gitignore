@@ -36,6 +36,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local interim assembly storage (see app/api/assemblies/route.ts) —
+# per-machine dev state, not source; Stage 6's real target is Vercel
+# KV/Postgres once the project deploys
+/.data
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

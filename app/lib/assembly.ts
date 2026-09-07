@@ -1,0 +1,92 @@
+/**
+ * The assembly graph — Stage 6's real data structure. Built directly from
+ * user actions (placeRoot / confirmAttach in ShapeViewer.tsx), never
+ * inferred by walking the Three.js scene. The scene is a rendering of this
+ * graph, not the other way around.
+ */
+
+import { DELTAHEDRA } from './deltahedra';
+
+export interface AssemblyNode {
+  id: string;
+  shape: string; // DeltahedronSpec id, e.g. 'D6'
+  transform: {
+    position: [number, number, number];
+    quaternion: [number, number, number, number]; // x, y, z, w
+  };
+}
+
+export interface AssemblyConnection {
+  nodeA: string;
+  vertexA: number;
+  nodeB: string;
+  vertexB: number;
+}
+
+export interface Assembly {
+  nodes: AssemblyNode[];
+  connections: AssemblyConnection[];
+}
+
+export function emptyAssembly(): Assembly {
+  return { nodes: [], connections: [] };
+}
+
+function isVec3(v: unknown): v is [number, number, number] {
+  return Array.isArray(v) && v.length === 3 && v.every((n) => typeof n === 'number' && Number.isFinite(n));
+}
+
+function isQuat(v: unknown): v is [number, number, number, number] {
+  return Array.isArray(v) && v.length === 4 && v.every((n) => typeof n === 'number' && Number.isFinite(n));
+}
+
+function isNode(v: unknown): v is AssemblyNode {
+  if (typeof v !== 'object' || v === null) return false;
+  const n = v as Record<string, unknown>;
+  if (typeof n.id !== 'string' || typeof n.shape !== 'string') return false;
+  if (typeof n.transform !== 'object' || n.transform === null) return false;
+  const t = n.transform as Record<string, unknown>;
+  return isVec3(t.position) && isQuat(t.quaternion);
+}
+
+function isConnection(v: unknown): v is AssemblyConnection {
+  if (typeof v !== 'object' || v === null) return false;
+  const c = v as Record<string, unknown>;
+  return (
+    typeof c.nodeA === 'string' &&
+    typeof c.nodeB === 'string' &&
+    typeof c.vertexA === 'number' &&
+    typeof c.vertexB === 'number'
+  );
+}
+
+/** Structural validation for untrusted input (the API route body, a fetch response). */
+export function isAssembly(v: unknown): v is Assembly {
+  if (typeof v !== 'object' || v === null) return false;
+  const a = v as Record<string, unknown>;
+  return Array.isArray(a.nodes) && Array.isArray(a.connections) && a.nodes.every(isNode) && a.connections.every(isConnection);
+}
+
+/**
+ * Beyond structural shape: every node's `shape` must be a real deltahedron
+ * id and every connection must reference node ids and vertex indices that
+ * actually exist. Guards the renderer against a corrupted or hand-edited
+ * save file crashing on load.
+ */
+export function isValidAssembly(v: unknown): v is Assembly {
+  if (!isAssembly(v)) return false;
+  const nodeById = new Map(v.nodes.map((n) => [n.id, n]));
+  if (nodeById.size !== v.nodes.length) return false; // duplicate ids
+
+  for (const node of v.nodes) {
+    if (!(node.shape in DELTAHEDRA)) return false;
+  }
+  for (const conn of v.connections) {
+    const a = nodeById.get(conn.nodeA);
+    const b = nodeById.get(conn.nodeB);
+    if (!a || !b) return false;
+    if (conn.vertexA < 0 || conn.vertexA >= DELTAHEDRA[a.shape].vertices.length) return false;
+    if (conn.vertexB < 0 || conn.vertexB >= DELTAHEDRA[b.shape].vertices.length) return false;
+  }
+  return true;
+}

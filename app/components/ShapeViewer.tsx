@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { DELTAHEDRA, type DeltahedronSpec } from '../lib/deltahedra';
+import { emptyAssembly, isValidAssembly, type Assembly } from '../lib/assembly';
 
 const VERTEX_RADIUS = 0.06; // relative to unit edge length
 const COLOR_FREE = 0xffcc33;
@@ -24,6 +25,11 @@ interface VertexUserData {
   occupied: boolean;
 }
 
+interface ShapeObjectUserData {
+  specId: string;
+  nodeId: string;
+}
+
 interface PlacedShape {
   object: THREE.Group; // holds mesh + edge lines + vertexGroup; positioned/oriented directly in world space
   vertexGroup: THREE.Group;
@@ -31,6 +37,7 @@ interface PlacedShape {
 
 interface PendingAttach {
   placed: PlacedShape;
+  nodeId: string;
   targetSphere: THREE.Mesh;
   baseQuaternion: THREE.Quaternion; // orientation before twist
   attachLocalDir: THREE.Vector3; // the incoming shape's own local connection axis
@@ -46,6 +53,8 @@ export interface ShapeViewerHandle {
   confirmAttach(): void;
   /** Removes the pending attach and frees its target vertex again. */
   cancelAttach(): void;
+  /** Persists the current assembly graph. Resolves false on failure. */
+  save(): Promise<boolean>;
 }
 
 export interface ShapeSelection {
@@ -100,9 +109,12 @@ function buildVertexGroup(spec: DeltahedronSpec): THREE.Group {
   return group;
 }
 
-function buildPlacedShape(spec: DeltahedronSpec): PlacedShape {
+// vertexGroup.children[i] always corresponds to spec.connectors[i] (== spec.vertices[i]),
+// since buildVertexGroup iterates spec.connectors in order and DeltahedronSpec's own
+// buildConnectors() assigns connector.id === its array index.
+function buildPlacedShape(spec: DeltahedronSpec, nodeId: string): PlacedShape {
   const object = new THREE.Group();
-  object.userData = { specId: spec.id };
+  object.userData = { specId: spec.id, nodeId } satisfies ShapeObjectUserData;
 
   const mesh = new THREE.Mesh(
     buildFaceGeometry(spec),
@@ -181,6 +193,7 @@ export default function ShapeViewer({
   const labelRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const placedRef = useRef<PlacedShape[]>([]);
+  const graphRef = useRef<Assembly>(emptyAssembly());
   const hoveredRef = useRef<THREE.Mesh | null>(null);
   const selectedRef = useRef<THREE.Mesh | null>(null);
   const pendingRef = useRef<PendingAttach | null>(null);
@@ -264,6 +277,7 @@ export default function ShapeViewer({
         disposePlacedShape(placed);
       }
       placedRef.current = [];
+      graphRef.current = emptyAssembly();
       hoveredRef.current = null;
       selectedRef.current = null;
       label.style.display = 'none';
@@ -273,9 +287,58 @@ export default function ShapeViewer({
       resetScene();
       const spec = DELTAHEDRA[specId];
       if (!spec) return;
-      const placed = buildPlacedShape(spec);
+      const nodeId = crypto.randomUUID();
+      const placed = buildPlacedShape(spec, nodeId);
       scene.add(placed.object);
       placedRef.current.push(placed);
+      graphRef.current = {
+        nodes: [
+          {
+            id: nodeId,
+            shape: specId,
+            transform: {
+              position: placed.object.position.toArray() as [number, number, number],
+              quaternion: placed.object.quaternion.toArray() as [number, number, number, number],
+            },
+          },
+        ],
+        connections: [],
+      };
+      onSelectionChangeRef.current?.(null);
+    };
+
+    /** Rebuilds the scene from a previously saved graph — used on load, not on user actions. */
+    const loadAssembly = (assembly: Assembly) => {
+      resetScene();
+      const byNodeId = new Map<string, PlacedShape>();
+
+      for (const node of assembly.nodes) {
+        const spec = DELTAHEDRA[node.shape];
+        if (!spec) continue; // isValidAssembly already guards against this in practice
+        const placed = buildPlacedShape(spec, node.id);
+        placed.object.position.fromArray(node.transform.position);
+        placed.object.quaternion.fromArray(node.transform.quaternion);
+        scene.add(placed.object);
+        placedRef.current.push(placed);
+        byNodeId.set(node.id, placed);
+      }
+
+      for (const conn of assembly.connections) {
+        const a = byNodeId.get(conn.nodeA);
+        const b = byNodeId.get(conn.nodeB);
+        const sphereA = a?.vertexGroup.children[conn.vertexA] as THREE.Mesh | undefined;
+        const sphereB = b?.vertexGroup.children[conn.vertexB] as THREE.Mesh | undefined;
+        if (sphereA) {
+          (sphereA.userData as VertexUserData).occupied = true;
+          paintVertex(sphereA, {});
+        }
+        if (sphereB) {
+          (sphereB.userData as VertexUserData).occupied = true;
+          paintVertex(sphereB, {});
+        }
+      }
+
+      graphRef.current = assembly;
       onSelectionChangeRef.current?.(null);
     };
 
@@ -297,7 +360,8 @@ export default function ShapeViewer({
       // doubles as its local outward direction (per DeltahedronSpec's Connector doc).
       const targetWorldNormal = target.position.clone().normalize().applyQuaternion(parentWorldQuat);
 
-      const placed = buildPlacedShape(spec);
+      const nodeId = crypto.randomUUID();
+      const placed = buildPlacedShape(spec, nodeId);
       const attachVertex = spec.vertices[ATTACH_VERTEX_INDEX];
       const attachLocalDir = new THREE.Vector3(...attachVertex).normalize();
 
@@ -322,7 +386,7 @@ export default function ShapeViewer({
       (newAttachSphere.userData as VertexUserData).occupied = true;
       paintVertex(newAttachSphere, { pending: true });
 
-      pendingRef.current = { placed, targetSphere: target, baseQuaternion, attachLocalDir, twistAngle: 0 };
+      pendingRef.current = { placed, nodeId, targetSphere: target, baseQuaternion, attachLocalDir, twistAngle: 0 };
       controls.enabled = false;
       clearSelection();
       onPendingChangeRef.current?.({ specId });
@@ -337,14 +401,62 @@ export default function ShapeViewer({
       const newAttachSphere = pending.placed.vertexGroup.children[ATTACH_VERTEX_INDEX] as THREE.Mesh;
       paintVertex(newAttachSphere, {});
 
+      const parentGroup = pending.targetSphere.parent!.parent as THREE.Group;
+      const { nodeId: parentNodeId } = parentGroup.userData as ShapeObjectUserData;
+      const { vertexId: targetVertexIndex } = pending.targetSphere.userData as VertexUserData;
+      const { specId: newSpecId } = pending.placed.object.userData as ShapeObjectUserData;
+
+      graphRef.current.nodes.push({
+        id: pending.nodeId,
+        shape: newSpecId,
+        transform: {
+          position: pending.placed.object.position.toArray() as [number, number, number],
+          quaternion: pending.placed.object.quaternion.toArray() as [number, number, number, number],
+        },
+      });
+      graphRef.current.connections.push({
+        nodeA: parentNodeId,
+        vertexA: targetVertexIndex,
+        nodeB: pending.nodeId,
+        vertexB: ATTACH_VERTEX_INDEX,
+      });
+
       pendingRef.current = null;
       controls.enabled = true;
       label.style.display = 'none';
       onPendingChangeRef.current?.(null);
     };
 
-    placeRoot(initialShapeId);
-    onReadyRef.current?.({ reset: placeRoot, beginAttach, confirmAttach, cancelAttach });
+    const saveAssembly = async (): Promise<boolean> => {
+      try {
+        const res = await fetch('/api/assemblies', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(graphRef.current),
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    };
+
+    onReadyRef.current?.({ reset: placeRoot, beginAttach, confirmAttach, cancelAttach, save: saveAssembly });
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/assemblies');
+        const data: unknown = await res.json();
+        if (cancelled) return;
+        if (isValidAssembly(data) && data.nodes.length > 0) {
+          loadAssembly(data);
+          return;
+        }
+      } catch {
+        // no saved assembly (or the fetch failed) — fall through to the default shape
+      }
+      if (!cancelled) placeRoot(initialShapeId);
+    })();
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
@@ -444,7 +556,7 @@ export default function ShapeViewer({
 
       selectedRef.current = hit;
       paintVertex(hit, { selected: true });
-      const specId = (hit.parent!.parent as THREE.Group).userData.specId as string;
+      const { specId } = (hit.parent!.parent as THREE.Group).userData as ShapeObjectUserData;
       const { vertexId, degree } = hit.userData as VertexUserData;
       onSelectionChangeRef.current?.({ specId, vertexId, degree });
     };
@@ -477,6 +589,7 @@ export default function ShapeViewer({
     window.addEventListener('resize', onResize);
 
     return () => {
+      cancelled = true;
       cancelAnimationFrame(frameId);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('keydown', onKeyDown);

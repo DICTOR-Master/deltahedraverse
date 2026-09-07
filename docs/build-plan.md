@@ -107,13 +107,47 @@ don't start the next one until the current "Done when" passes.
   session to actually drag-test the twist by eye — same caveat as
   Stages 2–4.
 
-- [ ] **Stage 6 — Assembly graph**
-  Real data structure: `{ nodes: [{id, shape, transform}], connections:
-  [{nodeA, vertexA, nodeB, vertexB}] }`, built from user actions, not
-  inferred from the scene. Persist via an API route
-  (`app/api/assemblies/route.ts`) backed by Vercel KV or Postgres — same
-  project, same deploy.
-  Done when: reload restores a saved assembly exactly.
+- [x] **Stage 6 — Assembly graph** ✅ done (with one deliberate deviation — see below)
+  `app/lib/assembly.ts` defines exactly the shape the plan names:
+  `{ nodes: [{id, shape, transform}], connections: [{nodeA, vertexA,
+  nodeB, vertexB}] }`, plus `isValidAssembly()` — structural checks
+  *and* semantic ones (every `shape` is a real deltahedron id, every
+  connection's node ids and vertex indices actually exist).
+  - `ShapeViewer.tsx` now keeps `graphRef: Assembly` as real state,
+    mutated only at the two points user actions actually happen:
+    `placeRoot()` (root node) and `confirmAttach()` (new node + new
+    connection, using the parent's `nodeId` and the target vertex's
+    index — never re-derived by walking the scene). `loadAssembly()`
+    goes the other direction: rebuild the scene, including which
+    vertices are `occupied`, purely from a graph that was handed to it.
+  - **Deviation**: the plan names Vercel KV or Postgres for
+    `app/api/assemblies/route.ts`. Neither is provisioned (would need
+    the user's Vercel account/cloud resources, out of scope for this
+    session per `vercel-deployment-plan.md`'s own "independent for
+    now"/not-yet-deployed stance). Implemented instead as a local JSON
+    file (`.data/assembly.json`, gitignored) behind the exact same
+    GET/POST route contract. Swapping the two storage functions
+    (`loadStored`/`saveStored`) for a KV/Postgres client is the entire
+    migration once the project actually deploys — everything else
+    (validation, the graph shape, the client code) is unaffected.
+  - `ShapeViewer` fetches `/api/assemblies` on mount and loads it if
+    non-empty and valid, otherwise falls back to `initialShapeId`.
+    `page.tsx` adds a header Save button with saving/saved/error
+    feedback.
+  Done when: reload restores a saved assembly exactly. ✅ Verified
+  against the real running dev server (not just unit-level): POSTed a
+  two-node/one-connection sample, GET returned it byte-for-byte
+  identical; POSTed two invalid payloads (unknown shape id, garbage
+  object) and both were rejected 400 with the valid data left
+  untouched; **restarted the dev server process entirely** and
+  confirmed the assembly was still there — a stronger proof than a
+  mere browser reload, since it rules out any in-memory-only state.
+  `npm run lint` / `npx tsc --noEmit` / `validate:deltahedra` /
+  `verify:attach` / `verify:twist` all still pass. No browser was
+  available this session to click Save and watch a real page reload
+  restore the 3D scene by eye — same caveat as every prior stage, but
+  the persistence layer itself (the part that's actually new here) was
+  exercised end-to-end over real HTTP.
 
 - [ ] **Stage 7 — D10↔D12 rewrite rule**
   Swap the mesh; re-anchor existing connections where a compatible vertex

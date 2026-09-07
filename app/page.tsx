@@ -13,18 +13,42 @@ interface Pending {
   specId: string;
 }
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 export default function Home() {
   const handleRef = useRef<ShapeViewerHandle | null>(null);
   const [selection, setSelection] = useState<ShapeSelection | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+
+  const handleSave = async () => {
+    setSaveStatus('saving');
+    const ok = (await handleRef.current?.save()) ?? false;
+    setSaveStatus(ok ? 'saved' : 'error');
+    setTimeout(() => setSaveStatus('idle'), 2000);
+  };
 
   return (
     <div className="flex h-screen w-full flex-col bg-black">
-      <header className="px-6 py-4 text-zinc-50">
-        <h1 className="text-lg font-semibold tracking-tight">Deltahedraverse</h1>
-        <p className="text-sm text-zinc-400">
-          Stage 5 — rotate, then confirm (drag to twist the pending piece)
-        </p>
+      <header className="flex items-start justify-between px-6 py-4 text-zinc-50">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">Deltahedraverse</h1>
+          <p className="text-sm text-zinc-400">
+            Stage 6 — assembly graph (Save persists it; reload restores it)
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {saveStatus === 'saved' && <span className="text-xs text-emerald-400">Saved</span>}
+          {saveStatus === 'error' && <span className="text-xs text-red-400">Save failed</span>}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saveStatus === 'saving' || pending !== null}
+            className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700 disabled:opacity-50"
+          >
+            {saveStatus === 'saving' ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       </header>
 
       <nav className="flex flex-wrap items-center gap-2 px-6 pb-2">
