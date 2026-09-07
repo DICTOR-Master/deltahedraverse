@@ -21,6 +21,7 @@ export default function Home() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [nodeSelection, setNodeSelection] = useState<NodeSelection | null>(null);
   const [rewriteNote, setRewriteNote] = useState<string | null>(null);
+  const [cageClosed, setCageClosed] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
 
   const handleSave = async () => {
@@ -41,16 +42,32 @@ export default function Home() {
     setTimeout(() => setRewriteNote(null), 4000);
   };
 
+  const handleDelete = () => {
+    const result = handleRef.current?.deleteSelectedNode();
+    if (!result) return;
+    setRewriteNote(
+      result.deletedCount > 1
+        ? `Deleted node and ${result.deletedCount - 1} attached descendant(s)`
+        : 'Deleted node',
+    );
+    setTimeout(() => setRewriteNote(null), 4000);
+  };
+
   return (
     <div className="flex h-screen w-full flex-col bg-black">
       <header className="flex items-start justify-between px-6 py-4 text-zinc-50">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Deltahedraverse</h1>
           <p className="text-sm text-zinc-400">
-            Stage 7 — D10↔D12 rewrite (click a D10/D12 body to transform it)
+            Stage 8 — polish (capacity glow, cascade delete, closed-cage detection)
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {cageClosed && (
+            <span className="rounded-full bg-fuchsia-900 px-3 py-1 text-xs font-medium text-fuchsia-200">
+              Closed cage!
+            </span>
+          )}
           {saveStatus === 'saved' && <span className="text-xs text-emerald-400">Saved</span>}
           {saveStatus === 'error' && <span className="text-xs text-red-400">Save failed</span>}
           <button
@@ -107,12 +124,21 @@ export default function Home() {
             <span className="text-xs uppercase tracking-wide text-amber-400">
               Selected {nodeSelection.specId} node:
             </span>
+            {nodeSelection.rewriteTarget && (
+              <button
+                type="button"
+                onClick={handleRewrite}
+                className="rounded-full bg-amber-500 px-4 py-1.5 text-sm font-medium text-black transition-colors hover:bg-amber-400"
+              >
+                Transform to {nodeSelection.rewriteTarget}
+              </button>
+            )}
             <button
               type="button"
-              onClick={handleRewrite}
-              className="rounded-full bg-amber-500 px-4 py-1.5 text-sm font-medium text-black transition-colors hover:bg-amber-400"
+              onClick={handleDelete}
+              className="rounded-full bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-500"
             >
-              Transform to {nodeSelection.rewriteTarget}
+              Delete
             </button>
           </>
         ) : selection ? (
@@ -134,8 +160,8 @@ export default function Home() {
           </>
         ) : (
           <span className="text-xs text-zinc-600">
-            Click a highlighted, free vertex to attach a shape, or click a D10/D12 body to
-            transform it.
+            Click a highlighted, free vertex to attach a shape, or click a node&apos;s body to
+            select it (glowing nodes still have room to build from).
           </span>
         )}
       </nav>
@@ -152,6 +178,7 @@ export default function Home() {
           onSelectionChange={setSelection}
           onPendingChange={setPending}
           onNodeSelectionChange={setNodeSelection}
+          onCageClosedChange={setCageClosed}
           onReady={(handle) => {
             handleRef.current = handle;
           }}

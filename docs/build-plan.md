@@ -194,9 +194,61 @@ don't start the next one until the current "Done when" passes.
   a node body and watch the swap by eye — same caveat as every prior
   stage.
 
-- [ ] **Stage 8 — Polish**
-  Capacity glow states, cascade-remove on delete, cycle detection for
-  "closed cage" goals. Pure graph logic, no 3D math.
+- [x] **Stage 8 — Polish** ✅ done (one feature honestly noted as currently inert)
+  - `app/lib/graph.ts` — pure graph-logic helpers, no Three.js, no
+    geometry: `collectSubtree()` (BFS over nodeA -> nodeB edges — every
+    connection is created by `confirmAttach` as parent -> child, so the
+    graph the app can build is always a rooted tree, making "subtree"
+    well-defined), `findParentConnection()` (the one inbound edge, or
+    none for the root), and `hasCycle()` (standard union-find over
+    connections treated as undirected edges — a "closed cage").
+    `scripts/verify-graph.ts` checks both against 11 hand-built graphs
+    (a tree, a forest, a triangle, a self-loop, isolated nodes).
+  - **Capacity glow**: `applyNodeAppearance()` in `ShapeViewer.tsx`
+    tints a node's whole body with a faint emissive glow whenever it
+    still has a free vertex (pure counting over the same `occupied`
+    flags the per-vertex hover tooltip already reports), called after
+    every operation that changes a node's own occupied vertices
+    (attach/cancel/rewrite/delete/load). Node selection (for delete or
+    rewrite) always overrides the glow with its own highlight color.
+  - **Cascade-remove**: node-body selection is generalized beyond
+    D10/D12 (Stage 7 gated it to rewritable shapes only) — clicking
+    any node's body now selects it, and `page.tsx` always shows a
+    Delete button (Transform only appears when `rewriteTarget` is
+    non-null). `deleteSelectedNode()` removes the selected node and
+    its whole subtree via `collectSubtree`, frees the parent's own
+    vertex via `findParentConnection` (a no-op for the root — deleting
+    the root clears the whole assembly), and — like Stage 7's rewrite —
+    never touches any node outside what's actually being deleted.
+  - **Cycle detection — honest limitation**: `hasCycle()` is correct
+    and unit-tested, wired to report a "Closed cage!" badge in
+    `page.tsx` after every graph mutation, but it can never actually
+    fire through this app's own UI today: `confirmAttach` only ever
+    creates a brand-new node, never links two already-placed nodes, so
+    every graph this app can build is provably a tree. Noted here
+    rather than silently shipped as a dead feature — it's a correct,
+    ready primitive for a future "connect two existing free vertices"
+    interaction (an actual "closed cage" goal), not a working goal
+    system yet.
+  Done when (this stage has no single stated "done when" line in the
+  original plan beyond "pure graph logic, no 3D math" — verified that
+  constraint directly: `graph.ts` imports nothing from `three`).
+  ✅ Verified end-to-end against the real running dev server: built a
+  4-node tree (root, childA, a grandchild under childA, childB),
+  computed the same cascade the app's own `deleteSelectedNode` would,
+  and confirmed via a fresh GET that exactly `{root, childB}` and the
+  `root -> childB` connection survived — `childA` and its grandchild
+  both gone, nothing else touched. `npm run lint` / `npx tsc --noEmit`
+  / `validate:deltahedra` / `verify:attach` / `verify:twist` /
+  `verify:rewrite` / `verify:graph` all pass. No browser to click a
+  node, watch it glow, delete it, or trigger the (currently
+  unreachable) cage badge by eye — same caveat as every prior stage.
+
+All 8 build-plan stages are now done. `docs/vercel-deployment-plan.md`
+covers what's next (repo/Vercel layout) when this project is ready to
+deploy; the "Later" section below covers genuinely-speculative
+additions (Platonic/Archimedean packs, Johnson solids, face-snap mode)
+that were never part of these 8 stages.
 
 ## Later (additive, not a rewrite)
 

@@ -6,13 +6,15 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { DELTAHEDRA, type DeltahedronSpec } from '../lib/deltahedra';
 import { emptyAssembly, isValidAssembly, type Assembly } from '../lib/assembly';
 import { matchRewriteVertices, REWRITE_TARGET } from '../lib/rewrite';
+import { collectSubtree, findParentConnection, hasCycle } from '../lib/graph';
 
 const VERTEX_RADIUS = 0.06; // relative to unit edge length
 const COLOR_FREE = 0xffcc33;
 const COLOR_SELECTED = 0x33ff88;
 const COLOR_OCCUPIED = 0x777777;
 const COLOR_PENDING = 0xff6688;
-const NODE_HIGHLIGHT_EMISSIVE = 0x663300;
+const NODE_SELECTED_EMISSIVE = 0x663300;
+const NODE_HAS_CAPACITY_EMISSIVE = 0x0d2b1a; // subtle: this node still has a free vertex to build from
 const TWIST_SENSITIVITY = 0.012; // radians per pixel of horizontal drag
 
 // Which vertex of an *incoming* shape serves as its own connection point.
@@ -54,6 +56,10 @@ export interface RewriteResult {
   orphaned: number;
 }
 
+export interface DeleteResult {
+  deletedCount: number;
+}
+
 export interface ShapeViewerHandle {
   /** Clears the scene and places a single instance of `specId` at the origin. */
   reset(specId: string): void;
@@ -67,6 +73,8 @@ export interface ShapeViewerHandle {
   save(): Promise<boolean>;
   /** Swaps the currently selected node's shape (D10<->D12 only). Null if nothing eligible is selected. */
   rewriteSelectedNode(): RewriteResult | null;
+  /** Removes the currently selected node and its whole subtree. Null if nothing is selected. */
+  deleteSelectedNode(): DeleteResult | null;
 }
 
 export interface ShapeSelection {
@@ -78,7 +86,7 @@ export interface ShapeSelection {
 export interface NodeSelection {
   nodeId: string;
   specId: string;
-  rewriteTarget: string;
+  rewriteTarget: string | null;
 }
 
 function buildFaceGeometry(spec: DeltahedronSpec): THREE.BufferGeometry {
@@ -196,8 +204,22 @@ function paintVertex(sphere: THREE.Mesh, opts: { selected?: boolean; hovered?: b
   sphere.scale.setScalar(1);
 }
 
-function setNodeHighlighted(placed: PlacedShape, highlighted: boolean) {
-  (placed.mesh.material as THREE.MeshStandardMaterial).emissive.setHex(highlighted ? NODE_HIGHLIGHT_EMISSIVE : 0x000000);
+/**
+ * A node's body glows faintly while it still has a free vertex (pure graph
+ * logic: just counting occupied flags — the "capacity" a hover tooltip
+ * already reports per-vertex, rolled up to the whole node). Selection always
+ * wins over the capacity glow.
+ */
+function applyNodeAppearance(placed: PlacedShape, selected: boolean) {
+  const material = placed.mesh.material as THREE.MeshStandardMaterial;
+  if (selected) {
+    material.emissive.setHex(NODE_SELECTED_EMISSIVE);
+    return;
+  }
+  const hasFreeCapacity = placed.vertexGroup.children.some(
+    (child) => !((child as THREE.Mesh).userData as VertexUserData).occupied,
+  );
+  material.emissive.setHex(hasFreeCapacity ? NODE_HAS_CAPACITY_EMISSIVE : 0x000000);
 }
 
 export default function ShapeViewer({
@@ -205,12 +227,14 @@ export default function ShapeViewer({
   onSelectionChange,
   onPendingChange,
   onNodeSelectionChange,
+  onCageClosedChange,
   onReady,
 }: {
   initialShapeId: string;
   onSelectionChange?: (selection: ShapeSelection | null) => void;
   onPendingChange?: (pending: { specId: string } | null) => void;
   onNodeSelectionChange?: (selection: NodeSelection | null) => void;
+  onCageClosedChange?: (closed: boolean) => void;
   onReady?: (handle: ShapeViewerHandle) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -226,6 +250,7 @@ export default function ShapeViewer({
   const onSelectionChangeRef = useRef(onSelectionChange);
   const onPendingChangeRef = useRef(onPendingChange);
   const onNodeSelectionChangeRef = useRef(onNodeSelectionChange);
+  const onCageClosedChangeRef = useRef(onCageClosedChange);
   const onReadyRef = useRef(onReady);
 
   useEffect(() => {
@@ -239,6 +264,10 @@ export default function ShapeViewer({
   useEffect(() => {
     onNodeSelectionChangeRef.current = onNodeSelectionChange;
   }, [onNodeSelectionChange]);
+
+  useEffect(() => {
+    onCageClosedChangeRef.current = onCageClosedChange;
+  }, [onCageClosedChange]);
 
   useEffect(() => {
     onReadyRef.current = onReady;
@@ -276,6 +305,18 @@ export default function ShapeViewer({
     dirLight.position.set(3, 4, 5);
     scene.add(dirLight);
 
+    const findPlaced = (nodeId: string) =>
+      placedRef.current.find((p) => (p.object.userData as ShapeObjectUserData).nodeId === nodeId);
+
+    const placedOwningVertexSphere = (sphere: THREE.Mesh): PlacedShape | undefined => {
+      const object = sphere.parent!.parent as THREE.Group;
+      return findPlaced((object.userData as ShapeObjectUserData).nodeId);
+    };
+
+    const reportCageStatus = () => {
+      onCageClosedChangeRef.current?.(hasCycle(graphRef.current));
+    };
+
     const clearSelection = () => {
       if (selectedRef.current) {
         paintVertex(selectedRef.current, {});
@@ -286,7 +327,7 @@ export default function ShapeViewer({
 
     const clearNodeSelection = () => {
       if (selectedNodeRef.current) {
-        setNodeHighlighted(selectedNodeRef.current, false);
+        applyNodeAppearance(selectedNodeRef.current, false);
         selectedNodeRef.current = null;
       }
       onNodeSelectionChangeRef.current?.(null);
@@ -302,6 +343,8 @@ export default function ShapeViewer({
       const targetData = pending.targetSphere.userData as VertexUserData;
       targetData.occupied = false;
       paintVertex(pending.targetSphere, {});
+      const parentPlaced = placedOwningVertexSphere(pending.targetSphere);
+      if (parentPlaced) applyNodeAppearance(parentPlaced, parentPlaced === selectedNodeRef.current);
 
       pendingRef.current = null;
       controls.enabled = true;
@@ -330,6 +373,7 @@ export default function ShapeViewer({
       if (!spec) return;
       const nodeId = crypto.randomUUID();
       const placed = buildPlacedShape(spec, nodeId);
+      applyNodeAppearance(placed, false);
       scene.add(placed.object);
       placedRef.current.push(placed);
       graphRef.current = {
@@ -346,6 +390,7 @@ export default function ShapeViewer({
         connections: [],
       };
       onSelectionChangeRef.current?.(null);
+      reportCageStatus();
     };
 
     /** Rebuilds the scene from a previously saved graph — used on load, not on user actions. */
@@ -380,8 +425,11 @@ export default function ShapeViewer({
         }
       }
 
+      for (const placed of placedRef.current) applyNodeAppearance(placed, false);
+
       graphRef.current = assembly;
       onSelectionChangeRef.current?.(null);
+      reportCageStatus();
     };
 
     const beginAttach = (specId: string) => {
@@ -420,6 +468,7 @@ export default function ShapeViewer({
       placed.object.position.copy(targetWorldPos).sub(rotatedAttachVertex);
 
       scene.add(placed.object);
+      applyNodeAppearance(placed, false);
 
       targetData.occupied = true; // reserved while pending; cancelAttach restores this
       paintVertex(target, { pending: true });
@@ -448,6 +497,10 @@ export default function ShapeViewer({
       const { vertexId: targetVertexIndex } = pending.targetSphere.userData as VertexUserData;
       const { specId: newSpecId } = pending.placed.object.userData as ShapeObjectUserData;
 
+      const parentPlaced = findPlaced(parentNodeId);
+      if (parentPlaced) applyNodeAppearance(parentPlaced, parentPlaced === selectedNodeRef.current);
+      applyNodeAppearance(pending.placed, false);
+
       graphRef.current.nodes.push({
         id: pending.nodeId,
         shape: newSpecId,
@@ -467,6 +520,7 @@ export default function ShapeViewer({
       controls.enabled = true;
       label.style.display = 'none';
       onPendingChangeRef.current?.(null);
+      reportCageStatus();
     };
 
     /**
@@ -557,8 +611,60 @@ export default function ShapeViewer({
         reattached++;
       });
 
+      applyNodeAppearance(replacement, false);
       clearNodeSelection();
+      reportCageStatus();
       return { fromSpecId: oldSpecId, toSpecId: newSpecId, reattached, orphaned };
+    };
+
+    /**
+     * Stage 8: remove the selected node and cascade to its whole subtree
+     * (every node reachable by following nodeA -> nodeB edges from it — see
+     * collectSubtree in app/lib/graph.ts). The parent's own vertex, if any,
+     * is freed again so something new can attach there.
+     */
+    const deleteSelectedNode = (): DeleteResult | null => {
+      const node = selectedNodeRef.current;
+      if (!node) return null;
+      const { nodeId } = node.object.userData as ShapeObjectUserData;
+
+      const subtreeIds = collectSubtree(graphRef.current.connections, nodeId);
+      const parentConn = findParentConnection(graphRef.current.connections, nodeId);
+
+      for (const id of subtreeIds) {
+        const placed = findPlaced(id);
+        if (!placed) continue;
+
+        scene.remove(placed.object);
+        disposePlacedShape(placed);
+        const idx = placedRef.current.indexOf(placed);
+        if (idx !== -1) placedRef.current.splice(idx, 1);
+
+        if (hoveredNodeRef.current === placed) hoveredNodeRef.current = null;
+        if (selectedNodeRef.current === placed) selectedNodeRef.current = null;
+        if (hoveredRef.current && placedOwningVertexSphere(hoveredRef.current) === placed) hoveredRef.current = null;
+        if (selectedRef.current && placedOwningVertexSphere(selectedRef.current) === placed) selectedRef.current = null;
+      }
+
+      graphRef.current.nodes = graphRef.current.nodes.filter((n) => !subtreeIds.has(n.id));
+      graphRef.current.connections = graphRef.current.connections.filter(
+        (c) => !subtreeIds.has(c.nodeA) && !subtreeIds.has(c.nodeB),
+      );
+
+      if (parentConn) {
+        const parentPlaced = findPlaced(parentConn.nodeA);
+        const parentSphere = parentPlaced?.vertexGroup.children[parentConn.vertexA] as THREE.Mesh | undefined;
+        if (parentSphere) {
+          (parentSphere.userData as VertexUserData).occupied = false;
+          paintVertex(parentSphere, {});
+        }
+        if (parentPlaced) applyNodeAppearance(parentPlaced, parentPlaced === selectedNodeRef.current);
+      }
+
+      clearNodeSelection();
+      label.style.display = 'none';
+      reportCageStatus();
+      return { deletedCount: subtreeIds.size };
     };
 
     const saveAssembly = async (): Promise<boolean> => {
@@ -581,6 +687,7 @@ export default function ShapeViewer({
       cancelAttach,
       save: saveAssembly,
       rewriteSelectedNode,
+      deleteSelectedNode,
     });
 
     let cancelled = false;
@@ -661,15 +768,18 @@ export default function ShapeViewer({
         return;
       }
 
-      // No vertex under the cursor — check for a rewritable (D10/D12) node body.
+      // No vertex under the cursor — check for any node body (select for
+      // delete, and for rewrite when the shape is D10/D12).
       const faceHit = raycaster.intersectObjects(allFaceMeshes())[0]?.object as THREE.Mesh | undefined;
       const node = faceHit ? placedRef.current.find((p) => p.mesh === faceHit) : undefined;
-      const specId = node ? (node.object.userData as ShapeObjectUserData).specId : undefined;
-      const rewriteTarget = specId ? REWRITE_TARGET[specId] : undefined;
 
-      if (node && rewriteTarget) {
+      if (node) {
         hoveredNodeRef.current = node;
-        label.textContent = `click to transform ${specId} → ${rewriteTarget}`;
+        const { specId } = node.object.userData as ShapeObjectUserData;
+        const rewriteTarget = REWRITE_TARGET[specId];
+        label.textContent = rewriteTarget
+          ? `click to select ${specId} (delete, or transform → ${rewriteTarget})`
+          : `click to select ${specId} node (delete)`;
         label.style.left = `${event.clientX - rect.left + 14}px`;
         label.style.top = `${event.clientY - rect.top + 14}px`;
         label.style.display = 'block';
@@ -700,7 +810,7 @@ export default function ShapeViewer({
 
       const hit = hoveredRef.current;
       if (hit) {
-        clearNodeSelection(); // vertex-select and node-rewrite-select are mutually exclusive modes
+        clearNodeSelection(); // vertex-select and node-select are mutually exclusive modes
 
         if (selectedRef.current && selectedRef.current !== hit) {
           paintVertex(selectedRef.current, {});
@@ -745,9 +855,9 @@ export default function ShapeViewer({
       }
 
       selectedNodeRef.current = hoveredNode;
-      setNodeHighlighted(hoveredNode, true);
+      applyNodeAppearance(hoveredNode, true);
       const { specId, nodeId } = hoveredNode.object.userData as ShapeObjectUserData;
-      onNodeSelectionChangeRef.current?.({ nodeId, specId, rewriteTarget: REWRITE_TARGET[specId] });
+      onNodeSelectionChangeRef.current?.({ nodeId, specId, rewriteTarget: REWRITE_TARGET[specId] ?? null });
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
