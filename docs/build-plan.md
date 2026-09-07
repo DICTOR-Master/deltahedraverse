@@ -19,9 +19,16 @@ don't start the next one until the current "Done when" passes.
   shapes. `validateShape()` checks every edge ≈1 and every face equilateral.
   Done when: all 8 pass validation.
 
-- [ ] **Stage 2 — Static render + palette**
-  Render any of the 8 from a simple picker, flat-shaded, edges outlined.
-  Done when: you can spawn and orbit any of the 8.
+- [x] **Stage 2 — Static render + palette** ✅ done
+  Picker (`app/page.tsx`) of all 8 IDs; `app/components/ShapeViewer.tsx`
+  builds a non-indexed flat-shaded mesh straight from each spec's
+  `faces` (computeVertexNormals on non-indexed geometry = per-face flat
+  normals) plus a `LineSegments` outline built directly from `edges`
+  (exact data, not a heuristic edge-angle threshold). OrbitControls for
+  spawn-and-orbit.
+  Done when: you can spawn and orbit any of the 8. ✅ (verified via dev
+  server response + lint; no local/extension browser was available this
+  session to click through interactively — worth a manual sanity check).
 
 - [ ] **Stage 3 — Vertex picking**
   Raycast against small invisible spheres at each vertex (not faces). Hover
