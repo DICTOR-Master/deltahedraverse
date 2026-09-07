@@ -3,15 +3,18 @@
 Check off stages as they're completed. Each stage is a focused session —
 don't start the next one until the current "Done when" passes.
 
-- [x] **Stage 0 — Scaffold** ✅ done (via yarn, not npm — see note below)
-  `yarn create next-app` (TypeScript, Tailwind, App Router), `yarn add
-  three`, one spinning test mesh at `app/components/SpinningMesh.tsx`
-  mounted client-only via `next/dynamic({ ssr: false })`.
-  Done when: `yarn dev` shows something rotating. ✅
+- [x] **Stage 0 — Scaffold** ✅ done
+  `create-next-app` (TypeScript, Tailwind, App Router), Three.js added,
+  one spinning test mesh at `app/components/SpinningMesh.tsx` (later
+  superseded by Stage 2's real viewer) mounted client-only via
+  `next/dynamic({ ssr: false })`.
+  Done when: `npm run dev` shows something rotating. ✅
 
-  Note: this machine has no `npm`/`npx` (Debian package split), so the
-  project uses `yarn` (classic v1) throughout instead of the `npm`
-  commands the plan originally specified. Functionally equivalent.
+  Note: originally scaffolded with `yarn` (classic v1) because this
+  machine had no `npm`/`npx` at the time (Debian package split `npm`
+  out of `nodejs`). `npm` was installed later; the project now runs on
+  `npm` throughout (`package-lock.json`, `yarn.lock` removed) — same
+  scripts, same behavior.
 
 - [x] **Stage 1 — Geometry core** ✅ done, see `app/lib/deltahedra.ts`
   (deltahedra.ts in this same folder)
