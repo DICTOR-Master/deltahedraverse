@@ -135,7 +135,13 @@ interface FaceSlot {
   onSelect: (() => void) | null;
 }
 
-function resolveSlots(level: WheelLevel, onFamily: (i: number) => void, onSelectShape: (id: string) => void, onMore: () => void): FaceSlot[] {
+function resolveSlots(
+  level: WheelLevel,
+  onFamily: (i: number) => void,
+  onSelectShape: (id: string) => void,
+  onMore: () => void,
+  filterIds?: string[],
+): FaceSlot[] {
   const slots: FaceSlot[] = Array.from({ length: 12 }, () => ({ label: '', symbol: '', spare: true, onSelect: null }));
 
   if (level.kind === 'families') {
@@ -146,10 +152,25 @@ function resolveSlots(level: WheelLevel, onFamily: (i: number) => void, onSelect
   }
 
   const family = FAMILIES[level.familyIndex];
-  const overflow = family.ids.length > CONTENT_FACES_PER_PAGE;
+  // When filtering (e.g. picking a shape to face-attach: only shapes
+  // with a matching face size are real options), incompatible shapes
+  // are dropped from view entirely rather than shown disabled -- fewer,
+  // relevant faces to browse, and it reuses the exact same
+  // pagination/slotting logic below unchanged.
+  const ids = filterIds ? family.ids.filter((id) => filterIds.includes(id)) : family.ids;
+  const overflow = ids.length > CONTENT_FACES_PER_PAGE;
   const perPage = overflow ? CONTENT_FACES_PER_PAGE : 12;
   const start = level.page * perPage;
-  const pageIds = family.ids.slice(start, start + perPage);
+  const pageIds = ids.slice(start, start + perPage);
+  // "More" only when items remain AFTER this page's slice -- `overflow`
+  // alone (computed once from the total count) would show it on every
+  // page including the last, where clicking it wraps back to page 0
+  // instead of doing nothing. That bogus trailing "More" was a real bug:
+  // it could double-advance past the real last page under the click-
+  // ambiguity retry in tests/e2e/utils.ts's clickWheelLabel (a failed-
+  // looking click followed by a same-orientation retry that actually
+  // lands), silently skipping whatever shapes lived on that final page.
+  const hasMore = start + perPage < ids.length;
 
   pageIds.forEach((id, i) => {
     // Catalog number reflects position in the family's own face-type-
@@ -167,7 +188,7 @@ function resolveSlots(level: WheelLevel, onFamily: (i: number) => void, onSelect
     };
   });
 
-  if (overflow) {
+  if (hasMore) {
     slots[MORE_FACE_INDEX] = { label: 'More', symbol: '→', spare: false, onSelect: onMore };
   }
 
@@ -178,9 +199,17 @@ export interface PolyhedralWheelProps {
   open: boolean;
   onClose: () => void;
   onSelect: (shapeId: string) => void;
+  /**
+   * When set, only these shape ids are selectable within any family
+   * (e.g. face-attach: only shapes with a matching face size are real
+   * options) -- incompatible shapes are dropped from view entirely, not
+   * shown disabled. Omit for the unrestricted "start over with any
+   * shape" case.
+   */
+  filterIds?: string[];
 }
 
-export default function PolyhedralWheel({ open, onClose, onSelect }: PolyhedralWheelProps) {
+export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: PolyhedralWheelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelsRef = useRef<HTMLDivElement | null>(null);
   const [level, setLevel] = useState<WheelLevel>({ kind: 'families' });
@@ -200,6 +229,14 @@ export default function PolyhedralWheel({ open, onClose, onSelect }: PolyhedralW
   const goBack = useCallback(() => {
     setLevel((l) => (l.kind === 'family' ? { kind: 'families' } : l));
   }, []);
+
+  // Read from the scene-setup effect below (which only depends on
+  // `[open]`, so it wouldn't otherwise see a filterIds prop change)
+  // for its own one-time bootstrap resolveSlots() call.
+  const filterIdsRef = useRef(filterIds);
+  useEffect(() => {
+    filterIdsRef.current = filterIds;
+  }, [filterIds]);
 
   useEffect(() => {
     if (!open) return;
@@ -452,7 +489,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect }: PolyhedralW
       frameId = requestAnimationFrame(animate);
     };
     animate();
-    applySlots(resolveSlots(level, () => {}, () => {}, () => {}));
+    applySlots(resolveSlots(level, () => {}, () => {}, () => {}, filterIdsRef.current));
 
     const onResize = () => {
       const { clientWidth, clientHeight } = container;
@@ -532,13 +569,15 @@ export default function PolyhedralWheel({ open, onClose, onSelect }: PolyhedralW
         setLevel((l) => {
           if (l.kind !== 'family') return l;
           const family = FAMILIES[l.familyIndex];
-          const pages = Math.ceil(family.ids.length / CONTENT_FACES_PER_PAGE);
+          const ids = filterIds ? family.ids.filter((id) => filterIds.includes(id)) : family.ids;
+          const pages = Math.ceil(ids.length / CONTENT_FACES_PER_PAGE);
           return { ...l, page: (l.page + 1) % pages };
         });
       },
+      filterIds,
     );
     container.__pwApplySlots(slots);
-  }, [level, onSelect, onClose]);
+  }, [level, onSelect, onClose, filterIds]);
 
   const step = (axis: 'azimuth' | 'polar', delta: number) => {
     const container = containerRef.current as unknown as { __pwStep?: (axis: 'azimuth' | 'polar', delta: number) => void } | null;

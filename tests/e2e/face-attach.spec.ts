@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { getCanvasCenter, resetTo, readTooltipAt } from './utils';
+import { getCanvasCenter, resetTo, readTooltipAt, clickWheelLabel } from './utils';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -20,9 +20,11 @@ test('selecting a CUBE face offers a matching face-attach, and confirming attach
 
   await expect(page.locator('text=/Selected CUBE node \\(face \\d+, 4-gon\\)/')).toBeVisible();
 
-  const attachBtn = page.getByRole('button', { name: 'Attach CUBE via face' });
+  const attachBtn = page.getByRole('button', { name: 'Attach via face…' });
   await expect(attachBtn).toBeVisible();
   await attachBtn.click();
+  await clickWheelLabel(page, 'Platonic');
+  await clickWheelLabel(page, 'CUBE');
 
   await expect(page.locator('text=/Placing CUBE/')).toBeVisible();
 
@@ -60,7 +62,9 @@ test('cancelling a face-attach frees the target face again', async ({ page }) =>
   const { cx, cy } = await getCanvasCenter(page);
 
   await page.mouse.click(cx, cy);
-  await page.getByRole('button', { name: 'Attach CUBE via face' }).click();
+  await page.getByRole('button', { name: 'Attach via face…' }).click();
+  await clickWheelLabel(page, 'Platonic');
+  await clickWheelLabel(page, 'CUBE');
   await expect(page.locator('text=/Placing CUBE/')).toBeVisible();
 
   await page.getByRole('button', { name: 'Cancel (Esc)' }).click();

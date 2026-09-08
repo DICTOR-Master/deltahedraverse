@@ -164,7 +164,10 @@ export default function CornerHudWheel({ onOpen }: CornerHudWheelProps) {
       style={{
         position: 'fixed',
         right: 16,
-        bottom: 16,
+        // Top-right, matching Rhombiverse's own placement -- offset down
+        // just enough to clear this app's existing header buttons
+        // (View/Save), which sit at the true top-right corner here.
+        top: 96,
         width: SIZE,
         height: SIZE,
         cursor: 'pointer',

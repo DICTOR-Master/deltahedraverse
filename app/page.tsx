@@ -34,6 +34,18 @@ export default function Home() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [viewMode, setViewModeState] = useState<ViewMode>('normal');
   const [wheelOpen, setWheelOpen] = useState(false);
+  // 'reset': picking a shape to start over with (no filter). 'faceAttach':
+  // picking a shape to attach via the currently-selected free face (only
+  // shapes with a matching face size are real options) -- set only when
+  // opened via that specific trigger, so it's naturally gone the next
+  // time the wheel opens from anywhere else ("unless returning back to
+  // [the general app state]").
+  const [wheelMode, setWheelMode] = useState<'reset' | 'faceAttach'>('reset');
+
+  const openWheel = (mode: 'reset' | 'faceAttach') => {
+    setWheelMode(mode);
+    setWheelOpen(true);
+  };
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -42,7 +54,7 @@ export default function Home() {
       if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
       if (e.key === 'Tab' || e.key === ' ') {
         e.preventDefault();
-        setWheelOpen(true);
+        openWheel('reset');
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -122,7 +134,7 @@ export default function Home() {
       <nav className="flex flex-wrap items-center gap-2 px-6 pb-2">
         <button
           type="button"
-          onClick={() => setWheelOpen(true)}
+          onClick={() => openWheel('reset')}
           className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
         >
           Start over with… <span className="ml-1 text-xs opacity-70">(Tab / Space)</span>
@@ -172,17 +184,15 @@ export default function Home() {
             >
               Delete
             </button>
-            {nodeSelection.faceAttachOptions.length > 0 &&
-              nodeSelection.faceAttachOptions.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => handleRef.current?.beginFaceAttach(id)}
-                  className="rounded-full bg-sky-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-sky-400"
-                >
-                  Attach {id} via face
-                </button>
-              ))}
+            {nodeSelection.faceAttachOptions.length > 0 && (
+              <button
+                type="button"
+                onClick={() => openWheel('faceAttach')}
+                className="rounded-full bg-sky-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-sky-400"
+              >
+                Attach via face…
+              </button>
+            )}
           </>
         ) : selection ? (
           <>
@@ -232,9 +242,13 @@ export default function Home() {
       <PolyhedralWheel
         open={wheelOpen}
         onClose={() => setWheelOpen(false)}
-        onSelect={(id) => handleRef.current?.reset(id)}
+        filterIds={wheelMode === 'faceAttach' ? nodeSelection?.faceAttachOptions : undefined}
+        onSelect={(id) => {
+          if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
+          else handleRef.current?.reset(id);
+        }}
       />
-      {!wheelOpen && <CornerHudWheel onOpen={() => setWheelOpen(true)} />}
+      {!wheelOpen && <CornerHudWheel onOpen={() => openWheel('reset')} />}
     </div>
   );
 }
