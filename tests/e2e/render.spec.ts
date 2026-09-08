@@ -26,7 +26,13 @@ test('renders the canvas and every shape across all 4 wheel families (8 deltahed
       if (p < pages - 1) await clickWheelLabel(page, 'More');
     }
     for (const id of family.ids) {
-      expect(seen.has(id.replaceAll('_', ' ')), `${family.label} family should list ${id}`).toBe(true);
+      // Label text is "[catalog number] NAME" (e.g. "[1] D4"), not the
+      // bare name -- checking "some label ends with this id's text"
+      // rather than an exact match keeps this test agnostic to that
+      // catalog-number prefix's exact formatting.
+      const wantSuffix = id.replaceAll('_', ' ');
+      const found = [...seen].some((t) => t.endsWith(wantSuffix));
+      expect(found, `${family.label} family should list ${id}`).toBe(true);
     }
 
     await page.keyboard.press('Escape'); // back to the family list

@@ -48,11 +48,13 @@ import {
 
 // Interaction mechanics (reveal timing, drag threshold, panel opacity)
 // ported exactly from rhombic-wheel-3d.js/-core.js; the COLORS are
-// deliberately Polyhedraverse's own, not Rhombiverse's cyan/gold -- a
-// metallic silver mesh (the "HUD" object itself) with green script/UI
-// (labels, panel chrome), per direct user request, so this reads as its
-// own identity rather than a reskinned copy.
-const HUD_METAL_HEX = 0xc7ccd1;
+// deliberately Polyhedraverse's own, not Rhombiverse's cyan/gold -- green
+// throughout (mesh + script/UI), per direct user follow-up correcting an
+// earlier silver-mesh/green-script split down to just green, so this
+// reads as its own identity rather than a reskinned copy. Silver is
+// still the planned color for the small corner HUD element (not built
+// yet) -- see the design-record memory for that distinction.
+const HUD_METAL_HEX = 0x34d399;
 const SCRIPT_COLOR = '#34D399';
 const LABEL_STYLE = {
   fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
@@ -64,7 +66,11 @@ const LABEL_STYLE = {
   textShadow: '0 0 10px currentColor, 0 0 2px currentColor, 0 1px 4px rgba(0,0,0,0.9)',
 };
 const REVEAL_HOLD_MS = 350;
-const BACKDROP = 'rgba(2, 2, 6, 0.55)';
+// Fully opaque -- direct user correction: nothing from the app underneath
+// (header, nav, View/Save buttons) should show through while the wheel
+// is open. Rhombiverse's own equivalent overlay uses 0.55 alpha, not
+// ported here on purpose.
+const BACKDROP = '#020206';
 const PANEL_BG = 'rgba(10, 12, 20, 0.85)';
 const PANEL_BORDER = 'rgba(52, 211, 153, 0.5)';
 // Drag-vs-click threshold (rhombic-wheel-3d.js's own fix for the same
@@ -79,11 +85,38 @@ interface Family {
   ids: string[];
 }
 
+// Within a family, order by face type then face count, smallest to
+// largest -- a geometrically intuitive browse order (simplest/most
+// familiar shapes first) rather than registry-insertion order. "Face
+// type" here means the smallest face size present (3 = has a triangle,
+// 4 = smallest face is a square, etc.), then how many distinct face
+// sizes the shape has (a pure single-face-type shape before a hybrid
+// one with the same minimum), then total face count -- derived directly
+// from each shape's own `faces` array, never a separately hand-declared
+// ordering.
+function faceTypeSortKey(id: string): [number, number, number] {
+  const spec = POLYHEDRA[id];
+  const faceSizes = spec.faces.map((f) => f.length);
+  const distinctSizes = new Set(faceSizes);
+  return [Math.min(...faceSizes), distinctSizes.size, spec.faceCount];
+}
+
+function sortByFaceType(ids: string[]): string[] {
+  return [...ids].sort((a, b) => {
+    const ka = faceTypeSortKey(a);
+    const kb = faceTypeSortKey(b);
+    for (let i = 0; i < ka.length; i++) {
+      if (ka[i] !== kb[i]) return ka[i] - kb[i];
+    }
+    return 0;
+  });
+}
+
 const FAMILIES: Family[] = [
-  { key: 'DELTAHEDRA', label: 'Deltahedra', symbol: '△', ids: DELTAHEDRON_IDS },
-  { key: 'PLATONIC', label: 'Platonic', symbol: '◇', ids: PLATONIC_ADDITION_IDS },
-  { key: 'ARCHIMEDEAN', label: 'Archimedean', symbol: '⬡', ids: ARCHIMEDEAN_ADDITION_IDS },
-  { key: 'JOHNSON', label: 'Johnson', symbol: '⛛', ids: JOHNSON_ADDITION_IDS },
+  { key: 'DELTAHEDRA', label: 'Deltahedra', symbol: '△', ids: sortByFaceType(DELTAHEDRON_IDS) },
+  { key: 'PLATONIC', label: 'Platonic', symbol: '◇', ids: sortByFaceType(PLATONIC_ADDITION_IDS) },
+  { key: 'ARCHIMEDEAN', label: 'Archimedean', symbol: '⬡', ids: sortByFaceType(ARCHIMEDEAN_ADDITION_IDS) },
+  { key: 'JOHNSON', label: 'Johnson', symbol: '⛛', ids: sortByFaceType(JOHNSON_ADDITION_IDS) },
 ];
 
 // 12 faces available; family level always fits (4 populated + 8 spare).
@@ -119,8 +152,15 @@ function resolveSlots(level: WheelLevel, onFamily: (i: number) => void, onSelect
   const pageIds = family.ids.slice(start, start + perPage);
 
   pageIds.forEach((id, i) => {
+    // Catalog number reflects position in the family's own face-type-
+    // sorted order above (start + i, 1-indexed) -- a consistent scheme
+    // across all 4 families, even the 3 that have no standard numbering
+    // of their own (Johnson solids already carry a "J<n>" prefix in
+    // their id, so this is slightly redundant there, but consistency
+    // across families was worth that small overlap).
+    const catalogNumber = start + i + 1;
     slots[i] = {
-      label: id.replaceAll('_', ' '),
+      label: `[${catalogNumber}] ${id.replaceAll('_', ' ')}`,
       symbol: id.slice(0, 1),
       spare: false,
       onSelect: () => onSelectShape(id),
@@ -240,7 +280,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect }: PolyhedralW
       const material = new THREE.MeshStandardMaterial({
         color: HUD_METAL_HEX,
         transparent: true,
-        opacity: 0.16,
+        opacity: 0.24,
         side: THREE.DoubleSide,
         metalness: 0.7,
         roughness: 0.3,
@@ -284,7 +324,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect }: PolyhedralW
       currentSlots = slots;
       slots.forEach((slot, i) => {
         const mesh = faceMeshes[i];
-        (mesh.material as THREE.MeshStandardMaterial).opacity = slot.spare ? 0.05 : 0.16;
+        (mesh.material as THREE.MeshStandardMaterial).opacity = slot.spare ? 0.08 : 0.24;
         labelEls[i].classList.toggle('spare', slot.spare);
         labelEls[i].querySelector('.pw-label-symbol')!.textContent = slot.symbol;
         labelTextEls[i].textContent = slot.label;
@@ -357,35 +397,49 @@ export default function PolyhedralWheel({ open, onClose, onSelect }: PolyhedralW
     };
     container.addEventListener('click', onContainerClick);
 
-    const cameraDir = new THREE.Vector3();
+    const dirToCamera = new THREE.Vector3();
     const worldNormal = new THREE.Vector3();
     const worldPos = new THREE.Vector3();
+    // Smoothed per-face opacity, persisted across frames -- lerped toward
+    // its target rather than snapped, same as Rhombiverse's own model.
+    const labelOpacities = new Array(12).fill(0);
     let frameId: number;
     const animate = () => {
       controls.update();
-      camera.getWorldDirection(cameraDir);
 
       faceConnectors.forEach((fc, i) => {
         const [nx, ny, nz] = fc.normal as Vec3;
         worldNormal.set(nx, ny, nz).applyQuaternion(wheelGroup.quaternion);
-        const facing = worldNormal.dot(cameraDir) < -0.15;
 
         const [px, py, pz] = fc.pos as Vec3;
-        worldPos.set(px, py, pz).addScaledVector(worldNormal, 0.35).applyQuaternion(wheelGroup.quaternion);
+        worldPos.set(px, py, pz).applyQuaternion(wheelGroup.quaternion);
+        dirToCamera.copy(camera.position).sub(worldPos).normalize();
+
+        // Rhombiverse's own visibility model (rhombic-wheel-3d-core.js's
+        // computeLabelVisibility): a smooth fade from facing=0.05 (just
+        // starting to turn toward camera) to facing=0.55 (full opacity),
+        // with a hard cutoff below facing=-0.3 -- not a binary snap the
+        // way an earlier version of this file did it (either fully shown
+        // or fully hidden the instant a fixed dot-product threshold was
+        // crossed).
+        const facing = worldNormal.dot(dirToCamera);
+        let targetOpacity = THREE.MathUtils.clamp((facing - 0.05) / 0.5, 0, 1);
+        if (facing < -0.3) targetOpacity = 0;
+        const spare = currentSlots[i]?.spare ?? true;
+        if (spare) targetOpacity *= 0.4; // dim, not full-bright, for empty faces
+
+        labelOpacities[i] = THREE.MathUtils.lerp(labelOpacities[i], targetOpacity, 0.25);
+
+        worldPos.addScaledVector(worldNormal, 0.35);
         worldPos.project(camera);
 
         const el = labelEls[i];
-        if (!facing || currentSlots[i]?.spare) {
-          el.style.opacity = currentSlots[i]?.spare && facing ? '0.15' : '0';
-          el.style.pointerEvents = 'none';
-        } else {
-          const x = ((worldPos.x + 1) / 2) * container.clientWidth;
-          const y = ((1 - worldPos.y) / 2) * container.clientHeight;
-          el.style.left = `${x}px`;
-          el.style.top = `${y}px`;
-          el.style.opacity = '1';
-          el.style.pointerEvents = 'auto';
-        }
+        const x = ((worldPos.x + 1) / 2) * container.clientWidth;
+        const y = ((1 - worldPos.y) / 2) * container.clientHeight;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        el.style.opacity = String(labelOpacities[i]);
+        el.style.pointerEvents = !spare && targetOpacity > 0.3 ? 'auto' : 'none';
       });
 
       renderer.render(scene, camera);
@@ -494,18 +548,31 @@ export default function PolyhedralWheel({ open, onClose, onSelect }: PolyhedralW
       aria-label="Shape picker wheel"
     >
       <style>{`
+        /* NOT display:flex -- a flex column's own box (symbol + gap + text)
+           is what would get centered by translate(-50%,-50%) below, so a
+           hidden-but-still-laid-out text child (opacity alone doesn't
+           remove it from flow) would pull that centering point up off the
+           symbol itself, visibly off-center from the real face anchor.
+           Same bug, same fix, as Rhombiverse's own rhombic-wheel-3d.js
+           .has-icon rule (its own comment there explains this in detail).
+           The symbol is the only thing establishing .pw-label's box now;
+           the text is taken out of flow entirely (position:absolute) and
+           anchored above the symbol's own top edge, so it can never
+           affect centering, revealed or not. */
         .pw-label {
           position: absolute; transform: translate(-50%, -50%);
-          display: flex; flex-direction: column; align-items: center;
           cursor: pointer; opacity: 0; transition: opacity 0.1s ease;
+          text-align: center;
         }
         .pw-label.spare { cursor: default; }
         .pw-label-symbol {
-          font-size: 22px; color: ${SCRIPT_COLOR};
+          display: block; font-size: 56px; line-height: 1; color: ${SCRIPT_COLOR};
           text-shadow: ${LABEL_STYLE.textShadow};
         }
         .pw-label-text {
-          margin-top: 4px; color: ${SCRIPT_COLOR};
+          position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%);
+          margin-bottom: 6px;
+          color: ${SCRIPT_COLOR};
           font-family: ${LABEL_STYLE.fontFamily};
           font-weight: ${LABEL_STYLE.fontWeight};
           letter-spacing: ${LABEL_STYLE.letterSpacing};
