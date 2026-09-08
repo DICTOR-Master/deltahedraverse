@@ -1008,9 +1008,103 @@ two reads 80ms apart agree) as defense in depth against the underlying
 `setTimeout(0)`-deferred-render race generally, independent of this
 specific fix.
 
-Still outstanding for Johnson solids: 61 remain (92 - 31) — the
-augmented/diminished/gyrate composites (J49 onward) and the
+Still outstanding for Johnson solids at this point: 61 remain (92 - 31)
+— the augmented/diminished/gyrate composites (J49 onward) and the
 elongated/gyroelongated bicupola/cupola-rotunda/birotunda family
 (J35-J48, the direct sequel to batch 3 the same way batch 2 followed
 batch 1) are next, then the ~15 with no closed form at all, saved for
 last.
+
+## Johnson solids — elongated/gyroelongated bicupolae, cupola-rotundas, birotundas (2026-09-08)
+
+14 more Johnson solids, bringing the family to 45/92: J35-J43
+(elongated, prism spacer) and J44-J48 (gyroelongated, antiprism
+spacer) — the direct sequel to batch 3, applying batch 2's spacer
+technique to batch 3's own cupola/rotunda pieces instead of re-deriving
+anything from first principles.
+
+**Construction changed again for this batch**: each piece (a single
+cupola's cap+waist, or a rotunda "half" sliced out of the
+already-verified `J32`/`J34`) was extracted directly from this
+registry's own verified vertex data via a small `tsx` dump script, not
+re-derived from formulas, then rejoined either directly (as a
+self-check) or through a prism/antiprism spacer. Two real bugs were
+caught by that self-check — reproduce J27-J34 exactly from the
+extracted primitives before trusting the same machinery for anything
+new — before any new shape was accepted:
+
+1. **"Gyro" rotates only the cap, not the waist.** An initial attempt
+   rotated the whole piece (cap + waist ring together) by a half waist-
+   ring step to get the gyro offset; this moves the waist ring to new
+   positions instead of relabeling the same one, silently breaking the
+   shared-face requirement the whole join depends on. The fix: only the
+   cap rotates, by one *full* waist-ring step (`2*pi/waist_size`) — the
+   waist ring itself must stay exactly where it is, since it's the
+   shared face; "ortho" vs "gyro" is which notch of that fixed ring the
+   cap sits above, not a rotation of the ring itself.
+2. **Cross-type pieces need a common source.** A cupola piece and a
+   rotunda piece pulled from *independent* origins (a standalone cupola
+   plus a rotunda sliced out of the orthobirotunda) aren't guaranteed to
+   share a rotational registration — nothing forces their waist rings'
+   vertex 0 to point the same direction. The fix: extract both halves of
+   any cupola+rotunda pairing from the *same* already-verified compound
+   (`J32`/`J33`), which guarantees correct alignment by construction
+   rather than by hoping two independently-built rings happen to line
+   up.
+
+**A third bug surfaced only after both of the above were fixed and the
+self-check passed** — a genuinely more subtle one, worth recording in
+full because it slipped past the self-check entirely: `verify:face-attach`
+and `verify:face-twist` (which check the *cross-shape* face-attach
+transform math, not anything about an individual shape's own internal
+consistency) failed on roughly 12% and 7% of their checks respectively,
+with "coincidence error" values around 1e-6 to 1e-7 — 1,000x the
+scripts' own 1e-9 tolerance. The self-check hadn't caught it because
+Euler's formula, edge-length uniformity, and face composition are all
+blind to a *uniform* absolute-position offset — exactly what this was.
+Root cause: the piece-extraction helper rounded each vertex's z-
+coordinate to 6 decimals *for grouping purposes* (to sidestep floating-
+point-equality issues when picking out "the waist ring" via
+`np.isclose`), but then reused that same rounded value as the literal
+amount to shift the piece by, instead of the true (unrounded) z of the
+selected waist vertices. That leaked up to ~5e-7 of pure rounding noise
+into every single vertex as a uniform offset on otherwise-correct
+geometry — large enough to fail a strict 1e-9 cross-shape tolerance
+against other registry shapes, but invisible to any single-shape
+validity check. Fixed by computing the shift from the *actual* selected
+vertices' mean z (unrounded) rather than the rounded comparison value;
+re-ran `verify:face-attach` (968,713 checks) and `verify:face-twist`
+(9,670 checks) after the fix — 0 failures, down from ~113k and ~660.
+**General rule, adding to this project's running list**: a rounding
+step introduced purely to make an equality comparison numerically safe
+must never be reused as an actual computed value elsewhere in the same
+function — round only the copy used for comparison, keep the original
+for any arithmetic.
+
+Distinctness was also verified computationally, not assumed: two of the
+14 (`J36`, `J43`) are built from an ortho/gyro cupola or rotunda pairing
+that *isn't itself* a registered Johnson solid (their un-elongated forms
+either coincide with the cuboctahedron or are the deliberately-excluded
+"pentagonal gyrobirotunda" from batch 3) — a rotation-invariant
+pairwise-distance-histogram cross-check confirmed all 14 new shapes are
+mutually distinct and distinct from every one of the other ~50 shapes
+already in the registry. That elongating breaks both of batch 3's
+coincidences (the excluded gyro-cuboctahedron overlap and the
+unconfirmed gyrobirotunda) is the expected, structural reason these
+elongated forms are safe to register even though their un-elongated
+bases weren't: real height between the two halves removes any way for
+the result to degenerate into something else.
+
+Verified end to end: `validate-johnson.ts` (all 45 OK), `tsc --noEmit`
+and lint clean on both machines, `verify:attach` (106,080),
+`verify:twist` (83,232), `verify:rewrite`, `verify:graph`,
+`verify:face-connectors` (4,817), `verify:face-attach` (968,713, 0
+failures after the precision fix), `verify:face-twist` (9,670, 0
+failures after the precision fix), and the full Playwright suite on
+dicto-node.
+
+Still outstanding for Johnson solids: 47 remain (92 - 45) — the
+augmented/diminished/gyrate composites (J49 onward, roughly two dozen
+shapes touching prisms and the dodecahedron/rhombicosidodecahedron)
+next, then the ~15 with no closed form at all (genuine numerical
+optimization needed), saved for last.
