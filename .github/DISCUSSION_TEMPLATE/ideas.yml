@@ -4,7 +4,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Got an idea for Deltahedraverse? Great — this project grows from
+        Got an idea for Polyhedraverse? Great — this project grows from
         ideas like this. A couple of quick prompts below just help your
         idea land clearly; they're not a hoop to jump through.
   - type: textarea

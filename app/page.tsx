@@ -71,7 +71,7 @@ export default function Home() {
     <div className="flex h-screen w-full flex-col bg-black">
       <header className="flex items-start justify-between px-6 py-4 text-zinc-50">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Deltahedraverse</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Polyhedraverse</h1>
           <p className="text-sm text-zinc-400">
             Deltahedra, Platonic & Archimedean solids — vertex ball-joints and face-to-face connections
           </p>

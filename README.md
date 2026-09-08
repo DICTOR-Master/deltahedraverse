@@ -1,4 +1,12 @@
-# Deltahedraverse
+# Polyhedraverse
+
+**Open-source spatial geometry environment**
+
+### Spatial Editing Suite
+*Construct • Transform • Connect • Explore*
+
+> An open-source spatial geometry environment for constructing,
+> transforming, and interconnecting polyhedral forms in three dimensions.
 
 A browser-based construction kit for convex polyhedra. Two ways to
 connect pieces: click a free vertex and snap on a new piece with a free
@@ -17,6 +25,25 @@ solids and the Johnson solid family alongside the 8 deltahedra, with its
 own introductory geometric-packing puzzle game in the spirit of
 Rhombiverse's RHOMBIS (working name: DELTIS). See `docs/build-plan.md`'s
 trailing sections for what's actually shipped versus what's still ahead.
+
+## Scope
+
+- Platonic solids
+- Archimedean solids
+- Johnson solids
+- Geometric transformations
+- Spatial placement and orientation
+- Lattice construction
+- Interpenetrating structures
+- Polyhedral relationships
+- (room to grow) more unusual spatial operations as they're developed
+
+This list is intentionally open-ended, describing the project's
+direction rather than a feature checklist — so the README doesn't need
+rewriting every time a new capability lands. **"What's here now" below
+is the ground truth for what's actually shipped today**; several items
+above (Johnson solids, lattice construction, interpenetrating
+structures) are direction, not yet delivered.
 
 ## What's here now
 
@@ -84,7 +111,7 @@ Since then:
 ## Structure
 
 ```
-deltahedraverse/
+polyhedraverse/
   app/
     lib/
       polyhedra/

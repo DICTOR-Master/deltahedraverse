@@ -6,7 +6,7 @@ payments, or a larger user base.
 
 ## What this is
 
-Deltahedraverse is a free, browser-based construction kit for building
+Polyhedraverse is a free, browser-based construction kit for building
 with the 8 convex deltahedra — and, eventually, other polyhedral
 families (Platonic, Archimedean, Johnson solids) and an introductory
 geometric-packing puzzle game in the spirit of Rhombiverse's RHOMBIS;

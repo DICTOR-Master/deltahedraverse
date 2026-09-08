@@ -1,6 +1,6 @@
-# Contributing to Deltahedraverse
+# Contributing to Polyhedraverse
 
-Deltahedraverse is a small hobby project, open to improvements from
+Polyhedraverse is a small hobby project, open to improvements from
 anyone who wants to make one — **human or AI**. This repo has actually
 been built collaboratively with an AI coding agent (Claude Code) from
 the start; there's no double standard here between a human PR and a

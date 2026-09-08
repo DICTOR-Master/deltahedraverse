@@ -1,4 +1,4 @@
-# Deltahedraverse Build Plan
+# Polyhedraverse Build Plan
 
 Check off stages as they're completed. Each stage is a focused session —
 don't start the next one until the current "Done when" passes.

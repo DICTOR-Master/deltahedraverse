@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Deltahedraverse",
-  description: "A vertex-snapping construction kit for the 8 convex deltahedra.",
+  title: "Polyhedraverse",
+  description:
+    "An open-source spatial geometry environment for constructing, transforming, and interconnecting polyhedral forms in three dimensions.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

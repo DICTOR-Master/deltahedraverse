@@ -2,7 +2,7 @@
 
 ## Short version
 
-Deltahedraverse does not collect, transmit, or store any personal data
+Polyhedraverse does not collect, transmit, or store any personal data
 on a server. There are no accounts, no analytics, and no cookies.
 
 ## What data exists, and where
