@@ -1,17 +1,24 @@
 {
-  "$schema_note": "Open-data reference for the Johnson solids in this registry whose construction needed something beyond a single closed-form apex-height equation -- a discrete registration search, a combinatorial face-selection rule, or a multi-step operation composed from smaller verified pieces. Companion to docs/johnson-solids-constructions.md (human-readable) and docs/build-plan.md (full narrative postmortems). Every numeric claim here was verified computationally in this project (scipy ConvexHull + this registry's own validateShape/verify:face-attach/verify:face-twist scripts) before being recorded -- see 'verification' per entry.",
+  "$schema_note": "Open-data reference for the Johnson solids in this registry whose construction needed something beyond a single closed-form apex-height equation (J64-J79) or that needed a published external polynomial/closed-form solved directly (J85-J92, the 8 'elementary' Johnson solids that complete all 92) -- a discrete registration search, a combinatorial face-selection rule, or a multi-step operation composed from smaller verified pieces. Companion to docs/johnson-solids-constructions.md (human-readable) and docs/build-plan.md (full narrative postmortems). Every numeric claim here was verified computationally in this project (scipy ConvexHull + this registry's own validateShape/verify:face-attach/verify:face-twist scripts) before being recorded -- see 'verification' per entry.",
   "generated": "2026-09-09",
   "source_project": "https://github.com/DICTOR-Master/polyhedraverse",
   "license_note": "Same license as the parent repository (see LICENSE).",
   "shapes": {
     "J64": {
       "name": "augmented_tridiminished_icosahedron",
-      "base_shapes": ["J63_TRIDIMINISHED_ICOSAHEDRON", "D4"],
+      "base_shapes": [
+        "J63_TRIDIMINISHED_ICOSAHEDRON",
+        "D4"
+      ],
       "operation": "face-attach",
       "target_face_selector": {
         "rule": "the unique triangular face of J63 that is edge-adjacent to all 3 of its pentagonal faces",
         "method": "combinatorial: for each of J63's 5 triangles, count shared edges with each of its 3 pentagons; exactly one triangle scores 3",
-        "found_face_vertices": [0, 1, 5]
+        "found_face_vertices": [
+          0,
+          1,
+          5
+        ]
       },
       "cap_shape": "D4 (regular tetrahedron, unit edge)",
       "registration": {
@@ -30,7 +37,15 @@
         "outward_face_winding",
         "congruence_check_not_equal_to: J62_METABIDIMINISHED_ICOSAHEDRON (pairwise-distance histogram, max diff 0.618)"
       ],
-      "result": { "V": 10, "E": 18, "F": 10, "face_composition": { "triangle": 7, "pentagon": 3 } },
+      "result": {
+        "V": 10,
+        "E": 18,
+        "F": 10,
+        "face_composition": {
+          "triangle": 7,
+          "pentagon": 3
+        }
+      },
       "external_sources": [
         "https://en.wikipedia.org/wiki/Augmented_tridiminished_icosahedron",
         "https://mathworld.wolfram.com/AugmentedTridiminishedIcosahedron.html"
@@ -38,15 +53,25 @@
     },
     "J66": {
       "name": "augmented_truncated_cube",
-      "base_shapes": ["TRUNCATED_CUBE", "J4_SQUARE_CUPOLA"],
+      "base_shapes": [
+        "TRUNCATED_CUBE",
+        "J4_SQUARE_CUPOLA"
+      ],
       "operation": "face-attach",
-      "target_face_selector": { "rule": "any one of the truncated cube's 6 octagonal faces (all equivalent by symmetry)" },
+      "target_face_selector": {
+        "rule": "any one of the truncated cube's 6 octagonal faces (all equivalent by symmetry)"
+      },
       "cap_shape": "J4_SQUARE_CUPOLA (octagonal base)",
       "registration": {
         "note": "an octagon has 8 discrete registrations; exactly the ODD offsets (relative to computeFaceAttach's own theta0 baseline) produce the correct result -- the cupola's own squares must land adjacent to the truncated cube's TRIANGLES, not its own larger faces",
         "registration_count": 8,
         "chosen": 1,
-        "wrong_offsets": [0, 2, 4, 6],
+        "wrong_offsets": [
+          0,
+          2,
+          4,
+          6
+        ],
         "wrong_offset_symptom": "one pre-existing truncated-cube triangle becomes exactly coplanar with an adjacent cupola triangle and merges into a RHOMBUS (unit edges, unequal diagonals sqrt(3) vs 1), not a true square"
       },
       "prior_wrong_attempt": {
@@ -59,12 +84,26 @@
         "outward_face_winding",
         "quad_diagonal_check (equal diagonals sqrt(2) required for a true square)"
       ],
-      "result": { "V": 28, "E": 48, "F": 22, "face_composition": { "triangle": 12, "square": 5, "octagon": 5 } },
-      "external_sources": ["https://en.wikipedia.org/wiki/Augmented_truncated_cube"]
+      "result": {
+        "V": 28,
+        "E": 48,
+        "F": 22,
+        "face_composition": {
+          "triangle": 12,
+          "square": 5,
+          "octagon": 5
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Augmented_truncated_cube"
+      ]
     },
     "J67": {
       "name": "biaugmented_truncated_cube",
-      "base_shapes": ["TRUNCATED_CUBE", "J4_SQUARE_CUPOLA"],
+      "base_shapes": [
+        "TRUNCATED_CUBE",
+        "J4_SQUARE_CUPOLA"
+      ],
       "operation": "face-attach (x2, independent)",
       "target_face_selector": {
         "rule": "two of the truncated cube's 6 octagonal faces, specifically the OPPOSITE pair (dot(normal_a, normal_b) = -1)",
@@ -75,7 +114,10 @@
       "registration": {
         "note": "each of the 2 capped faces needed its own registration verified INDEPENDENTLY (10 total registrations checked across the 2 faces) before combining -- they happened to need the same parity here, but that was checked, not assumed",
         "per_face_registration_count": 8,
-        "chosen": [1, 1]
+        "chosen": [
+          1,
+          1
+        ]
       },
       "verification": [
         "euler_formula",
@@ -83,20 +125,42 @@
         "outward_face_winding",
         "quad_diagonal_check"
       ],
-      "result": { "V": 32, "E": 60, "F": 30, "face_composition": { "triangle": 16, "square": 10, "octagon": 4 } },
-      "external_sources": ["https://en.wikipedia.org/wiki/Biaugmented_truncated_cube"]
+      "result": {
+        "V": 32,
+        "E": 60,
+        "F": 30,
+        "face_composition": {
+          "triangle": 16,
+          "square": 10,
+          "octagon": 4
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Biaugmented_truncated_cube"
+      ]
     },
     "J68": {
       "name": "augmented_truncated_dodecahedron",
-      "base_shapes": ["TRUNCATED_DODECAHEDRON", "J5_PENTAGONAL_CUPOLA"],
+      "base_shapes": [
+        "TRUNCATED_DODECAHEDRON",
+        "J5_PENTAGONAL_CUPOLA"
+      ],
       "operation": "face-attach",
-      "target_face_selector": { "rule": "any one of the truncated dodecahedron's 12 decagonal faces (all equivalent by symmetry)" },
+      "target_face_selector": {
+        "rule": "any one of the truncated dodecahedron's 12 decagonal faces (all equivalent by symmetry)"
+      },
       "cap_shape": "J5_PENTAGONAL_CUPOLA (decagonal base)",
       "registration": {
         "note": "a decagon has 10 discrete registrations; exactly the ODD offsets produce the correct result -- identical pattern to J66, generalized from octagon to decagon",
         "registration_count": 10,
         "chosen": 1,
-        "wrong_offsets": [0, 2, 4, 6, 8]
+        "wrong_offsets": [
+          0,
+          2,
+          4,
+          6,
+          8
+        ]
       },
       "verification": [
         "euler_formula",
@@ -104,12 +168,27 @@
         "outward_face_winding",
         "quad_diagonal_check"
       ],
-      "result": { "V": 65, "E": 105, "F": 42, "face_composition": { "triangle": 25, "square": 5, "pentagon": 1, "decagon": 11 } },
-      "external_sources": ["https://en.wikipedia.org/wiki/Augmented_truncated_dodecahedron"]
+      "result": {
+        "V": 65,
+        "E": 105,
+        "F": 42,
+        "face_composition": {
+          "triangle": 25,
+          "square": 5,
+          "pentagon": 1,
+          "decagon": 11
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Augmented_truncated_dodecahedron"
+      ]
     },
     "J69": {
       "name": "parabiaugmented_truncated_dodecahedron",
-      "base_shapes": ["TRUNCATED_DODECAHEDRON", "J5_PENTAGONAL_CUPOLA"],
+      "base_shapes": [
+        "TRUNCATED_DODECAHEDRON",
+        "J5_PENTAGONAL_CUPOLA"
+      ],
       "operation": "face-attach (x2, independent)",
       "target_face_selector": {
         "rule": "two decagons in the 'para' (opposite, dot=-1) class",
@@ -118,7 +197,10 @@
       "cap_shape": "J5_PENTAGONAL_CUPOLA x2",
       "registration": {
         "per_face_registration_count": 10,
-        "chosen": [1, 1],
+        "chosen": [
+          1,
+          1
+        ],
         "note": "verified independently per face before combining, same discipline as J67"
       },
       "verification": [
@@ -128,12 +210,27 @@
         "quad_diagonal_check",
         "congruence_check_not_equal_to: J70_METABIAUGMENTED_TRUNCATED_DODECAHEDRON (pairwise-distance histogram, max diff 0.244, despite identical V/E/F)"
       ],
-      "result": { "V": 70, "E": 120, "F": 52, "face_composition": { "triangle": 30, "square": 10, "pentagon": 2, "decagon": 10 } },
-      "external_sources": ["https://en.wikipedia.org/wiki/Parabiaugmented_truncated_dodecahedron"]
+      "result": {
+        "V": 70,
+        "E": 120,
+        "F": 52,
+        "face_composition": {
+          "triangle": 30,
+          "square": 10,
+          "pentagon": 2,
+          "decagon": 10
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Parabiaugmented_truncated_dodecahedron"
+      ]
     },
     "J70": {
       "name": "metabiaugmented_truncated_dodecahedron",
-      "base_shapes": ["TRUNCATED_DODECAHEDRON", "J5_PENTAGONAL_CUPOLA"],
+      "base_shapes": [
+        "TRUNCATED_DODECAHEDRON",
+        "J5_PENTAGONAL_CUPOLA"
+      ],
       "operation": "face-attach (x2, independent)",
       "target_face_selector": {
         "rule": "two decagons in the 'meta' (dot approx -0.4472) class -- NOT the para pair J69 uses"
@@ -141,7 +238,10 @@
       "cap_shape": "J5_PENTAGONAL_CUPOLA x2",
       "registration": {
         "per_face_registration_count": 10,
-        "chosen": [1, 1]
+        "chosen": [
+          1,
+          1
+        ]
       },
       "verification": [
         "euler_formula",
@@ -150,22 +250,45 @@
         "quad_diagonal_check",
         "congruence_check_not_equal_to: J69_PARABIAUGMENTED_TRUNCATED_DODECAHEDRON"
       ],
-      "result": { "V": 70, "E": 120, "F": 52, "face_composition": { "triangle": 30, "square": 10, "pentagon": 2, "decagon": 10 } },
-      "external_sources": ["https://en.wikipedia.org/wiki/Metabiaugmented_truncated_dodecahedron"]
+      "result": {
+        "V": 70,
+        "E": 120,
+        "F": 52,
+        "face_composition": {
+          "triangle": 30,
+          "square": 10,
+          "pentagon": 2,
+          "decagon": 10
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Metabiaugmented_truncated_dodecahedron"
+      ]
     },
     "J71": {
       "name": "triaugmented_truncated_dodecahedron",
-      "base_shapes": ["TRUNCATED_DODECAHEDRON", "J5_PENTAGONAL_CUPOLA"],
+      "base_shapes": [
+        "TRUNCATED_DODECAHEDRON",
+        "J5_PENTAGONAL_CUPOLA"
+      ],
       "operation": "face-attach (x3, independent)",
       "target_face_selector": {
         "rule": "three MUTUALLY-meta decagons (all 3 pairwise dot products approx -0.4472)",
         "note": "20 such triples exist by symmetry; any one works -- arbitrarily picked one",
-        "chosen_faces": [1, 6, 14]
+        "chosen_faces": [
+          1,
+          6,
+          14
+        ]
       },
       "cap_shape": "J5_PENTAGONAL_CUPOLA x3",
       "registration": {
         "per_face_registration_count": 10,
-        "chosen": [1, 0, 0],
+        "chosen": [
+          1,
+          0,
+          0
+        ],
         "note": "IMPORTANT: the 3 faces did NOT all need the same registration parity -- 1 odd, 2 even. This is the concrete instance of a hazard this project had only hypothesized before (J67's own doc comment): two faces of the same solid can need different-parity registrations depending on that specific face's own vertex-0 phase. Caught only because each face was verified fully independently, not assumed to share J67's 'they happened to match' result."
       },
       "verification": [
@@ -174,12 +297,26 @@
         "outward_face_winding",
         "quad_diagonal_check"
       ],
-      "result": { "V": 75, "E": 135, "F": 62, "face_composition": { "triangle": 35, "square": 15, "pentagon": 3, "decagon": 9 } },
-      "external_sources": ["https://en.wikipedia.org/wiki/Triaugmented_truncated_dodecahedron"]
+      "result": {
+        "V": 75,
+        "E": 135,
+        "F": 62,
+        "face_composition": {
+          "triangle": 35,
+          "square": 15,
+          "pentagon": 3,
+          "decagon": 9
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Triaugmented_truncated_dodecahedron"
+      ]
     },
     "J79": {
       "name": "bigyrate_diminished_rhombicosidodecahedron",
-      "base_shapes": ["RHOMBICOSIDODECAHEDRON"],
+      "base_shapes": [
+        "RHOMBICOSIDODECAHEDRON"
+      ],
       "operation": "region-gyrate (x2) + region-diminish (x1), composed on the same base",
       "region_decomposition": {
         "rule": "RHOMBICOSIDODECAHEDRON decomposes into 12 local pentagonal-cupola-shaped regions, one per pentagon face, each pentagon's 5 vertices (the 'cap') surrounded by a ring of 5 triangles alternating with 5 squares (the 'waist', 10 vertices) -- extracted combinatorially from the registry's own face/edge data, not assumed",
@@ -208,8 +345,299 @@
         "quad_diagonal_check",
         "congruence_check_not_equal_to: [J76_DIMINISHED_RHOMBICOSIDODECAHEDRON, J77_PARAGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON, J78_METAGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON]"
       ],
-      "result": { "V": 55, "E": 105, "F": 52, "face_composition": { "triangle": 15, "square": 25, "pentagon": 11, "decagon": 1 } },
-      "external_sources": ["https://en.wikipedia.org/wiki/Bigyrate_diminished_rhombicosidodecahedron"]
+      "result": {
+        "V": 55,
+        "E": 105,
+        "F": 52,
+        "face_composition": {
+          "triangle": 15,
+          "square": 25,
+          "pentagon": 11,
+          "decagon": 1
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Bigyrate_diminished_rhombicosidodecahedron"
+      ]
+    },
+    "J85": {
+      "name": "snub_square_antiprism",
+      "base_shapes": [],
+      "operation": "polynomial-root construction (published defining equation, generated from Wikipedia coordinate orbits)",
+      "defining_polynomial": {
+        "degree": 3,
+        "expression": "9x^3 + 3*sqrt(3)*(5-sqrt(2))*x^2 - 3*(5-2*sqrt(2))*x - 17*sqrt(3) + 7*sqrt(6)",
+        "root_selected": "the positive root",
+        "solved_value": 0.8235388277869001,
+        "published_approx": 0.82354
+      },
+      "symmetry_group": {
+        "order": 16,
+        "generators": [
+          "90 degree rotation about z",
+          "180 degree rotation about an axis perpendicular to z at 22.5 degrees to x"
+        ],
+        "note": "both generators are proper rotations (det=+1)"
+      },
+      "chirality_finding": "ACHIRAL, confirmed not assumed from the 'snub' name -- a point-for-point rotation exactly maps the mirror image back onto the original vertex set",
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check",
+        "chirality_check_via_exact_rotation_match"
+      ],
+      "result": {
+        "V": 16,
+        "E": 40,
+        "F": 26,
+        "face_composition": {
+          "triangle": 24,
+          "square": 2
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Snub_square_antiprism"
+      ]
+    },
+    "J86": {
+      "name": "sphenocorona",
+      "base_shapes": [],
+      "operation": "polynomial-root construction",
+      "defining_polynomial": {
+        "degree": 4,
+        "expression": "60x^4 - 48x^3 - 100x^2 + 56x + 23",
+        "root_selected": "the smallest positive root",
+        "solved_value": 0.852726942846417,
+        "published_approx": 0.85273,
+        "note": "an exact nested-radical closed form is also published: k=(6+sqrt(6)+2*sqrt(213-57*sqrt(6)))/30"
+      },
+      "symmetry_group": {
+        "order": 4,
+        "generators": [
+          "reflection about xz-plane",
+          "reflection about yz-plane"
+        ]
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check"
+      ],
+      "result": {
+        "V": 10,
+        "E": 22,
+        "F": 14,
+        "face_composition": {
+          "triangle": 12,
+          "square": 2
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Sphenocorona"
+      ]
+    },
+    "J87": {
+      "name": "augmented_sphenocorona",
+      "base_shapes": [
+        "J86_SPHENOCORONA",
+        "J1_SQUARE_PYRAMID"
+      ],
+      "operation": "face-attach",
+      "target_face_selector": {
+        "rule": "either of J86's 2 square faces (equivalent by symmetry)"
+      },
+      "cap_shape": "J1_SQUARE_PYRAMID",
+      "registration": {
+        "registration_count": 4,
+        "note": "a square pyramid cap on a square base has full 4-fold symmetry, no registration ambiguity"
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check"
+      ],
+      "result": {
+        "V": 11,
+        "E": 26,
+        "F": 17,
+        "face_composition": {
+          "triangle": 16,
+          "square": 1
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Augmented_sphenocorona"
+      ]
+    },
+    "J88": {
+      "name": "sphenomegacorona",
+      "base_shapes": [],
+      "operation": "polynomial-root construction",
+      "defining_polynomial": {
+        "degree": 16,
+        "expression": "1680x^16-4800x^15-3712x^14+17216x^13+1568x^12-24576x^11+2464x^10+17248x^9-3384x^8-5584x^7+2000x^6+240x^5-776x^4+304x^3+200x^2-56x-23",
+        "root_selected": "the smallest positive root",
+        "solved_value": 0.5946333356326186,
+        "published_approx": 0.59463
+      },
+      "symmetry_group": {
+        "order": 4,
+        "generators": [
+          "reflection about xz-plane",
+          "reflection about yz-plane"
+        ]
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check"
+      ],
+      "result": {
+        "V": 12,
+        "E": 28,
+        "F": 18,
+        "face_composition": {
+          "triangle": 16,
+          "square": 2
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Sphenomegacorona"
+      ]
+    },
+    "J89": {
+      "name": "hebesphenomegacorona",
+      "base_shapes": [],
+      "operation": "polynomial-root construction",
+      "defining_polynomial": {
+        "degree": 10,
+        "expression": "26880x^10+35328x^9-25600x^8-39680x^7+6112x^6+13696x^5+2128x^4-1808x^3-1119x^2+494x-47",
+        "root_selected": "the SECOND smallest positive root (not the first)",
+        "solved_value": 0.21684481571346256,
+        "published_approx": 0.21684,
+        "note": "verified the second root is correct, not the first, by checking which choice yields all-unit edges"
+      },
+      "symmetry_group": {
+        "order": 4,
+        "generators": [
+          "reflection about xz-plane",
+          "reflection about yz-plane"
+        ]
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check"
+      ],
+      "result": {
+        "V": 14,
+        "E": 33,
+        "F": 21,
+        "face_composition": {
+          "triangle": 18,
+          "square": 3
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Hebesphenomegacorona"
+      ]
+    },
+    "J90": {
+      "name": "disphenocingulum",
+      "base_shapes": [],
+      "operation": "polynomial-root construction",
+      "defining_polynomial": {
+        "degree": 12,
+        "expression": "256x^12-512x^11-1664x^10+3712x^9+1552x^8-6592x^7+1248x^6+4352x^5-2024x^4-944x^3+672x^2-24x-23",
+        "root_selected": "the SECOND smallest positive root (not the first)",
+        "solved_value": 0.76713111398347,
+        "published_approx": 0.76713
+      },
+      "symmetry_group": {
+        "order": 8,
+        "generators": [
+          "reflection about xz-plane",
+          "reflection about yz-plane",
+          "S4 rotoreflection (90deg rotation about z composed with reflection through xy-plane)"
+        ],
+        "note": "IMPORTANT: the source article's prose states only 'reflections about the xz-plane and yz-plane' as generators, but that only produces an order-4 group, insufficient to reach the article's own stated 16 vertices from 3 points (max 3x4=12). The correct group (order 8, full D2d) needs the S4 generator the prose omitted -- confirmed by matching the article's own vertex_config multiplicities (4/4/8) and by exact unit-edge verification, not by trusting the prose alone."
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check",
+        "group_order_cross_checked_against_vertex_config_multiplicities"
+      ],
+      "result": {
+        "V": 16,
+        "E": 38,
+        "F": 24,
+        "face_composition": {
+          "triangle": 20,
+          "square": 4
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Disphenocingulum"
+      ]
+    },
+    "J91": {
+      "name": "bilunabirotunda",
+      "base_shapes": [],
+      "operation": "closed-form (golden ratio, no root-finding)",
+      "coordinate_formula": "union of orbits of (0,0,+-1), (+-(sqrt(5)-1)/2, +-1, +-(sqrt(5)-1)/2), (+-(sqrt(5)+1)/2, +-(sqrt(5)-1)/2, 0), all sign combinations, edge length sqrt(5)-1",
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check",
+        "pentagon_vertex_radius_uniformity_check"
+      ],
+      "result": {
+        "V": 14,
+        "E": 26,
+        "F": 14,
+        "face_composition": {
+          "triangle": 8,
+          "square": 2,
+          "pentagon": 4
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Bilunabirotunda"
+      ]
+    },
+    "J92": {
+      "name": "triangular_hebesphenorotunda",
+      "base_shapes": [],
+      "operation": "closed-form (golden ratio tau, no root-finding)",
+      "coordinate_formula": "4 generator points expanded by the group generated by 120deg rotation about z and reflection about the yz-plane (dihedral group of order 6), edge length sqrt(5)-1",
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check"
+      ],
+      "result": {
+        "V": 18,
+        "E": 36,
+        "F": 20,
+        "face_composition": {
+          "triangle": 13,
+          "square": 3,
+          "pentagon": 3,
+          "hexagon": 1
+        }
+      },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Triangular_hebesphenorotunda"
+      ]
     }
   }
 }

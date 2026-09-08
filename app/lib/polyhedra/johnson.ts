@@ -1977,6 +1977,237 @@ const FACES_J79_BIGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON: number[][] = [
 ];
 
 // ---------------------------------------------------------------------------
+// batch 12 (2026-09-09) -- J85-J92, the 8 "elementary" Johnson solids,
+// completing all 92
+// ---------------------------------------------------------------------------
+
+/**
+ * The final 8 Johnson solids: J85-J92 (J84, snub disphenoid, was already
+ * in this registry as D12). Unlike every other family/batch so far,
+ * these don't reduce to a single closed-form equation from this
+ * project's own construction toolkit (pyramid apex height, antiprism
+ * insertion height, face-attach registration) -- each is defined in
+ * the literature by its OWN published polynomial (or, for J91/J92, a
+ * pure golden-ratio closed form) plus a small set of generator points
+ * expanded by a stated symmetry group. See
+ * docs/johnson-solids-remaining-spec.md's corrected Group 4 section
+ * and docs/johnson-solids-constructions.md for the full per-shape
+ * record, including why the originally-planned "genuinely new
+ * numerical-solver tooling" wasn't actually needed: `numpy.roots()`
+ * (already part of this project's existing numpy/scipy environment)
+ * solves every published polynomial here directly -- confirmed
+ * working on a real cubic and a real degree-16 case before trusting
+ * it for any of these 8.
+ *
+ * Every external coordinate/polynomial source was cross-checked
+ * computationally before being trusted, same discipline as every
+ * other family in this registry: generated point orbits verified to
+ * produce the exact published V/E/F and face composition, all edges
+ * exactly unit length, outward winding, and (for quads) equal
+ * diagonals -- never assumed correct just because it came from a
+ * citation.
+ *
+ * Two real findings worth recording beyond "it worked":
+ * - **J85 (snub square antiprism) is ACHIRAL**, despite "snub" in the
+ *   name suggesting the chiral snub-solid family already in this
+ *   registry (SNUB_CUBE, SNUB_DODECAHEDRON, J44-J48). Checked
+ *   directly, not assumed from the name: its own D4d symmetry group
+ *   (order 16) is generated purely by proper rotations here (a 90°
+ *   z-rotation and a perpendicular 180° rotation), and a genuine
+ *   point-for-point rotation was found mapping its mirror image back
+ *   onto itself exactly.
+ * - **J90 (disphenocingulum)'s own Wikipedia source describes its
+ *   generating group imprecisely**: it says the 3 listed points are
+ *   expanded by "reflections about the xz-plane and the yz-plane"
+ *   alone, but that only generates a Klein-four group (order 4,
+ *   max orbit 4 per point) -- insufficient to reach the stated 16
+ *   vertices from only 3 points. The actual group needed (confirmed
+ *   by matching the article's own separately-stated vertex
+ *   configuration multiplicities 4/4/8, and by exact unit-edge
+ *   verification) is the full D2d group (order 8), requiring an S4
+ *   rotoreflection generator the prose omitted.
+ *
+ * **J87 (augmented sphenocorona)** is the one exception needing no
+ * new polynomial of its own: it's J86 plus a square pyramid
+ * (`J1_SQUARE_PYRAMID`, already in this registry) on one of J86's 2
+ * square faces, via the same face-attach transform used throughout
+ * this registry -- J86's own quartic root is the only one involved.
+ *
+ * **J89 and J90 both need the SECOND smallest positive root of their
+ * defining polynomial, not the first** -- confirmed by checking which
+ * choice reproduces the published approximate value and, more
+ * importantly, which one actually yields all-unit edges; the first
+ * (smallest) root does not.
+ */
+
+const VERTS_J85_SNUB_SQUARE_ANTIPRISM: Vec3[] = [
+  [0.5, 0.5, 0.6768685090313563], [0.7071067811865475, 0.0, -0.6768685090313563], [-0.49999999999999994, 0.5, 0.6768685090313563],
+  [5.551115123125783e-17, -0.7071067811865475, -0.6768685090313563], [-0.5000000000000001, -0.49999999999999994, 0.6768685090313563], [-0.7071067811865476, -1.6653345369377348e-16, -0.6768685090313563],
+  [0.4999999999999999, -0.5000000000000001, 0.6768685090313563], [-1.6653345369377348e-16, 0.7071067811865475, -0.6768685090313563], [1.2132055458663134, 0.0, 0.18560702128218032],
+  [0.8578658684551974, 0.8578658684551972, -0.18560702128218032], [7.42874144226499e-17, 1.2132055458663134, 0.18560702128218032], [0.8578658684551972, -0.8578658684551972, -0.18560702128218032],
+  [-1.2132055458663134, 1.485748288452998e-16, 0.18560702128218032], [-0.8578658684551974, -0.8578658684551973, -0.18560702128218032], [-2.228622432679497e-16, -1.2132055458663134, 0.18560702128218032],
+  [-0.8578658684551974, 0.857865868455197, -0.18560702128218032],
+];
+
+const EDGES_J85_SNUB_SQUARE_ANTIPRISM: [number, number][] = [
+  [0, 2], [0, 6], [0, 8], [0, 9], [0, 10], [1, 3], [1, 7], [1, 8], [1, 9], [1, 11], [2, 4], [2, 10],
+  [2, 12], [2, 15], [3, 5], [3, 11], [3, 13], [3, 14], [4, 6], [4, 12], [4, 13], [4, 14], [5, 7], [5, 12],
+  [5, 13], [5, 15], [6, 8], [6, 11], [6, 14], [7, 9], [7, 10], [7, 15], [8, 9], [8, 11], [9, 10], [10, 15],
+  [11, 14], [12, 13], [12, 15], [13, 14],
+];
+
+const FACES_J85_SNUB_SQUARE_ANTIPRISM: number[][] = [
+  [8, 11, 1], [8, 1, 9], [8, 9, 0], [0, 9, 10], [5, 13, 12], [15, 5, 12],
+  [4, 12, 13], [14, 4, 13], [1, 11, 3], [3, 13, 5], [11, 14, 3], [3, 14, 13],
+  [9, 1, 7], [7, 5, 15], [9, 7, 10], [10, 7, 15], [0, 10, 2], [4, 2, 12],
+  [2, 15, 12], [10, 15, 2], [8, 0, 6], [6, 4, 14], [11, 8, 6], [11, 6, 14],
+  [1, 3, 5, 7], [6, 0, 2, 4],
+];
+
+const VERTS_J86_SPHENOCORONA: Vec3[] = [
+  [0.0, 0.5, 0.5223569286836381], [0.0, -0.5, 0.5223569286836381], [0.852726942846417, 0.5, 0.0],
+  [0.852726942846417, -0.5, 0.0], [-0.852726942846417, 0.5, 0.0], [-0.852726942846417, -0.5, 0.0],
+  [0.0, 0.7894276266608697, -0.4348429715072552], [0.0, -0.7894276266608697, -0.4348429715072552], [0.5, 0.0, -0.7909384955799158],
+  [-0.5, 0.0, -0.7909384955799158],
+];
+
+const EDGES_J86_SPHENOCORONA: [number, number][] = [
+  [0, 1], [0, 2], [0, 4], [0, 6], [1, 3], [1, 5], [1, 7], [2, 3], [2, 6], [2, 8], [3, 7], [3, 8],
+  [4, 5], [4, 6], [4, 9], [5, 7], [5, 9], [6, 8], [6, 9], [7, 8], [7, 9], [8, 9],
+];
+
+const FACES_J86_SPHENOCORONA: number[][] = [
+  [2, 8, 6], [8, 7, 9], [6, 9, 4], [8, 9, 6], [0, 6, 4], [2, 6, 0],
+  [7, 1, 5], [4, 9, 5], [7, 5, 9], [3, 1, 7], [2, 3, 8], [8, 3, 7],
+  [1, 0, 4, 5], [3, 2, 0, 1],
+];
+
+const VERTS_J87_AUGMENTED_SPHENOCORONA: Vec3[] = [
+  [0.0, 0.5, 0.6630418363643447], [0.0, -0.5, 0.6630418363643447], [0.852726942846417, 0.5, 0.14068490768070657],
+  [0.852726942846417, -0.5, 0.14068490768070657], [-0.852726942846417, 0.5, 0.14068490768070657], [-0.852726942846417, -0.5, 0.14068490768070657],
+  [0.0, 0.7894276266608697, -0.29415806382654863], [0.0, -0.7894276266608697, -0.29415806382654863], [0.5, 0.0, -0.6502535878992093],
+  [-0.5, 0.0, -0.6502535878992093], [-0.7957255978951867, -4.9960036108132046e-17, 1.0048323758097006],
+];
+
+const EDGES_J87_AUGMENTED_SPHENOCORONA: [number, number][] = [
+  [0, 1], [0, 2], [0, 4], [0, 6], [0, 10], [1, 3], [1, 5], [1, 7], [1, 10], [2, 3], [2, 6], [2, 8],
+  [3, 7], [3, 8], [4, 5], [4, 6], [4, 9], [4, 10], [5, 7], [5, 9], [5, 10], [6, 8], [6, 9], [7, 8],
+  [7, 9], [8, 9],
+];
+
+const FACES_J87_AUGMENTED_SPHENOCORONA: number[][] = [
+  [0, 4, 10], [4, 5, 10], [2, 3, 8], [8, 3, 7], [2, 8, 6], [0, 6, 4],
+  [2, 6, 0], [8, 7, 9], [7, 5, 9], [4, 9, 5], [6, 9, 4], [8, 9, 6],
+  [3, 1, 7], [7, 1, 5], [1, 10, 5], [1, 0, 10], [3, 2, 0, 1],
+];
+
+const VERTS_J88_SPHENOMEGACORONA: Vec3[] = [
+  [0.0, 0.5, 0.8039970125282965], [0.0, -0.5, 0.8039970125282965], [0.5946333356326186, 0.5, 0.0],
+  [0.5946333356326186, -0.5, 0.0], [-0.5946333356326186, 0.5, 0.0], [-0.5946333356326186, -0.5, 0.0],
+  [0.0, 1.283102338831278, 0.1821041544594952], [0.0, -1.283102338831278, 0.1821041544594952], [0.5, 0.0, -0.860839434381955],
+  [-0.5, 0.0, -0.860839434381955], [0.0, 0.8547430824890137, -0.7215043600565545], [0.0, -0.8547430824890137, -0.7215043600565545],
+];
+
+const EDGES_J88_SPHENOMEGACORONA: [number, number][] = [
+  [0, 1], [0, 2], [0, 4], [0, 6], [1, 3], [1, 5], [1, 7], [2, 3], [2, 6], [2, 8], [2, 10], [3, 7],
+  [3, 8], [3, 11], [4, 5], [4, 6], [4, 9], [4, 10], [5, 7], [5, 9], [5, 11], [6, 10], [7, 11], [8, 9],
+  [8, 10], [8, 11], [9, 10], [9, 11],
+];
+
+const FACES_J88_SPHENOMEGACORONA: number[][] = [
+  [2, 8, 10], [10, 9, 4], [8, 9, 10], [2, 3, 8], [2, 6, 0], [2, 10, 6],
+  [0, 6, 4], [6, 10, 4], [4, 9, 5], [8, 11, 9], [3, 7, 11], [8, 3, 11],
+  [11, 7, 5], [11, 5, 9], [3, 1, 7], [7, 1, 5], [3, 2, 0, 1], [1, 0, 4, 5],
+];
+
+const VERTS_J89_HEBESPHENOMEGACORONA: Vec3[] = [
+  [0.5, 0.5, 0.9762060878206991], [0.5, -0.5, 0.9762060878206991], [-0.5, 0.5, 0.9762060878206991],
+  [-0.5, -0.5, 0.9762060878206991], [0.7168448157134626, 0.5, 0.0], [0.7168448157134626, -0.5, 0.0],
+  [-0.7168448157134626, 0.5, 0.0], [-0.7168448157134626, -0.5, 0.0], [0.0, 1.1012960420472742, 0.35295407633715575],
+  [0.0, -1.1012960420472742, 0.35295407633715575], [0.5, 0.0, -0.838438027464281], [-0.5, 0.0, -0.838438027464281],
+  [0.0, 0.8356590717223656, -0.6111190536672962], [0.0, -0.8356590717223656, -0.6111190536672962],
+];
+
+const EDGES_J89_HEBESPHENOMEGACORONA: [number, number][] = [
+  [0, 1], [0, 2], [0, 4], [0, 8], [1, 3], [1, 5], [1, 9], [2, 3], [2, 6], [2, 8], [3, 7], [3, 9],
+  [4, 5], [4, 8], [4, 10], [4, 12], [5, 9], [5, 10], [5, 13], [6, 7], [6, 8], [6, 11], [6, 12], [7, 9],
+  [7, 11], [7, 13], [8, 12], [9, 13], [10, 11], [10, 12], [10, 13], [11, 12], [11, 13],
+];
+
+const FACES_J89_HEBESPHENOMEGACORONA: number[][] = [
+  [0, 4, 8], [4, 5, 10], [4, 10, 12], [4, 12, 8], [10, 11, 12], [8, 12, 6],
+  [12, 11, 6], [1, 3, 9], [5, 1, 9], [0, 8, 2], [8, 6, 2], [10, 13, 11],
+  [5, 9, 13], [10, 5, 13], [9, 3, 7], [13, 7, 11], [13, 9, 7], [6, 11, 7],
+  [4, 0, 1, 5], [1, 0, 2, 3], [2, 6, 7, 3],
+];
+
+const VERTS_J90_DISPHENOCINGULUM: Vec3[] = [
+  [0.5, 0.76713111398347, 0.4629476039153623], [-0.5, 0.76713111398347, 0.4629476039153623], [0.5, -0.76713111398347, 0.4629476039153623],
+  [-0.5, -0.76713111398347, 0.4629476039153623], [0.76713111398347, -0.5, -0.4629476039153623], [0.76713111398347, 0.5, -0.4629476039153623],
+  [-0.76713111398347, -0.5, -0.4629476039153623], [-0.76713111398347, 0.5, -0.4629476039153623], [0.5, 0.0, 1.1044379420799215],
+  [-0.5, 0.0, 1.1044379420799215], [0.0, -0.5, -1.1044379420799215], [0.0, 0.5, -1.1044379420799215],
+  [1.126483147078964, 0.0, 0.3250029759499455], [-1.126483147078964, 0.0, 0.3250029759499455], [0.0, -1.126483147078964, -0.3250029759499455],
+  [0.0, 1.126483147078964, -0.3250029759499455],
+];
+
+const EDGES_J90_DISPHENOCINGULUM: [number, number][] = [
+  [0, 1], [0, 5], [0, 8], [0, 12], [0, 15], [1, 7], [1, 9], [1, 13], [1, 15], [2, 3], [2, 4], [2, 8],
+  [2, 12], [2, 14], [3, 6], [3, 9], [3, 13], [3, 14], [4, 5], [4, 10], [4, 12], [4, 14], [5, 11], [5, 12],
+  [5, 15], [6, 7], [6, 10], [6, 13], [6, 14], [7, 11], [7, 13], [7, 15], [8, 9], [8, 12], [9, 13], [10, 11],
+  [10, 14], [11, 15],
+];
+
+const FACES_J90_DISPHENOCINGULUM: number[][] = [
+  [12, 8, 2], [2, 3, 14], [12, 0, 8], [0, 15, 1], [1, 7, 13], [15, 7, 1],
+  [12, 5, 0], [0, 5, 15], [3, 9, 13], [9, 1, 13], [7, 6, 13], [10, 14, 6],
+  [6, 3, 13], [14, 3, 6], [15, 11, 7], [5, 11, 15], [5, 12, 4], [4, 14, 10],
+  [12, 2, 4], [4, 2, 14], [2, 8, 9, 3], [8, 0, 1, 9], [11, 10, 6, 7], [5, 4, 10, 11],
+];
+
+const VERTS_J91_BILUNABIROTUNDA: Vec3[] = [
+  [0.0, 0.0, 0.8090169943749473], [0.0, 0.0, -0.8090169943749473], [0.5, 0.8090169943749473, 0.5],
+  [0.5, 0.8090169943749473, -0.5], [0.5, -0.8090169943749473, 0.5], [0.5, -0.8090169943749473, -0.5],
+  [-0.5, 0.8090169943749473, 0.5], [-0.5, 0.8090169943749473, -0.5], [-0.5, -0.8090169943749473, 0.5],
+  [-0.5, -0.8090169943749473, -0.5], [1.3090169943749475, 0.5, 0.0], [1.3090169943749475, -0.5, 0.0],
+  [-1.3090169943749475, 0.5, 0.0], [-1.3090169943749475, -0.5, 0.0],
+];
+
+const EDGES_J91_BILUNABIROTUNDA: [number, number][] = [
+  [0, 2], [0, 4], [0, 6], [0, 8], [1, 3], [1, 5], [1, 7], [1, 9], [2, 3], [2, 6], [2, 10], [3, 7],
+  [3, 10], [4, 5], [4, 8], [4, 11], [5, 9], [5, 11], [6, 7], [6, 12], [7, 12], [8, 9], [8, 13], [9, 13],
+  [10, 11], [12, 13],
+];
+
+const FACES_J91_BILUNABIROTUNDA: number[][] = [
+  [4, 0, 8], [3, 1, 7], [11, 4, 5], [10, 3, 2], [5, 9, 1], [9, 8, 13],
+  [6, 7, 12], [2, 6, 0], [10, 11, 5, 1, 3], [11, 10, 2, 0, 4], [7, 1, 9, 13, 12], [5, 4, 8, 9],
+  [2, 3, 7, 6], [8, 0, 6, 12, 13],
+];
+
+const VERTS_J92_TRIANGULAR_HEBESPHENOROTUNDA: Vec3[] = [
+  [0.0, -0.5773502691896257, 1.5115226281523415], [0.5, 0.2886751345948127, 1.5115226281523415], [-0.49999999999999983, 0.28867513459481303, 1.5115226281523415],
+  [1.3090169943749475, 0.17841104488654497, 0.9341723589627158], [-0.8090169943749471, 1.0444364486709836, 0.9341723589627158], [-0.5000000000000004, -1.2228474935575282, 0.9341723589627158],
+  [-1.3090169943749475, 0.17841104488654497, 0.9341723589627158], [0.8090169943749471, 1.0444364486709836, 0.9341723589627158], [0.5000000000000004, -1.2228474935575282, 0.9341723589627158],
+  [1.3090169943749475, -0.7557613140761708, 0.5773502691896257], [3.592757177872429e-16, 1.5115226281523413, 0.5773502691896257], [-1.3090169943749475, -0.75576131407617, 0.5773502691896257],
+  [0.9999999999999998, 0.0, 0.0], [-0.4999999999999997, 0.8660254037844385, 0.0], [-0.5000000000000002, -0.8660254037844382, 0.0],
+  [-0.9999999999999998, 0.0, 0.0], [0.4999999999999997, 0.8660254037844385, 0.0], [0.5000000000000002, -0.8660254037844382, 0.0],
+];
+
+const EDGES_J92_TRIANGULAR_HEBESPHENOROTUNDA: [number, number][] = [
+  [0, 1], [0, 2], [0, 5], [0, 8], [1, 2], [1, 3], [1, 7], [2, 4], [2, 6], [3, 7], [3, 9], [3, 12],
+  [4, 6], [4, 10], [4, 13], [5, 8], [5, 11], [5, 14], [6, 11], [6, 15], [7, 10], [7, 16], [8, 9], [8, 17],
+  [9, 12], [9, 17], [10, 13], [10, 16], [11, 14], [11, 15], [12, 16], [12, 17], [13, 15], [13, 16], [14, 15], [14, 17],
+];
+
+const FACES_J92_TRIANGULAR_HEBESPHENOROTUNDA: number[][] = [
+  [12, 3, 9], [14, 5, 11], [8, 0, 5], [12, 9, 17], [9, 8, 17], [7, 16, 10],
+  [14, 11, 15], [6, 15, 11], [2, 4, 6], [10, 16, 13], [10, 13, 4], [3, 7, 1],
+  [1, 2, 0], [17, 8, 5, 14], [3, 12, 16, 7], [5, 0, 2, 6, 11], [16, 12, 17, 14, 15, 13], [4, 13, 15, 6],
+  [9, 3, 1, 0, 8], [1, 7, 10, 4, 2],
+];
+
+
+// ---------------------------------------------------------------------------
 // batch 10 (2026-09-09) -- augmented truncated cube (J66), correcting
 // batch 8's excluded attempt
 // ---------------------------------------------------------------------------
@@ -2783,6 +3014,70 @@ export const JOHNSON_ADDITIONS: Record<string, PolyhedronSpec> = {
     VERTS_J79_BIGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON,
     EDGES_J79_BIGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON,
     FACES_J79_BIGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON,
+  ),
+  J85_SNUB_SQUARE_ANTIPRISM: makeSpec(
+    'J85_SNUB_SQUARE_ANTIPRISM',
+    'snub_square_antiprism',
+    26,
+    VERTS_J85_SNUB_SQUARE_ANTIPRISM,
+    EDGES_J85_SNUB_SQUARE_ANTIPRISM,
+    FACES_J85_SNUB_SQUARE_ANTIPRISM,
+  ),
+  J86_SPHENOCORONA: makeSpec(
+    'J86_SPHENOCORONA',
+    'sphenocorona',
+    14,
+    VERTS_J86_SPHENOCORONA,
+    EDGES_J86_SPHENOCORONA,
+    FACES_J86_SPHENOCORONA,
+  ),
+  J87_AUGMENTED_SPHENOCORONA: makeSpec(
+    'J87_AUGMENTED_SPHENOCORONA',
+    'augmented_sphenocorona',
+    17,
+    VERTS_J87_AUGMENTED_SPHENOCORONA,
+    EDGES_J87_AUGMENTED_SPHENOCORONA,
+    FACES_J87_AUGMENTED_SPHENOCORONA,
+  ),
+  J88_SPHENOMEGACORONA: makeSpec(
+    'J88_SPHENOMEGACORONA',
+    'sphenomegacorona',
+    18,
+    VERTS_J88_SPHENOMEGACORONA,
+    EDGES_J88_SPHENOMEGACORONA,
+    FACES_J88_SPHENOMEGACORONA,
+  ),
+  J89_HEBESPHENOMEGACORONA: makeSpec(
+    'J89_HEBESPHENOMEGACORONA',
+    'hebesphenomegacorona',
+    21,
+    VERTS_J89_HEBESPHENOMEGACORONA,
+    EDGES_J89_HEBESPHENOMEGACORONA,
+    FACES_J89_HEBESPHENOMEGACORONA,
+  ),
+  J90_DISPHENOCINGULUM: makeSpec(
+    'J90_DISPHENOCINGULUM',
+    'disphenocingulum',
+    24,
+    VERTS_J90_DISPHENOCINGULUM,
+    EDGES_J90_DISPHENOCINGULUM,
+    FACES_J90_DISPHENOCINGULUM,
+  ),
+  J91_BILUNABIROTUNDA: makeSpec(
+    'J91_BILUNABIROTUNDA',
+    'bilunabirotunda',
+    14,
+    VERTS_J91_BILUNABIROTUNDA,
+    EDGES_J91_BILUNABIROTUNDA,
+    FACES_J91_BILUNABIROTUNDA,
+  ),
+  J92_TRIANGULAR_HEBESPHENOROTUNDA: makeSpec(
+    'J92_TRIANGULAR_HEBESPHENOROTUNDA',
+    'triangular_hebesphenorotunda',
+    20,
+    VERTS_J92_TRIANGULAR_HEBESPHENOROTUNDA,
+    EDGES_J92_TRIANGULAR_HEBESPHENOROTUNDA,
+    FACES_J92_TRIANGULAR_HEBESPHENOROTUNDA,
   ),
   J49_AUGMENTED_TRIANGULAR_PRISM: makeSpec(
     'J49_AUGMENTED_TRIANGULAR_PRISM',

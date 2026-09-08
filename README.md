@@ -49,8 +49,8 @@ trailing sections for what's actually shipped versus what's still ahead.
 This list is intentionally open-ended, describing the project's
 direction rather than a feature checklist — so the README doesn't need
 rewriting every time a new capability lands. **"What's here now" below
-is the ground truth for what's actually shipped today**; Johnson solids
-are in progress (79 of 92 so far), Catalan solids just started (2 of 13
+is the ground truth for what's actually shipped today**; Johnson
+solids are complete (92 of 92), Catalan solids just started (2 of 13
 so far), and lattice construction / interpenetrating structures are
 still direction, not yet delivered.
 
@@ -89,7 +89,7 @@ Since then:
   script's tolerance without the shapes themselves being wrong — all
   worked examples in `docs/build-plan.md` of why every claim here gets a
   computational cross-check rather than trust.
-- **79 of 92 Johnson solids so far**, in batches, each with a full
+- **All 92 of 92 Johnson solids — complete**, in batches, each with a full
   postmortem in `docs/build-plan.md`. Batches 1-6 built the pyramids,
   cupolas, rotunda, and every elongated/gyroelongated/bicupola/
   augmented-prism form of them (34 shapes) — along the way, verifying
@@ -152,12 +152,20 @@ Since then:
   scratch and self-checked each operation against already-registered
   shapes (exact match to J72/J73/J76) before trusting it for J79
   itself. 5 of the 92 are already deltahedra in this registry (D6/D10/
-  D12/D14/D16) and aren't re-derived. Exactly 8 shapes remain (J85-
-  J92, the "elementary" Johnson solids — computed directly from the
-  registry, not estimated) — see `docs/johnson-solids-remaining-spec.md`'s
-  corrected Group 4 section: 6 of the 8 have a published polynomial
-  root `numpy.roots()` (already installed, nothing new needed) handles
-  directly; the other 2 are pure golden-ratio closed forms.
+  D12/D14/D16) and aren't re-derived. **Batch 12 completed the family**:
+  the 8 "elementary" Johnson solids (J85-J92) each needed a *published*
+  external polynomial or golden-ratio closed form rather than an
+  operation on an already-registered piece — solved directly with
+  `numpy.roots()` (already installed, nothing new needed), no general
+  nonlinear geometric solver required after all. Two real findings
+  surfaced only during construction: J85 (snub square antiprism) is
+  **achiral** despite its name (a genuine rotation maps its mirror
+  image exactly onto itself, confirmed not assumed); J90
+  (disphenocingulum)'s own Wikipedia source under-specifies its
+  symmetry group (states only 2 reflections, which can't reach its
+  own stated vertex count from 3 points) — resolved by finding and
+  verifying the missing S4 rotoreflection generator directly. **All 92
+  Johnson solids are now in this registry.**
   First shape in this registry that isn't vertex-transitive: J1's apex
   has degree 4 while its base vertices have degree 3. First with no
   degree-3 vertex at all: J10 (only degree 4 and 5).
@@ -227,7 +235,7 @@ polyhedraverse/
         deltahedra.ts    # the 8 deltahedra, verified against a convex hull
         platonic.ts      # cube + dodecahedron (the 2 Platonic solids not already deltahedra)
         archimedean.ts   # all 13 Archimedean solids
-        johnson.ts       # 79 of 92 Johnson solids so far
+        johnson.ts       # all 92 Johnson solids -- complete
         catalan.ts       # 2 of 13 Catalan solids so far (rhombic dodecahedron, rhombic triacontahedron)
         rewrite.ts       # D10<->D12 vertex-matching (pure function, no three.js)
         index.ts         # combined POLYHEDRA / POLYHEDRON_IDS across every family
@@ -246,7 +254,7 @@ polyhedraverse/
     construction-kit-spec.md    # the vertex-snapping design law + extensibility notes
     catalan-solids-spec.md      # scoping + design record for the Catalan solids family (2/13 done)
     prisms-antiprisms-spec.md   # scoping + design record for prisms/antiprisms (14/14 done)
-    johnson-solids-remaining-spec.md  # alternative construction protocols for the remaining Johnson solids (Groups 1-3, 8 shapes, fixed)
+    johnson-solids-remaining-spec.md  # alternative construction protocols -- all 4 groups (21 shapes) fixed, Johnson solids complete
     johnson-solids-constructions.md   # human-readable directory of those same 8 constructions, alongside data/johnson-solids-hard-constructions.json
     vercel-deployment-plan.md   # planned repo/Vercel layout once this deploys
   playwright.config.ts
@@ -276,24 +284,23 @@ cutoff the way Catalan solids' 13 or Johnson's 92 have one) — capped at
 n=10, 14 shapes, all now in the registry.
 `docs/johnson-solids-remaining-spec.md` diagnosed the 21 Johnson solids
 that were originally missing, grouped simplest-first by how well the
-failure was understood: **Groups 1-3 are all done** — Group 1 (J66-
-J71, all 6) shared one root cause (a specific cupola registration
+failure was understood, and **all 4 groups are now done**: Group 1
+(J66-J71, all 6) shared one root cause (a specific cupola registration
 detail, confirmed via external research, not guessed); Group 2 (J64)
 needed an entirely different construction than what was tried (a
 tetrahedron on a triangle, not a pyramid on a pentagon); Group 3 (J79)
 turned out to be the same class of mistake as Group 2 — the "fix"
 this doc first proposed (trace the transform, assuming the plan was
 already right) was itself built on a misreading of the same external
-source, corrected in batch 11 once re-read precisely. Only Group 4
-remains: exactly 8 shapes (J85-J92, not the "~13-15" earlier
-estimates), and the tooling gap was overstated too — 6 of the 8 need
-only `numpy.roots()` (already installed) on a published polynomial,
-the other 2 are pure golden-ratio closed forms needing no root-finding
-at all. See the doc's own corrected Group 4 section for the full
-per-shape breakdown.
-`docs/johnson-solids-constructions.md` distills the 8 Groups 1-3
+source, corrected in batch 11 once re-read precisely; Group 4 (J85-
+J92, batch 12) turned out not to need the "genuinely new
+numerical-solver tooling" originally assumed — 6 of the 8 needed only
+`numpy.roots()` (already installed) on a published polynomial, the
+other 2 pure golden-ratio closed forms. **All 92 Johnson solids are
+now in this registry.**
+`docs/johnson-solids-constructions.md` distills all 16 Groups 1-4
 shapes' construction recipes into a standalone reference (base
-shape(s), target-face selection rule, registration parameter, and
+shape(s), defining polynomial or target-face rule, key parameter, and
 verification method for each), alongside a machine-readable open-data
 companion, `data/johnson-solids-hard-constructions.json` — every field
 in it cross-checked against this registry's own live `POLYHEDRA` data
