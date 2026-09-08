@@ -21,10 +21,14 @@
  * follow-up direction.
  *
  * Scope note: this first pass is the wheel SHELL plus the SHAPE PICKER
- * only (family-grouped: deltahedra/Platonic/Archimedean/Johnson), per
- * explicit user direction to build that before folding in actions
- * (augment/diminish), view modes (Spherical/X-Ray), or the corner HUD
- * element above.
+ * only (family-grouped: deltahedra/Platonic/Archimedean/Johnson/Catalan/
+ * Prisms & antiprisms), per explicit user direction to build that before
+ * folding in actions (augment/diminish), view modes (Spherical/X-Ray),
+ * or the corner HUD element above. 6 families fit comfortably within the
+ * dodecahedron's 12 faces at the family-selection level (one family per
+ * face, 6 spare) -- see `resolveSlots`'s `level.kind === 'families'`
+ * branch, which maps `FAMILIES` 1:1 onto face slots with no change
+ * needed as families are added.
  *
  * Geometry: reuses this registry's own POLYHEDRA.DODECAHEDRON spec
  * directly (vertices + faces already unit-edge, already validated) —
@@ -41,6 +45,8 @@ import {
   PLATONIC_ADDITION_IDS,
   ARCHIMEDEAN_ADDITION_IDS,
   JOHNSON_ADDITION_IDS,
+  CATALAN_ADDITION_IDS,
+  PRISM_ANTIPRISM_ADDITION_IDS,
   triangulateFace,
   buildFaceConnectors,
   type Vec3,
@@ -122,6 +128,8 @@ const FAMILIES: Family[] = [
   { key: 'PLATONIC', label: 'Platonic', symbol: '◇', ids: sortByFaceType(PLATONIC_ADDITION_IDS) },
   { key: 'ARCHIMEDEAN', label: 'Archimedean', symbol: '⬡', ids: sortByFaceType(ARCHIMEDEAN_ADDITION_IDS) },
   { key: 'JOHNSON', label: 'Johnson', symbol: '⛛', ids: sortByFaceType(JOHNSON_ADDITION_IDS) },
+  { key: 'CATALAN', label: 'Catalan', symbol: '⬦', ids: sortByFaceType(CATALAN_ADDITION_IDS) },
+  { key: 'PRISMS', label: 'Prisms', symbol: '▱', ids: sortByFaceType(PRISM_ANTIPRISM_ADDITION_IDS) },
 ];
 
 // 12 faces available; family level always fits (4 populated + 8 spare).

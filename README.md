@@ -211,7 +211,8 @@ polyhedraverse/
     build-plan.md               # the build plan, with how each stage was verified
     construction-kit-spec.md    # the vertex-snapping design law + extensibility notes
     catalan-solids-spec.md      # scoping + design record for the Catalan solids family (2/13 done)
-    prisms-antiprisms-spec.md   # scoping for the last piece of Zalgaller's classification, not yet implemented
+    prisms-antiprisms-spec.md   # scoping + design record for prisms/antiprisms (14/14 done)
+    johnson-solids-remaining-spec.md  # alternative construction protocols for the 21 remaining Johnson solids
     vercel-deployment-plan.md   # planned repo/Vercel layout once this deploys
   playwright.config.ts
 ```
@@ -230,13 +231,23 @@ infrastructure (non-uniform edge lengths, irregular-polygon face-attach
 registration) rather than dropping into the existing "regular,
 unit-edge" pipeline unchanged, and a real bug found while building the
 first two (face-vertex-0 needing a consistent geometric role, not just
-a consistent index). `docs/prisms-antiprisms-spec.md` scopes the last
-piece of Zalgaller's classification still missing from this registry —
-prisms/antiprisms are used constantly as construction detail inside
-Johnson-solid builds but never registered as their own shapes; unlike
-Catalan solids this needs no new infrastructure, just a scope decision
-(the family is genuinely infinite, with no natural n cutoff the way
-Catalan solids' 13 or Johnson's 92 have one).
+a consistent index). `docs/prisms-antiprisms-spec.md` scopes and records
+the last piece of Zalgaller's classification that was missing from this
+registry — prisms/antiprisms were used constantly as construction
+detail inside Johnson-solid builds but never registered as their own
+shapes; unlike Catalan solids this needed no new infrastructure, just a
+scope decision (the family is genuinely infinite, with no natural n
+cutoff the way Catalan solids' 13 or Johnson's 92 have one) — capped at
+n=10, 14 shapes, all now in the registry.
+`docs/johnson-solids-remaining-spec.md` diagnoses the 21 Johnson solids
+still missing, grouped simplest-first by how well the failure is
+understood: 6 (J66-J71) likely share one root cause (a specific cupola
+registration detail, confirmed via external research, not guessed); 1
+(J64) turned out to need an entirely different construction than what
+was tried (a tetrahedron on a triangle, not a pyramid on a pentagon); 1
+(J79) has the right construction plan already but an undiagnosed
+execution bug; the remaining ~15 need genuinely new numerical-solver
+tooling this registry doesn't have yet.
 `docs/vercel-deployment-plan.md` records the intended repo/Vercel
 layout for when this deploys alongside Rhombiverse.
 

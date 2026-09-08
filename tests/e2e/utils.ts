@@ -1,5 +1,12 @@
 import type { Page } from '@playwright/test';
-import { DELTAHEDRON_IDS, PLATONIC_ADDITION_IDS, ARCHIMEDEAN_ADDITION_IDS, JOHNSON_ADDITION_IDS } from '../../app/lib/polyhedra';
+import {
+  DELTAHEDRON_IDS,
+  PLATONIC_ADDITION_IDS,
+  ARCHIMEDEAN_ADDITION_IDS,
+  JOHNSON_ADDITION_IDS,
+  CATALAN_ADDITION_IDS,
+  PRISM_ANTIPRISM_ADDITION_IDS,
+} from '../../app/lib/polyhedra';
 
 export async function getCanvasCenter(page: Page): Promise<{ cx: number; cy: number }> {
   // Scoped to <main> specifically -- CornerHudWheel mounts its own small
@@ -16,6 +23,8 @@ export const WHEEL_FAMILIES: { label: string; ids: string[] }[] = [
   { label: 'Platonic', ids: PLATONIC_ADDITION_IDS },
   { label: 'Archimedean', ids: ARCHIMEDEAN_ADDITION_IDS },
   { label: 'Johnson', ids: JOHNSON_ADDITION_IDS },
+  { label: 'Catalan', ids: CATALAN_ADDITION_IDS },
+  { label: 'Prisms', ids: PRISM_ANTIPRISM_ADDITION_IDS },
 ];
 
 /**
@@ -104,9 +113,9 @@ export const CONTENT_FACES_PER_PAGE = 11; // must match PolyhedralWheel.tsx's ow
 
 /**
  * Like clickWheelLabel, but also pages forward (clicking "More") when a
- * family's shape list overflows a single 12-face wheel -- only Archimedean
- * does today (13 shapes), but Johnson will too as later batches grow it
- * past 11.
+ * family's shape list overflows a single 12-face wheel -- Archimedean (13),
+ * Johnson (71 so far), and now Prisms (14) all do; Catalan (2) doesn't yet
+ * but will as later batches grow it past 11.
  */
 export async function clickWheelLabelPaged(page: Page, text: string, familyIds: string[]): Promise<void> {
   const pages = familyIds.length > CONTENT_FACES_PER_PAGE ? Math.ceil(familyIds.length / CONTENT_FACES_PER_PAGE) : 1;
