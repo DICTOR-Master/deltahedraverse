@@ -1468,6 +1468,70 @@ const FACES_J63_TRIDIMINISHED_ICOSAHEDRON: number[][] = [
 ];
 
 // ---------------------------------------------------------------------------
+// batch 8 (2026-09-08) -- augmented truncated tetrahedron (a single shape;
+// see below for what was tried and rejected)
+// ---------------------------------------------------------------------------
+
+/**
+ * 1 more Johnson solid: augmented truncated tetrahedron (J65) -- a
+ * triangular cupola (J3) glued onto one of the truncated tetrahedron's
+ * 4 hexagonal faces, with the cupola cap built fresh from the target
+ * face's own actual vertices (measured base ring, centroid, and outward
+ * normal, cap placed at the closed-form cupola height above the
+ * angular midpoint of each base edge) rather than grafted from a
+ * separately-built piece -- guaranteeing correct rotational
+ * registration by construction. Faces come from a real
+ * `scipy.spatial.ConvexHull`. Checked beyond the usual edge-length/
+ * Euler tests: every face's diagonals were measured directly (a true
+ * square has equal diagonals of sqrt(2); a rhombus with unit edges but
+ * a different angle does not) -- J65's 3 side squares are genuine
+ * squares, confirmed, not merely uniform-edge quadrilaterals.
+ *
+ * **J66-J71 (augmented/biaugmented truncated cube, augmented/
+ * parabiaugmented/metabiaugmented/triaugmented truncated dodecahedron)
+ * were attempted with the exact same method and method-level self-
+ * checks (Euler's formula, uniform edge length) as J65 -- all appeared
+ * to pass -- but a diagonal check caught a real problem edge-length
+ * checks alone cannot see: several of the "extra" quadrilateral faces
+ * these constructions produce (where a cupola's own lateral triangle
+ * ends up exactly coplanar with an adjacent pre-existing triangle of
+ * the truncated cube/dodecahedron, and the convex hull correctly merges
+ * the pair into one face) turn out to be RHOMBI with unit edges but
+ * unequal diagonals (sqrt(3) and 1, not sqrt(2) and sqrt(2)) -- not
+ * squares at all. A shape with even one non-regular face isn't a
+ * Johnson solid, no matter how uniform its edges are. This was first
+ * caught by `verify:face-attach`/`verify:face-twist`'s strict
+ * cross-shape tolerance (not the construction's own self-checks), then
+ * confirmed directly by measuring diagonals on every affected face --
+ * J66-J69 all have this contamination (J66: 4 of 9 quads are rhombi;
+ * J67: 8 of 18; J68: 5 of 10; J69: 10 of 30), while J65 (the one
+ * accepted) has none. Whatever makes the truncated-cube/dodecahedron
+ * cases different from the truncated-tetrahedron case geometrically is
+ * not yet understood well enough to fix confidently -- rather than
+ * guess at a correction, J66-J71 are left out of this batch entirely.
+ * A genuinely important general lesson for this registry, not just this
+ * batch: **edge-length uniformity is necessary but not sufficient to
+ * confirm a face is a regular polygon** -- a rhombus, a kite, and a
+ * square can all have four unit edges. Every future "merged/coplanar
+ * quad" claim in this codebase should be checked by diagonal (or
+ * interior-angle) measurement, not edge length alone.
+ */
+
+const VERTS_J65_AUGMENTED_TRUNCATED_TETRAHEDRON: Vec3[] = [
+  [-1.0606601717798212, -0.35355339059327373, 0.35355339059327373], [-1.0606601717798212, 0.35355339059327373, -0.35355339059327373], [-0.3535533905932738, -1.0606601717798212, 0.35355339059327373],
+  [-0.3535533905932738, -0.35355339059327373, 1.0606601717798212], [-0.3535533905932738, 0.35355339059327373, -1.0606601717798212], [-0.3535533905932738, 1.0606601717798212, -0.35355339059327373],
+  [0.3535533905932737, -1.0606601717798212, -0.35355339059327373], [0.3535533905932737, -0.35355339059327373, -1.0606601717798212], [0.3535533905932737, 0.35355339059327373, 1.0606601717798212],
+  [0.3535533905932737, 1.0606601717798212, 0.35355339059327373], [1.0606601717798212, -0.35355339059327373, -0.35355339059327373], [1.0606601717798212, 0.35355339059327373, 0.35355339059327373],
+  [-0.5892556509887895, -0.5892556509887894, -1.296362432175337], [-0.5892556509887896, -1.2963624321753369, -0.5892556509887894], [-1.296362432175337, -0.5892556509887894, -0.5892556509887894],
+];
+const EDGES_J65_AUGMENTED_TRUNCATED_TETRAHEDRON: [number, number][] = [
+  [0, 1], [0, 2], [0, 3], [0, 14], [1, 4], [1, 5], [1, 14], [2, 3], [2, 6], [2, 13], [3, 8], [4, 5], [4, 7], [4, 12], [5, 9], [6, 7], [6, 10], [6, 13], [7, 10], [7, 12], [8, 9], [8, 11], [9, 11], [10, 11], [12, 13], [12, 14], [13, 14],
+];
+const FACES_J65_AUGMENTED_TRUNCATED_TETRAHEDRON: number[][] = [
+  [12, 13, 14], [1, 14, 0], [11, 9, 8], [7, 12, 4], [5, 4, 1], [10, 6, 7], [2, 3, 0], [6, 2, 13], [3, 8, 9, 5, 1, 0], [11, 10, 7, 4, 5, 9], [4, 12, 14, 1], [7, 6, 13, 12], [13, 2, 0, 14], [10, 11, 8, 3, 2, 6],
+];
+
+// ---------------------------------------------------------------------------
 // registry
 // ---------------------------------------------------------------------------
 
@@ -1703,6 +1767,14 @@ export const JOHNSON_ADDITIONS: Record<string, PolyhedronSpec> = {
     VERTS_J63_TRIDIMINISHED_ICOSAHEDRON,
     EDGES_J63_TRIDIMINISHED_ICOSAHEDRON,
     FACES_J63_TRIDIMINISHED_ICOSAHEDRON,
+  ),
+  J65_AUGMENTED_TRUNCATED_TETRAHEDRON: makeSpec(
+    'J65_AUGMENTED_TRUNCATED_TETRAHEDRON',
+    'augmented_truncated_tetrahedron',
+    14,
+    VERTS_J65_AUGMENTED_TRUNCATED_TETRAHEDRON,
+    EDGES_J65_AUGMENTED_TRUNCATED_TETRAHEDRON,
+    FACES_J65_AUGMENTED_TRUNCATED_TETRAHEDRON,
   ),
   J49_AUGMENTED_TRIANGULAR_PRISM: makeSpec(
     'J49_AUGMENTED_TRIANGULAR_PRISM',

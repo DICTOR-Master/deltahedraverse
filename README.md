@@ -48,7 +48,7 @@ This list is intentionally open-ended, describing the project's
 direction rather than a feature checklist — so the README doesn't need
 rewriting every time a new capability lands. **"What's here now" below
 is the ground truth for what's actually shipped today**; Johnson solids
-are in progress (59 of 92 so far), and lattice construction /
+are in progress (60 of 92 so far), and lattice construction /
 interpenetrating structures are still direction, not yet delivered.
 
 ## What's here now
@@ -86,7 +86,7 @@ Since then:
   script's tolerance without the shapes themselves being wrong — all
   worked examples in `docs/build-plan.md` of why every claim here gets a
   computational cross-check rather than trust.
-- **59 of 92 Johnson solids so far**, in batches, each with a full
+- **60 of 92 Johnson solids so far**, in batches, each with a full
   postmortem in `docs/build-plan.md`: (1) the two simple pyramids, three
   cupolas, and pentagonal rotunda — the rotunda derived directly from
   this registry's own icosidodecahedron, genuinely half of one; (2)
@@ -120,12 +120,23 @@ Since then:
   actually is, it isn't that — the same "decline to claim an unconfident
   construction" standard as batch 3's excluded gyrobirotunda. 5 of the
   92 are already deltahedra in this registry (D6/D10/D12/D14/D16) and
-  aren't re-derived. The remaining ~2 dozen composite (gyrate/diminished
-  rhombicosidodecahedra, augmented truncated Archimedean solids) and ~15
-  no-closed-form solids are still ahead. First shape in this registry
-  that isn't vertex-
-  transitive: J1's apex has degree 4 while its base vertices have degree
-  3. First with no degree-3 vertex at all: J10 (only degree 4 and 5).
+  aren't re-derived; (8) augmented truncated tetrahedron (J65), the one
+  survivor of an attempted 6-shape batch — J66-J71 (augmented truncated
+  cube/dodecahedron variants) all passed every check this registry had
+  used through batch 7 (Euler's formula, uniform edge length) and were
+  still wrong: some of their "extra" merged quadrilateral faces turned
+  out to be rhombi (unit edges, unequal diagonals) rather than true
+  squares, caught only by `verify:face-attach`/`verify:face-twist`'s
+  stricter cross-shape tolerance. **Edge-length uniformity alone doesn't
+  confirm a face is regular** — a rhombus and a square can have
+  identical edges — the clearest lesson yet for why this registry treats
+  the full cross-shape verify suite as required, not optional, for every
+  batch. The remaining ~2 dozen composite (gyrate/diminished
+  rhombicosidodecahedra, the rest of the augmented truncated Archimedean
+  solids) and ~15 no-closed-form solids are still ahead. First shape in
+  this registry that isn't vertex-transitive: J1's apex has degree 4
+  while its base vertices have degree 3. First with no degree-3 vertex
+  at all: J10 (only degree 4 and 5).
 - **Pick, attach, twist, confirm/cancel** — hover a vertex to see its
   capacity, pick a shape to attach, drag to twist it around the one
   remaining rotational degree of freedom, then confirm or cancel.

@@ -1249,8 +1249,81 @@ and lint clean, `verify:attach` (144,402), `verify:twist` (121,032),
 `verify:face-attach` (1,224,187, 0 failures), `verify:face-twist`
 (14,962, 0 failures), and the full Playwright suite on dicto-node.
 
-Still outstanding for Johnson solids: 33 remain (92 - 59) — J64's
-status stays genuinely unresolved (see above); augmented truncated
-Archimedean solids (J65-J71) next, then gyrate/diminished
+Still outstanding for Johnson solids at this point: 33 remain (92 - 59)
+— J64's status stays genuinely unresolved (see above); augmented
+truncated Archimedean solids (J65-J71) next, then gyrate/diminished
 rhombicosidodecahedra (J72-J83), then the ~15 with no closed form at
 all, saved for last.
+
+## Johnson solids — augmented truncated tetrahedron, and a real construction dead end (2026-09-08)
+
+1 more Johnson solid, bringing the family to 60/92: augmented truncated
+tetrahedron (J65) — a triangular cupola (J3) glued onto one of the
+truncated tetrahedron's 4 hexagonal faces, the cupola cap built fresh
+from the target face's own actual vertices (measured base ring,
+centroid, and outward normal, cap placed at the closed-form cupola
+height above the angular midpoint of each base edge) rather than
+grafted from a separately-built piece — guaranteeing correct rotational
+registration by construction, applying batch 5's cross-registration
+lesson proactively instead of after the fact.
+
+**J66-J71 were attempted with the identical method and appeared to pass
+every check this registry had used up to this point — and were still
+wrong.** Augmented (J66) and biaugmented (J67) truncated cube (square
+cupola on one/two octagons), and augmented/parabiaugmented/
+metabiaugmented/triaugmented truncated dodecahedron (J68-J71,
+pentagonal cupola on one to three decagons) all passed Euler's formula
+and uniform-edge-length checks — the same two checks that had caught
+every real construction bug in batches 1-7. All six were initially
+accepted. Only `verify:face-attach`/`verify:face-twist`'s strict
+cross-shape tolerance caught the actual problem, on J67 and J69's
+"extra" quadrilateral faces (formed where a cupola's own lateral
+triangle happens to be exactly coplanar with an adjacent pre-existing
+triangle of the truncated solid, and the convex hull correctly merges
+the pair into one face). Direct measurement — comparing each
+quadrilateral's two diagonals, not just its four edges — showed these
+merged faces are **rhombi with unit edges but unequal diagonals**
+(sqrt(3) and 1, not sqrt(2) and sqrt(2) the way a real square's
+diagonals must match): visually and dimensionally close to a square,
+but not a regular polygon, which disqualifies the whole shape from
+being a Johnson solid no matter how uniform its edges are. Checking all
+six systematically: J66 has 4 rhombi among 9 quads, J67 has 8 among 18,
+J68 has 5 among 10, J69 has 10 among 30 — J65 (the one shape kept) has
+zero. Whatever makes the truncated-cube/dodecahedron cases
+geometrically different from the truncated-tetrahedron case isn't
+understood well enough yet to fix with confidence, so J66-J71 are left
+out of this batch entirely — the same standard as batch 3's excluded
+gyrobirotunda and batch 7's excluded J64, applied here to six shapes
+at once rather than one.
+
+**The general lesson is worth stating plainly, since it could recur in
+any future batch that involves face-merging**: edge-length uniformity
+is necessary but not sufficient to confirm a face is a regular polygon
+— a rhombus, a kite, and a square can all have four unit edges. This
+registry's own `validateShape()` (in `core.ts`) only checks edge
+lengths and V/E/F counts, by design (it's meant to be fast and
+family-agnostic) — it is *not* a substitute for the slower, genuinely
+authoritative `verify:face-attach`/`verify:face-twist` cross-shape
+checks, which is exactly why those two scripts are run as a required
+step for every batch, not an optional extra. This batch is the first
+time that distinction actually mattered: every prior batch's
+self-checks and the full verify suite agreed, so it was easy to treat
+them as interchangeable. They are not. Any future "these two faces
+merged into one, and that's fine" claim in this codebase needs a
+diagonal or interior-angle measurement before being trusted, not just
+an edge-length check.
+
+Verified end to end: `validate-johnson.ts` (all 60 OK), `tsc --noEmit`
+and lint clean, `verify:attach` (147,408), `verify:twist` (124,002),
+`verify:rewrite`, `verify:graph`, `verify:face-connectors` (5,468),
+`verify:face-attach` (1,243,089, 0 failures after removing J66-J71),
+`verify:face-twist` (15,385, 0 failures after removing J66-J71), and
+the full Playwright suite on dicto-node.
+
+Still outstanding for Johnson solids: 32 remain (92 - 60) — J66-J71 and
+J64 all stay genuinely unresolved (documented above and in the prior
+section, not silently missing); the augmented truncated cube/
+dodecahedron rhombus problem is worth a dedicated investigation before
+the next attempt, rather than retrying the same construction. Gyrate/
+diminished rhombicosidodecahedra (J72-J83) are next in priority order
+regardless, then the ~15 with no closed form at all, saved for last.
