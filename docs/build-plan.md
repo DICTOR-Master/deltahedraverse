@@ -906,9 +906,111 @@ Verified end to end: `validate-johnson.ts` (all 27 OK), lint/tsc clean,
 (409,554, 0 failures on the first run), `verify:face-twist` (4,770), and
 the full Playwright suite (16/16) on both this machine and dicto-node.
 
-Still outstanding for Johnson solids: 65 remain (92 - 27) — the
-remaining augmented/diminished/gyrate composites next (including
+Still outstanding for Johnson solids at this point: 65 remain (92 - 27)
+— the remaining augmented/diminished/gyrate composites next (including
 resolving whether "pentagonal gyrobirotunda" above is real and just
 needs a name, or genuinely isn't part of the 92), then the ~15 with no
 closed form at all (genuine numerical optimization needed), saved for
+last.
+
+## Johnson solids — elongated bipyramids and the gyrobifastigium (2026-09-08)
+
+4 more Johnson solids, bringing the family to 31/92: J14/J15/J16
+(elongated triangular/square/pentagonal bipyramid) and J26
+(gyrobifastigium). These fill a numbering gap deliberately skipped by
+the first three batches — J1-J11/J18-J25 covered pyramids and cupolas
+(not bipyramids), and J27-J34 covered bicupola/cupola-rotunda compounds
+(also not bipyramids). J12/J13/J17 (the plain, non-elongated bipyramids)
+are already in the registry as deltahedra D6/D10/D16 and were never
+re-derived, which is why this specific trio of *elongated* bipyramids
+had been left for later rather than being bundled into batch 2's
+elongation work.
+
+**Elongated bipyramids (J14-J16)**: an n-gon prism (bottom ring z=0, top
+ring z=1, no twist between them) capped with a pyramid apex above and
+below, using the exact same closed-form apex-height equation as J1/J2:
+`h = sqrt(1 - R_n^2)`. This only has a real solution for n=3/4/5 — n=6
+would need R_6=1 exactly, giving h=0 (a degenerate flat "apex" coplanar
+with the hexagon), which is the actual reason there's no hexagonal
+bipyramid Johnson solid: at n=6 the two apexes collapse into the ring
+itself instead of forming genuine triangular faces.
+
+**Gyrobifastigium (J26)**: two unit triangular prisms (equilateral
+triangle cross-section, extrusion length 1 — with those proportions all
+3 lateral faces are already unit squares, not just the 2 triangular
+ends) glued together at one shared square face, with the second prism
+rotated 90° relative to the first before gluing. The *ortho* pairing
+(gluing unrotated) was checked too, via the same convex-hull method —
+and it's not a second valid Johnson solid at all, for a more interesting
+reason than "not distinct": unrotated, each pair of prism end-triangles
+becomes coplanar across the join, so the hull merges each pair into one
+rhombic face (two unit equilateral triangles sharing an edge at 60°/120°,
+side 1 but with unequal diagonals 1 and √3) — a genuine rhombus, not a
+square, and therefore not a regular polygon at all. That disqualifies
+the ortho pairing outright rather than merely making it a duplicate of
+something else, which is the real reason only the gyro (90°) form is
+one of the 92.
+
+**Derivation method changed for this batch**: rather than hand-declaring
+face windings (as batches 1-3 did, building on `cupola()`/pyramid-apex
+helpers with manually-ordered face-vertex lists), this batch computed
+faces directly from a real `scipy.spatial.ConvexHull` on each shape's
+raw vertex set — the hull's per-triangle facets were grouped by
+(rounded) plane equation, merged into their true n-gon faces, and
+ordered by angle around each face's own outward normal. This is a
+strictly more automated cross-check than prior batches' "derive
+verts+edges, hand-list faces, then verify with a hull" approach: here
+the hull *is* the face list, so there's no possibility of a
+hand-transcription face-winding bug slipping past validation — the
+faces are exactly what the hull says they are, with edge-length
+uniformity, V/E/F counts, face-size-mix, and Euler's formula still
+checked afterward as before.
+
+Verified end to end: `validate-johnson.ts` (all 31 OK), `tsc --noEmit`
+and lint clean (both machines), `verify:attach` (61,722),
+`verify:twist` (52,488), `verify:rewrite`, `verify:graph`,
+`verify:face-connectors` (3,336), `verify:face-attach` (450,770, 0
+failures), `verify:face-twist` (5,754), and the full Playwright suite
+on dicto-node.
+
+**A real, pre-existing test-infrastructure bug surfaced and fixed along
+the way, unrelated to any of the 4 new shapes**: `render.spec.ts`'s
+full-registry test started failing intermittently (~40% of runs) with
+"Johnson family should list J3_TRIANGULAR_CUPOLA" once the family grew
+to 31 ids (3 pages of the wheel instead of fitting differently) — but
+J3 is nowhere near a page boundary (index 14 of 31, squarely on page 2
+of 3). Instrumenting the actual click handlers (not guessing) showed
+the real cause: `tests/e2e/utils.ts`'s `clickWheelLabel` treats "the
+target locator is gone" as proof a click already succeeded, to resolve
+a known race where Playwright's own post-click actionability check can
+throw even though the click already fired and had its real effect (the
+label's onSelect is deferred via `setTimeout(0)`, so the DOM mutation
+can land just after Playwright gives up waiting for it). That heuristic
+is correct for a one-off shape label, which genuinely disappears once
+selected — but "More" reappears identically labeled on the very next
+page, so "is this locator gone" never fires true for it. A single
+logical `clickWheelLabel(page, 'More')` call would hit the ambiguous-
+failure path, wrongly conclude the first (actually-successful) click
+had failed, and issue a real second click — silently double-advancing
+the wheel from page 0 straight to page 2, skipping page 1 (and
+everything on it, including J3) entirely. This wasn't new to batch 4 —
+the Johnson family already needed 3 pages before this batch too — it
+was latent and apparently never triggered before purely by luck of
+timing; adding this batch's 4 shapes didn't cause it, just happened to
+be the run where it got noticed. Fixed by replacing the "is *this*
+locator gone" check with "has the *entire* label-text snapshot changed
+at all", which correctly resolves the same ambiguity without the false
+negative — verified by running the affected test 5 additional times
+after the fix (0 failures) versus reproducing the original failure 2 of
+3 times immediately beforehand with the exact same code otherwise.
+`render.spec.ts` also gained a `stableLabelTexts` helper (poll until
+two reads 80ms apart agree) as defense in depth against the underlying
+`setTimeout(0)`-deferred-render race generally, independent of this
+specific fix.
+
+Still outstanding for Johnson solids: 61 remain (92 - 31) — the
+augmented/diminished/gyrate composites (J49 onward) and the
+elongated/gyroelongated bicupola/cupola-rotunda/birotunda family
+(J35-J48, the direct sequel to batch 3 the same way batch 2 followed
+batch 1) are next, then the ~15 with no closed form at all, saved for
 last.

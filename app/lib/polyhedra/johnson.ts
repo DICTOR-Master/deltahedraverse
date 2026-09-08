@@ -501,6 +501,106 @@ const FACES_J25_GYROELONGATED_PENTAGONAL_ROTUNDA: number[][] = [
 ];
 
 // ---------------------------------------------------------------------------
+// batch 4 (2026-09-08) — elongated bipyramids and the gyrobifastigium
+// ---------------------------------------------------------------------------
+
+/**
+ * 4 more Johnson solids that don't fit any prior batch's family: J14/J15/
+ * J16 (elongated triangular/square/pentagonal bipyramid) and J26
+ * (gyrobifastigium). These close a numbering gap deliberately skipped by
+ * batch 1/2 (which covered pyramids and cupolas, not bipyramids) and
+ * batch 3 (bicupolae/cupola-rotunda compounds) -- J12/J13/J17 (the plain,
+ * non-elongated bipyramids) are already in this registry as deltahedra
+ * D6/D10/D16 and aren't re-derived.
+ *
+ * **Elongated bipyramids (J14-J16)**: an n-gon prism (bottom ring at
+ * z=0, top ring at z=1, *no* twist between them -- an antiprism, not a
+ * prism, would be needed to also make the top/bottom rings' connecting
+ * triangles equilateral, which is exactly what J10/J11/J22-25's
+ * *gyro*elongated forms use instead) capped with a pyramid apex above
+ * and below, using the exact same closed-form apex-height equation as
+ * J1/J2 (R_n^2 + h^2 = 1). n=3/4/5 all have a valid real apex height
+ * (n=6 would need R_6=1, giving h=0 -- a degenerate flat "apex", which
+ * is exactly why the hexagonal bipyramid isn't a Johnson solid).
+ *
+ * **Gyrobifastigium (J26)**: two unit triangular prisms (equilateral
+ * triangle cross-section, extrusion length 1 -- with those dimensions
+ * all 3 lateral faces are already unit squares, not just the 2 triangle
+ * ends) glued together at one shared square face, with the second prism
+ * rotated 90 degrees relative to the first before gluing. Checked what
+ * gluing them *unrotated* ("ortho") gives instead -- not a second valid
+ * Johnson solid at all: its convex hull merges each pair of now-coplanar
+ * triangle end-faces into a single rhombic face (two unit equilateral
+ * triangles sharing an edge, at 60/120 degrees, not a square), which
+ * isn't a regular polygon -- disqualifying, not just non-distinct. Only
+ * the gyro (90 degree) pairing keeps every face a genuine triangle or
+ * square, which is why it alone is one of the 92.
+ *
+ * Every shape here was derived from raw coordinates only (no hand-
+ * declared face windings): a real scipy.spatial.ConvexHull computation
+ * on each shape's vertex set produced the actual face list (coplanar
+ * hull triangles merged back into their true n-gon faces, ordered by
+ * angle around each face's own normal), then cross-checked against the
+ * solid's known V/E/F counts, its known mix of triangle/square face
+ * counts, edge-length uniformity, and Euler's formula -- all 4 matched
+ * on the first attempt.
+ */
+
+// J14_ELONGATED_TRIANGULAR_BIPYRAMID: V=8 E=15 F=9
+const VERTS_J14_ELONGATED_TRIANGULAR_BIPYRAMID: Vec3[] = [
+  [0.5773502691896258, 0, 0], [-0.2886751345948128, 0.5000000000000001, 0], [-0.2886751345948132, -0.4999999999999999, 0],
+  [0.5773502691896258, 0, 1], [-0.2886751345948128, 0.5000000000000001, 1], [-0.2886751345948132, -0.4999999999999999, 1],
+  [0, 0, -0.8164965809277259], [0, 0, 1.8164965809277258],
+];
+const EDGES_J14_ELONGATED_TRIANGULAR_BIPYRAMID: [number, number][] = [
+  [0, 1], [0, 2], [0, 3], [0, 6], [1, 2], [1, 4], [1, 6], [2, 5], [2, 6], [3, 4], [3, 5], [3, 7], [4, 5], [4, 7], [5, 7],
+];
+const FACES_J14_ELONGATED_TRIANGULAR_BIPYRAMID: number[][] = [
+  [0, 2, 6], [1, 6, 2], [0, 6, 1], [3, 7, 5], [4, 5, 7], [3, 4, 7], [0, 3, 5, 2], [4, 1, 2, 5], [3, 0, 1, 4],
+];
+
+// J15_ELONGATED_SQUARE_BIPYRAMID: V=10 E=20 F=12
+const VERTS_J15_ELONGATED_SQUARE_BIPYRAMID: Vec3[] = [
+  [0.7071067811865476, 0, 0], [4.329780281177467e-17, 0.7071067811865476, 0], [-0.7071067811865476, 8.659560562354934e-17, 0],
+  [-1.29893408435324e-16, -0.7071067811865476, 0], [0.7071067811865476, 0, 1], [4.329780281177467e-17, 0.7071067811865476, 1],
+  [-0.7071067811865476, 8.659560562354934e-17, 1], [-1.29893408435324e-16, -0.7071067811865476, 1], [0, 0, -0.7071067811865475],
+  [0, 0, 1.7071067811865475],
+];
+const EDGES_J15_ELONGATED_SQUARE_BIPYRAMID: [number, number][] = [
+  [0, 1], [0, 3], [0, 4], [0, 8], [1, 2], [1, 5], [1, 8], [2, 3], [2, 6], [2, 8], [3, 7], [3, 8], [4, 5], [4, 7], [4, 9], [5, 6], [5, 9], [6, 7], [6, 9], [7, 9],
+];
+const FACES_J15_ELONGATED_SQUARE_BIPYRAMID: number[][] = [
+  [0, 3, 8], [8, 3, 2], [0, 8, 1], [1, 8, 2], [7, 9, 6], [4, 9, 7], [4, 5, 9], [9, 5, 6], [3, 7, 6, 2], [0, 4, 7, 3], [4, 0, 1, 5], [5, 1, 2, 6],
+];
+
+// J16_ELONGATED_PENTAGONAL_BIPYRAMID: V=12 E=25 F=15
+const VERTS_J16_ELONGATED_PENTAGONAL_BIPYRAMID: Vec3[] = [
+  [0.8506508083520399, 0, 0], [0.2628655560595668, 0.8090169943749473, 0], [-0.6881909602355867, 0.5000000000000001, 0],
+  [-0.6881909602355868, -0.4999999999999999, 0], [0.26286555605956663, -0.8090169943749475, 0], [0.8506508083520399, 0, 1],
+  [0.2628655560595668, 0.8090169943749473, 1], [-0.6881909602355867, 0.5000000000000001, 1], [-0.6881909602355868, -0.4999999999999999, 1],
+  [0.26286555605956663, -0.8090169943749475, 1], [0, 0, -0.5257311121191337], [0, 0, 1.5257311121191337],
+];
+const EDGES_J16_ELONGATED_PENTAGONAL_BIPYRAMID: [number, number][] = [
+  [0, 1], [0, 4], [0, 5], [0, 10], [1, 2], [1, 6], [1, 10], [2, 3], [2, 7], [2, 10], [3, 4], [3, 8], [3, 10], [4, 9], [4, 10], [5, 6], [5, 9], [5, 11], [6, 7], [6, 11], [7, 8], [7, 11], [8, 9], [8, 11], [9, 11],
+];
+const FACES_J16_ELONGATED_PENTAGONAL_BIPYRAMID: number[][] = [
+  [0, 10, 1], [9, 11, 8], [11, 7, 8], [5, 11, 9], [0, 4, 10], [10, 4, 3], [11, 6, 7], [5, 6, 11], [1, 10, 2], [10, 3, 2], [0, 5, 9, 4], [4, 9, 8, 3], [5, 0, 1, 6], [6, 1, 2, 7], [7, 2, 3, 8],
+];
+
+// J26_GYROBIFASTIGIUM: V=8 E=14 F=8
+const VERTS_J26_GYROBIFASTIGIUM: Vec3[] = [
+  [-0.5, -0.5, 0], [0.5, -0.5, 0], [0.5, 0.5, 0],
+  [-0.5, 0.5, 0], [0, -0.5, 0.8660254037844386], [0, 0.5, 0.8660254037844386],
+  [-0.5, 0, -0.8660254037844386], [0.5, 0, -0.8660254037844386],
+];
+const EDGES_J26_GYROBIFASTIGIUM: [number, number][] = [
+  [0, 1], [0, 3], [0, 4], [0, 6], [1, 2], [1, 4], [1, 7], [2, 3], [2, 5], [2, 7], [3, 5], [3, 6], [4, 5], [6, 7],
+];
+const FACES_J26_GYROBIFASTIGIUM: number[][] = [
+  [1, 4, 0], [2, 1, 7], [3, 6, 0], [2, 3, 5], [7, 1, 0, 6], [2, 7, 6, 3], [1, 2, 5, 4], [4, 5, 3, 0],
+];
+
+// ---------------------------------------------------------------------------
 // batch 3 (2026-09-08) — bicupolae and cupola-rotunda compounds
 // ---------------------------------------------------------------------------
 
@@ -889,6 +989,38 @@ export const JOHNSON_ADDITIONS: Record<string, PolyhedronSpec> = {
     VERTS_J25_GYROELONGATED_PENTAGONAL_ROTUNDA,
     EDGES_J25_GYROELONGATED_PENTAGONAL_ROTUNDA,
     FACES_J25_GYROELONGATED_PENTAGONAL_ROTUNDA,
+  ),
+  J14_ELONGATED_TRIANGULAR_BIPYRAMID: makeSpec(
+    'J14_ELONGATED_TRIANGULAR_BIPYRAMID',
+    'elongated_triangular_bipyramid',
+    9,
+    VERTS_J14_ELONGATED_TRIANGULAR_BIPYRAMID,
+    EDGES_J14_ELONGATED_TRIANGULAR_BIPYRAMID,
+    FACES_J14_ELONGATED_TRIANGULAR_BIPYRAMID,
+  ),
+  J15_ELONGATED_SQUARE_BIPYRAMID: makeSpec(
+    'J15_ELONGATED_SQUARE_BIPYRAMID',
+    'elongated_square_bipyramid',
+    12,
+    VERTS_J15_ELONGATED_SQUARE_BIPYRAMID,
+    EDGES_J15_ELONGATED_SQUARE_BIPYRAMID,
+    FACES_J15_ELONGATED_SQUARE_BIPYRAMID,
+  ),
+  J16_ELONGATED_PENTAGONAL_BIPYRAMID: makeSpec(
+    'J16_ELONGATED_PENTAGONAL_BIPYRAMID',
+    'elongated_pentagonal_bipyramid',
+    15,
+    VERTS_J16_ELONGATED_PENTAGONAL_BIPYRAMID,
+    EDGES_J16_ELONGATED_PENTAGONAL_BIPYRAMID,
+    FACES_J16_ELONGATED_PENTAGONAL_BIPYRAMID,
+  ),
+  J26_GYROBIFASTIGIUM: makeSpec(
+    'J26_GYROBIFASTIGIUM',
+    'gyrobifastigium',
+    8,
+    VERTS_J26_GYROBIFASTIGIUM,
+    EDGES_J26_GYROBIFASTIGIUM,
+    FACES_J26_GYROBIFASTIGIUM,
   ),
   J27_TRIANGULAR_ORTHOBICUPOLA: makeSpec(
     'J27_TRIANGULAR_ORTHOBICUPOLA',

@@ -1,12 +1,33 @@
+import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { getCanvasCenter, resetTo, findOnCanvas, WHEEL_FAMILIES, clickWheelLabel, CONTENT_FACES_PER_PAGE } from './utils';
+
+/**
+ * A navigating click's onSelect fires after a setTimeout(0), so reading
+ * .pw-label-text in the same tick can catch the wheel mid-transition.
+ * Polls until two reads 80ms apart agree, rather than trusting a single
+ * immediate snapshot or a fixed sleep -- defense in depth alongside the
+ * real fix for the flake this originally caught (clickWheelLabel double-
+ * clicking "More" -- see utils.ts).
+ */
+async function stableLabelTexts(page: Page): Promise<string[]> {
+  let prev = await page.locator('.pw-label-text').allTextContents();
+  const deadline = Date.now() + 2000;
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(80);
+    const next = await page.locator('.pw-label-text').allTextContents();
+    if (next.length === prev.length && next.every((t, i) => t === prev[i])) return next;
+    prev = next;
+  }
+  return prev;
+}
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.waitForTimeout(500);
 });
 
-test('renders the canvas and every shape across all 4 wheel families (8 deltahedra + 2 Platonic + 13 Archimedean + 27 Johnson)', async ({ page }) => {
+test('renders the canvas and every shape across all 4 wheel families (8 deltahedra + 2 Platonic + 13 Archimedean + 31 Johnson)', async ({ page }) => {
   // Scoped to <main> -- CornerHudWheel mounts its own small canvas too.
   await expect(page.getByRole('main').locator('canvas')).toBeVisible();
 
@@ -22,7 +43,7 @@ test('renders the canvas and every shape across all 4 wheel families (8 deltahed
     const pages = family.ids.length > CONTENT_FACES_PER_PAGE ? Math.ceil(family.ids.length / CONTENT_FACES_PER_PAGE) : 1;
     const seen = new Set<string>();
     for (let p = 0; p < pages; p++) {
-      const texts = await page.locator('.pw-label-text').allTextContents();
+      const texts = await stableLabelTexts(page);
       texts.forEach((t) => seen.add(t));
       if (p < pages - 1) await clickWheelLabel(page, 'More');
     }

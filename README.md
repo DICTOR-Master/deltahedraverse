@@ -44,7 +44,7 @@ This list is intentionally open-ended, describing the project's
 direction rather than a feature checklist — so the README doesn't need
 rewriting every time a new capability lands. **"What's here now" below
 is the ground truth for what's actually shipped today**; Johnson solids
-are in progress (27 of 92 so far), and lattice construction /
+are in progress (31 of 92 so far), and lattice construction /
 interpenetrating structures are still direction, not yet delivered.
 
 ## What's here now
@@ -82,7 +82,7 @@ Since then:
   script's tolerance without the shapes themselves being wrong — all
   worked examples in `docs/build-plan.md` of why every claim here gets a
   computational cross-check rather than trust.
-- **27 of 92 Johnson solids so far** — batch 1: the two simple pyramids,
+- **31 of 92 Johnson solids so far** — batch 1: the two simple pyramids,
   the three cupolas, and the pentagonal rotunda (derived directly from
   this registry's own icosidodecahedron — it's genuinely half of one).
   Batch 2: their elongated (prism-inserted) and gyroelongated
@@ -91,13 +91,17 @@ Since then:
   twisted) — the ortho/gyro twist angle was verified empirically, not
   assumed: for the triangular case it turns out to coincide exactly with
   the cuboctahedron already in this registry, the real reason "triangular
-  gyrobicupola" isn't its own Johnson solid. 5 of the 92 are already
-  deltahedra in this registry (D6/D10/D12/D14/D16) and aren't re-derived.
-  The remaining composite (augmented/diminished/gyrate) and ~15
-  no-closed-form solids are still ahead. First shape in this registry
-  that isn't vertex-transitive: J1's apex has degree 4 while its base
-  vertices have degree 3. First with no degree-3 vertex at all: J10
-  (only degree 4 and 5).
+  gyrobicupola" isn't its own Johnson solid. Batch 4: the elongated
+  bipyramids (triangular/square/pentagonal) and the gyrobifastigium — the
+  latter's own unrotated ("ortho") pairing was checked too and found to
+  produce non-square rhombic faces rather than a second valid solid, not
+  merely a duplicate. 5 of the 92 are already deltahedra in this registry
+  (D6/D10/D12/D14/D16) and aren't re-derived. The remaining composite
+  (augmented/diminished/gyrate), the elongated/gyroelongated bicupola
+  family, and ~15 no-closed-form solids are still ahead. First shape in
+  this registry that isn't vertex-transitive: J1's apex has degree 4
+  while its base vertices have degree 3. First with no degree-3 vertex at
+  all: J10 (only degree 4 and 5).
 - **Pick, attach, twist, confirm/cancel** — hover a vertex to see its
   capacity, pick a shape to attach, drag to twist it around the one
   remaining rotational degree of freedom, then confirm or cancel.

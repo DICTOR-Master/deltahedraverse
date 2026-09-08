@@ -34,6 +34,7 @@ export const WHEEL_FAMILIES: { label: string; ids: string[] }[] = [
  */
 export async function clickWheelLabel(page: Page, text: string): Promise<void> {
   const locator = page.locator('.pw-label', { hasText: text }).first();
+  const snapshot = async (): Promise<string> => (await page.locator('.pw-label-text').allTextContents()).join(' ');
 
   // A click that lands right as onSelect's setTimeout(0)-deferred state
   // update re-renders the wheel (navigating a level, closing it) can have
@@ -41,18 +42,34 @@ export async function clickWheelLabel(page: Page, text: string): Promise<void> {
   // click itself already fired and had its real effect -- its internal
   // post-click verification can race against that DOM change. So a
   // reported "failure" is ambiguous: it might mean nothing happened, or
-  // it might mean the click worked and the label we were looking for
-  // simply doesn't exist anymore because we've already moved on. Treat
-  // "the label is gone entirely" (count() === 0, checked fresh, not
-  // cached) as success too, not just "the click call itself resolved."
-  const succeeded = async (): Promise<boolean> => (await locator.count()) === 0;
-
+  // it might mean the click worked. Comparing the *whole* label-text
+  // snapshot before vs. after a failed-looking click (not just whether
+  // this one locator's own text is gone) is what correctly resolves that
+  // ambiguity: unlike a one-off shape label, "More" reappears identically
+  // labeled on the very next page, so "is this locator gone" never fires
+  // for it. That false negative used to make this code conclude a
+  // click that had actually already succeeded had failed, and issue a
+  // real second click -- silently double-advancing past a page. Caught
+  // via render.spec.ts's full-registry test: the Johnson family (31 ids,
+  // 3 pages) would skip page 1 entirely, landing on page 2 after a
+  // single "More" click, and only a stability-polling read of the
+  // resulting labels (rather than an immediate one) surfaced it
+  // reliably -- the immediate read sometimes got lucky and caught the
+  // brief page-1 state between the two real clicks.
   const tryClick = async (): Promise<boolean> => {
+    const before = await snapshot();
     try {
       await locator.click({ timeout: 900 });
       return true;
     } catch {
-      return succeeded();
+      // Poll briefly -- the deferred state update may land just after
+      // Playwright's own click() call gave up waiting to confirm it.
+      const deadline = Date.now() + 500;
+      while (Date.now() < deadline) {
+        if ((await snapshot()) !== before) return true;
+        await page.waitForTimeout(60);
+      }
+      return false;
     }
   };
 
@@ -79,10 +96,6 @@ export async function clickWheelLabel(page: Page, text: string): Promise<void> {
       if (await tryClick()) return;
     }
   }
-
-  // One last check: even the final failed attempt above might have been a
-  // disguised success (see the comment on `succeeded` above).
-  if (await succeeded()) return;
 
   throw new Error(`clickWheelLabel: could not find/click a face labelled "${text}" at any orientation`);
 }
