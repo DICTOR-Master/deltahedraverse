@@ -21,12 +21,23 @@ export interface AssemblyConnection {
   vertexA: number;
   nodeB: string;
   vertexB: number;
+  // 'vertex' (default, when absent — every connection before face-snap
+  // mode existed was implicitly this kind) means vertexA/vertexB are
+  // vertex indices, the original ball-joint connection. 'face' means
+  // they're face indices instead — a face-to-face join, only valid
+  // between two faces of the same size (see app/lib/polyhedra/core.ts's
+  // FaceConnector / buildFaceConnectors). Reusing vertexA/vertexB rather
+  // than adding separate faceA/faceB fields keeps exactly one pair of
+  // "which connector on each side" fields, disambiguated by this tag,
+  // instead of two pairs where only one is ever meaningful at a time.
+  kind?: 'vertex' | 'face';
   // Set by Stage 7's rewrite rule when a node's shape changes and no
   // compatible vertex exists on the new shape for this connection's side.
   // vertexA/vertexB then keep their last-known (possibly now out-of-range
   // for the new shape) value purely as a historical record — orphaned
   // connections are excluded from vertex-range validation and from
-  // occupied-vertex bookkeeping on load.
+  // occupied-vertex bookkeeping on load. (Rewrite only ever produces
+  // 'vertex' connections — the D10<->D12 rule doesn't touch faces.)
   orphaned?: boolean;
 }
 
@@ -67,6 +78,7 @@ function isConnection(v: unknown): v is AssemblyConnection {
   ) {
     return false;
   }
+  if (c.kind !== undefined && c.kind !== 'vertex' && c.kind !== 'face') return false;
   return c.orphaned === undefined || typeof c.orphaned === 'boolean';
 }
 
@@ -98,8 +110,10 @@ export function isValidAssembly(v: unknown): v is Assembly {
     // Orphaned connections keep a deliberately stale vertex index (see
     // AssemblyConnection.orphaned) — only the node references matter for them.
     if (conn.orphaned) continue;
-    if (conn.vertexA < 0 || conn.vertexA >= POLYHEDRA[a.shape].vertices.length) return false;
-    if (conn.vertexB < 0 || conn.vertexB >= POLYHEDRA[b.shape].vertices.length) return false;
+    const countA = conn.kind === 'face' ? POLYHEDRA[a.shape].faces.length : POLYHEDRA[a.shape].vertices.length;
+    const countB = conn.kind === 'face' ? POLYHEDRA[b.shape].faces.length : POLYHEDRA[b.shape].vertices.length;
+    if (conn.vertexA < 0 || conn.vertexA >= countA) return false;
+    if (conn.vertexB < 0 || conn.vertexB >= countB) return false;
   }
   return true;
 }

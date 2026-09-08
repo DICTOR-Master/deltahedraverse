@@ -93,15 +93,35 @@ hand-derive face lists for anything non-trivial.
   `faceCount*3/2` formula — same result for deltahedra, correct for mixed
   face sizes too.
 
-**Dual / face-snap mode is no longer speculative — it's the current ask**
-(user, 2026-09-08: shapes with matching face geometry should connect via
-shared faces, plus an inside/cutaway view toggle). The design already
-sketched here still holds: a face connector is `{ faceIndex, pos:
-centroid(face), normal: outwardNormal(face) }`, computed from `vertices` +
-`faces` the same way vertex connectors are computed from `vertices` +
-`edges` — one new *derived* concept, not a new stored field. No change to
-`PolyhedronSpec` itself needed — a second `buildFaceConnectors()` alongside
-the existing `buildConnectors()`. Not yet implemented.
+**Dual / face-snap mode — done** (user, 2026-09-08: shapes with matching
+face geometry should connect via shared faces, plus an inside/cutaway
+view toggle). Built exactly as sketched: `buildFaceConnectors()`
+(`app/lib/polyhedra/core.ts`) computes `{ faceIndex, size, pos:
+centroid(face), normal: outwardNormal(face) }` from `vertices` + `faces`,
+no change to `PolyhedronSpec` itself. Two things the original sketch
+didn't anticipate, both load-bearing:
+
+- **The remaining "free" rotation isn't free.** Vertex-attach leaves a
+  genuinely continuous twist DOF (the axis maps to itself under any
+  rotation around it). Two glued, coincident regular n-gon faces don't —
+  only *n* discrete registrations keep them flush. The alignment angle
+  itself has to be computed analytically (align a reference vertex
+  direction via `atan2` in the shared plane), not assumed to be zero or
+  searched among "multiples of 360° / n starting from zero" — checked
+  broadly (8280 pairs) rather than trusted from the first shape pair
+  that happened to work by coincidence. See `build-plan.md` for the full
+  story of the wrong turn this took first.
+- **Schema**: reuse `vertexA`/`vertexB` as face indices via a
+  `kind?: 'vertex' | 'face'` tag, rather than adding parallel `faceA`/
+  `faceB` fields — exactly one interpretation is ever meaningful per
+  connection, so a discriminant is simpler than a second pair of mostly-
+  unused fields. `kind` absent means `'vertex'`, so every save made
+  before this existed still validates and loads correctly.
+
+See `build-plan.md`'s own section on this for what's still a known gap
+(rewrite doesn't re-match face connections yet — orphans them instead of
+guessing) and how it was verified (a real Playwright test against the
+actual persisted assembly, not just the placement math).
 
 ## Where things stand
 

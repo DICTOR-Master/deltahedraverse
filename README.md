@@ -1,21 +1,22 @@
 # Deltahedraverse
 
-A browser-based construction kit for convex polyhedra — click a free
-vertex, snap on a new piece with a free rotational joint, twist it into
-place, confirm. Molecular-model-kit mechanics, not tiled building blocks:
-started with the 8 convex deltahedra specifically because they don't tile
-space and their dihedral angles are incompatible across types, so every
-connection is a single-point ball joint, never face-gluing.
+A browser-based construction kit for convex polyhedra. Two ways to
+connect pieces: click a free vertex and snap on a new piece with a free
+rotational joint (molecular-model-kit style — started with the 8 convex
+deltahedra specifically because they don't tile space and their dihedral
+angles are incompatible across types), or click a free face and glue on
+a shape with a matching face size for a real shared-face join (a cube
+onto a cube, say), with a discrete rotational registration instead of a
+free twist. A view toggle (Solid / Translucent / Inside view) lets you
+see through a structure once pieces start nesting.
 
 The intention is for this to grow into a sibling of
 [Rhombiverse](https://github.com/DICTOR-Master/rhombiverse) — a general
 polyhedral space-editing suite covering the Platonic and Archimedean
-solids and the Johnson solid family alongside the 8 deltahedra, with
-face-to-face connections for shapes whose faces geometrically match (not
-just vertex-to-vertex), an inside/cutaway view toggle, and its own
-introductory geometric-packing puzzle game in the spirit of Rhombiverse's
-RHOMBIS (working name: DELTIS). See `docs/build-plan.md`'s trailing
-sections for what's actually shipped versus what's still ahead.
+solids and the Johnson solid family alongside the 8 deltahedra, with its
+own introductory geometric-packing puzzle game in the spirit of
+Rhombiverse's RHOMBIS (working name: DELTIS). See `docs/build-plan.md`'s
+trailing sections for what's actually shipped versus what's still ahead.
 
 ## What's here now
 
@@ -53,6 +54,19 @@ Since then:
   nodes still have room to build from, and a (currently unreachable,
   honestly documented) cycle-detection primitive for a future "closed
   cage" goal.
+- **Face-to-face connections** — click a free face (not just a vertex)
+  to glue on a shape with a matching face size. Two coincident regular
+  n-gon faces have no free rotation the way a vertex ball-joint does —
+  only *n* discrete registrations keep them flush — so dragging a
+  pending face-attach cycles through those instead of spinning freely.
+  Getting the placement math right took a real wrong turn worth reading
+  about in `docs/build-plan.md`: assuming "no extra twist" or "a
+  multiple of 360°/n from zero" is already correct turned out false for
+  most shape pairs: the fix was computing the angle analytically instead
+  of guessing.
+- **A view toggle** (Solid / Translucent / Inside view) for seeing
+  through a structure once pieces start nesting — applies to every
+  placed shape at once.
 
 ## Structure
 
@@ -61,18 +75,18 @@ deltahedraverse/
   app/
     lib/
       polyhedra/
-        core.ts          # family-agnostic infra: PolyhedronSpec, makeSpec, validateShape, triangulateFace
+        core.ts          # family-agnostic infra: PolyhedronSpec, makeSpec, validateShape, triangulateFace, buildFaceConnectors
         deltahedra.ts    # the 8 deltahedra, verified against a convex hull
         platonic.ts      # cube + dodecahedron (the 2 Platonic solids not already deltahedra)
         rewrite.ts       # D10<->D12 vertex-matching (pure function, no three.js)
         index.ts         # combined POLYHEDRA / POLYHEDRON_IDS across every family
-      assembly.ts        # the real {nodes, connections} graph + validation
+      assembly.ts        # the real {nodes, connections} graph + validation (vertex- and face-kind)
       graph.ts           # subtree/cycle graph logic (pure, no three.js)
     components/
-      ShapeViewer.tsx    # the whole Three.js scene: render, pick, attach, twist, rewrite, delete
+      ShapeViewer.tsx    # the whole Three.js scene: render, pick, attach/face-attach, twist, rewrite, delete, view modes
     api/assemblies/      # GET/POST persistence route (local JSON for now; see docs)
     page.tsx             # UI shell around ShapeViewer
-  scripts/               # validate-*, verify-attach/twist/rewrite/graph -- run outside the browser
+  scripts/               # validate-*, verify-attach/twist/rewrite/graph/face-* -- run outside the browser
   tests/e2e/             # permanent Playwright suite (npm run test:e2e)
   docs/
     build-plan.md               # the build plan, with how each stage was verified

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { POLYHEDRA, type PolyhedronSpec, triangulateFace } from '../lib/polyhedra';
+import { POLYHEDRA, POLYHEDRON_IDS, type PolyhedronSpec, triangulateFace, buildFaceConnectors } from '../lib/polyhedra';
 import { DELTAHEDRA } from '../lib/polyhedra/deltahedra';
 import { emptyAssembly, isValidAssembly, type Assembly } from '../lib/assembly';
 import { matchRewriteVertices, REWRITE_TARGET } from '../lib/polyhedra/rewrite';
@@ -15,14 +15,17 @@ const COLOR_SELECTED = 0x33ff88;
 const COLOR_OCCUPIED = 0x777777;
 const COLOR_PENDING = 0xff6688;
 const NODE_SELECTED_EMISSIVE = 0x663300;
-const NODE_HAS_CAPACITY_EMISSIVE = 0x0d2b1a; // subtle: this node still has a free vertex to build from
-const TWIST_SENSITIVITY = 0.012; // radians per pixel of horizontal drag
+const NODE_HAS_CAPACITY_EMISSIVE = 0x0d2b1a; // subtle: this node still has a free vertex or face to build from
+const TWIST_SENSITIVITY = 0.012; // radians per pixel of horizontal drag, vertex-attach
+const FACE_REGISTRATION_DRAG_PX = 40; // pixels of drag per discrete face-registration step
 
-// Which vertex of an *incoming* shape serves as its own connection point.
-// Stage 4/5 don't ask the user to choose this — that would need its own
-// interaction step, which isn't part of either stage's spec. Vertex 0 is an
-// arbitrary but fixed convention for now.
+// Which vertex of an *incoming* shape serves as its own connection point for
+// vertex-attach. Stage 4/5 don't ask the user to choose this — that would
+// need its own interaction step, which isn't part of either stage's spec.
+// Vertex 0 is an arbitrary but fixed convention for now.
 const ATTACH_VERTEX_INDEX = 0;
+
+export type ViewMode = 'normal' | 'translucent' | 'skeleton';
 
 interface VertexUserData {
   vertexId: number;
@@ -39,9 +42,12 @@ interface PlacedShape {
   object: THREE.Group; // holds mesh + edge lines + vertexGroup; positioned/oriented directly in world space
   mesh: THREE.Mesh;
   vertexGroup: THREE.Group;
+  triangleToFaceIndex: number[]; // maps a raycast hit's mesh triangle index back to the original polygon face index
+  faceOccupied: boolean[]; // one per spec.faces entry — face-attach's counterpart to vertex "occupied"
 }
 
-interface PendingAttach {
+interface PendingVertexAttach {
+  kind: 'vertex';
   placed: PlacedShape;
   nodeId: string;
   targetSphere: THREE.Mesh;
@@ -49,6 +55,22 @@ interface PendingAttach {
   attachLocalDir: THREE.Vector3; // the incoming shape's own local connection axis
   twistAngle: number;
 }
+
+interface PendingFaceAttach {
+  kind: 'face';
+  placed: PlacedShape;
+  nodeId: string;
+  targetPlaced: PlacedShape;
+  targetFaceIndex: number;
+  incomingFaceIndex: number;
+  baseQuaternion: THREE.Quaternion; // the fully-aligned (registration 0) orientation
+  axis: THREE.Vector3; // local face-normal axis to register/twist around
+  faceSize: number;
+  registration: number; // current discrete rotational registration, 0..faceSize-1
+  dragAccumPx: number;
+}
+
+type PendingAttach = PendingVertexAttach | PendingFaceAttach;
 
 export interface RewriteResult {
   fromSpecId: string;
@@ -66,9 +88,11 @@ export interface ShapeViewerHandle {
   reset(specId: string): void;
   /** Places `specId` at the currently selected target vertex as a pending (draggable) attach. */
   beginAttach(specId: string): void;
-  /** Locks the pending attach in place. */
+  /** Places `specId` at the currently selected target face as a pending (draggable) face-to-face attach. */
+  beginFaceAttach(specId: string): void;
+  /** Locks the pending attach (vertex or face) in place. */
   confirmAttach(): void;
-  /** Removes the pending attach and frees its target vertex again. */
+  /** Removes the pending attach and frees its target vertex/face again. */
   cancelAttach(): void;
   /** Persists the current assembly graph. Resolves false on failure. */
   save(): Promise<boolean>;
@@ -76,6 +100,8 @@ export interface ShapeViewerHandle {
   rewriteSelectedNode(): RewriteResult | null;
   /** Removes the currently selected node and its whole subtree. Null if nothing is selected. */
   deleteSelectedNode(): DeleteResult | null;
+  /** Sets the render mode (opaque / translucent / skeleton-ish) for every placed shape. */
+  setViewMode(mode: ViewMode): void;
 }
 
 export interface ShapeSelection {
@@ -88,19 +114,26 @@ export interface NodeSelection {
   nodeId: string;
   specId: string;
   rewriteTarget: string | null;
+  faceIndex: number | null;
+  faceSize: number | null;
+  faceOccupied: boolean;
+  /** Spec ids with a matching face size — empty unless faceIndex is set and free. */
+  faceAttachOptions: string[];
 }
 
-function buildFaceGeometry(spec: PolyhedronSpec): THREE.BufferGeometry {
+function buildFaceGeometry(spec: PolyhedronSpec): { geometry: THREE.BufferGeometry; triangleToFaceIndex: number[] } {
   const positions: number[] = [];
-  for (const face of spec.faces) {
+  const triangleToFaceIndex: number[] = [];
+  spec.faces.forEach((face, faceIndex) => {
     for (const [i, j, k] of triangulateFace(face)) {
       positions.push(...spec.vertices[i], ...spec.vertices[j], ...spec.vertices[k]);
+      triangleToFaceIndex.push(faceIndex);
     }
-  }
+  });
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.computeVertexNormals(); // non-indexed: each vertex is unique per face, so this yields flat shading
-  return geometry;
+  return { geometry, triangleToFaceIndex };
 }
 
 function buildEdgeGeometry(spec: PolyhedronSpec): THREE.BufferGeometry {
@@ -145,8 +178,9 @@ function buildPlacedShape(spec: PolyhedronSpec, nodeId: string): PlacedShape {
   const object = new THREE.Group();
   object.userData = { specId: spec.id, nodeId } satisfies ShapeObjectUserData;
 
+  const { geometry, triangleToFaceIndex } = buildFaceGeometry(spec);
   const mesh = new THREE.Mesh(
-    buildFaceGeometry(spec),
+    geometry,
     new THREE.MeshStandardMaterial({ color: 0x4f8cff, flatShading: true, side: THREE.DoubleSide }),
   );
   object.add(mesh);
@@ -160,7 +194,13 @@ function buildPlacedShape(spec: PolyhedronSpec, nodeId: string): PlacedShape {
   const vertexGroup = buildVertexGroup(spec);
   object.add(vertexGroup);
 
-  return { object, mesh, vertexGroup };
+  return {
+    object,
+    mesh,
+    vertexGroup,
+    triangleToFaceIndex,
+    faceOccupied: new Array(spec.faces.length).fill(false),
+  };
 }
 
 function disposePlacedShape(placed: PlacedShape) {
@@ -208,10 +248,9 @@ function paintVertex(sphere: THREE.Mesh, opts: { selected?: boolean; hovered?: b
 }
 
 /**
- * A node's body glows faintly while it still has a free vertex (pure graph
- * logic: just counting occupied flags — the "capacity" a hover tooltip
- * already reports per-vertex, rolled up to the whole node). Selection always
- * wins over the capacity glow.
+ * A node's body glows faintly while it still has a free vertex or face
+ * (pure counting over the same occupied flags the hover tooltip already
+ * reports). Selection always wins over the capacity glow.
  */
 function applyNodeAppearance(placed: PlacedShape, selected: boolean) {
   const material = placed.mesh.material as THREE.MeshStandardMaterial;
@@ -219,10 +258,24 @@ function applyNodeAppearance(placed: PlacedShape, selected: boolean) {
     material.emissive.setHex(NODE_SELECTED_EMISSIVE);
     return;
   }
-  const hasFreeCapacity = placed.vertexGroup.children.some(
+  const hasFreeVertex = placed.vertexGroup.children.some(
     (child) => !((child as THREE.Mesh).userData as VertexUserData).occupied,
   );
-  material.emissive.setHex(hasFreeCapacity ? NODE_HAS_CAPACITY_EMISSIVE : 0x000000);
+  const hasFreeFace = placed.faceOccupied.some((occupied) => !occupied);
+  material.emissive.setHex(hasFreeVertex || hasFreeFace ? NODE_HAS_CAPACITY_EMISSIVE : 0x000000);
+}
+
+/**
+ * Cutaway/inside-view toggle. Skeleton mode keeps the mesh technically
+ * visible (opacity near zero) rather than setting `.visible = false` —
+ * Three.js's Raycaster skips invisible objects, which would silently break
+ * node/face selection while in skeleton mode.
+ */
+function applyViewMode(placed: PlacedShape, mode: ViewMode) {
+  const material = placed.mesh.material as THREE.MeshStandardMaterial;
+  material.transparent = mode !== 'normal';
+  material.depthWrite = mode === 'normal';
+  material.opacity = mode === 'normal' ? 1 : mode === 'translucent' ? 0.35 : 0.04;
 }
 
 export default function ShapeViewer({
@@ -249,7 +302,10 @@ export default function ShapeViewer({
   const selectedRef = useRef<THREE.Mesh | null>(null);
   const hoveredNodeRef = useRef<PlacedShape | null>(null);
   const selectedNodeRef = useRef<PlacedShape | null>(null);
+  const hoveredFaceIndexRef = useRef<number | null>(null);
+  const selectedFaceIndexRef = useRef<number | null>(null);
   const pendingRef = useRef<PendingAttach | null>(null);
+  const viewModeRef = useRef<ViewMode>('normal');
   const onSelectionChangeRef = useRef(onSelectionChange);
   const onPendingChangeRef = useRef(onPendingChange);
   const onNodeSelectionChangeRef = useRef(onNodeSelectionChange);
@@ -333,6 +389,7 @@ export default function ShapeViewer({
         applyNodeAppearance(selectedNodeRef.current, false);
         selectedNodeRef.current = null;
       }
+      selectedFaceIndexRef.current = null;
       onNodeSelectionChangeRef.current?.(null);
     };
 
@@ -343,11 +400,16 @@ export default function ShapeViewer({
       scene.remove(pending.placed.object);
       disposePlacedShape(pending.placed);
 
-      const targetData = pending.targetSphere.userData as VertexUserData;
-      targetData.occupied = false;
-      paintVertex(pending.targetSphere, {});
-      const parentPlaced = placedOwningVertexSphere(pending.targetSphere);
-      if (parentPlaced) applyNodeAppearance(parentPlaced, parentPlaced === selectedNodeRef.current);
+      if (pending.kind === 'vertex') {
+        const targetData = pending.targetSphere.userData as VertexUserData;
+        targetData.occupied = false;
+        paintVertex(pending.targetSphere, {});
+        const parentPlaced = placedOwningVertexSphere(pending.targetSphere);
+        if (parentPlaced) applyNodeAppearance(parentPlaced, parentPlaced === selectedNodeRef.current);
+      } else {
+        pending.targetPlaced.faceOccupied[pending.targetFaceIndex] = false;
+        applyNodeAppearance(pending.targetPlaced, pending.targetPlaced === selectedNodeRef.current);
+      }
 
       pendingRef.current = null;
       controls.enabled = true;
@@ -367,6 +429,8 @@ export default function ShapeViewer({
       selectedRef.current = null;
       hoveredNodeRef.current = null;
       selectedNodeRef.current = null;
+      hoveredFaceIndexRef.current = null;
+      selectedFaceIndexRef.current = null;
       label.style.display = 'none';
     };
 
@@ -377,6 +441,7 @@ export default function ShapeViewer({
       const nodeId = crypto.randomUUID();
       const placed = buildPlacedShape(spec, nodeId);
       applyNodeAppearance(placed, false);
+      applyViewMode(placed, viewModeRef.current);
       scene.add(placed.object);
       placedRef.current.push(placed);
       graphRef.current = {
@@ -407,15 +472,21 @@ export default function ShapeViewer({
         const placed = buildPlacedShape(spec, node.id);
         placed.object.position.fromArray(node.transform.position);
         placed.object.quaternion.fromArray(node.transform.quaternion);
+        applyViewMode(placed, viewModeRef.current);
         scene.add(placed.object);
         placedRef.current.push(placed);
         byNodeId.set(node.id, placed);
       }
 
       for (const conn of assembly.connections) {
-        if (conn.orphaned) continue; // vertex indices are stale by design — nothing to mark
+        if (conn.orphaned) continue; // indices are stale by design — nothing to mark
         const a = byNodeId.get(conn.nodeA);
         const b = byNodeId.get(conn.nodeB);
+        if (conn.kind === 'face') {
+          if (a) a.faceOccupied[conn.vertexA] = true;
+          if (b) b.faceOccupied[conn.vertexB] = true;
+          continue;
+        }
         const sphereA = a?.vertexGroup.children[conn.vertexA] as THREE.Mesh | undefined;
         const sphereB = b?.vertexGroup.children[conn.vertexB] as THREE.Mesh | undefined;
         if (sphereA) {
@@ -470,6 +541,7 @@ export default function ShapeViewer({
       const rotatedAttachVertex = new THREE.Vector3(...attachVertex).applyQuaternion(baseQuaternion);
       placed.object.position.copy(targetWorldPos).sub(rotatedAttachVertex);
 
+      applyViewMode(placed, viewModeRef.current);
       scene.add(placed.object);
       applyNodeAppearance(placed, false);
 
@@ -480,9 +552,114 @@ export default function ShapeViewer({
       (newAttachSphere.userData as VertexUserData).occupied = true;
       paintVertex(newAttachSphere, { pending: true });
 
-      pendingRef.current = { placed, nodeId, targetSphere: target, baseQuaternion, attachLocalDir, twistAngle: 0 };
+      pendingRef.current = {
+        kind: 'vertex',
+        placed,
+        nodeId,
+        targetSphere: target,
+        baseQuaternion,
+        attachLocalDir,
+        twistAngle: 0,
+      };
       controls.enabled = false;
       clearSelection();
+      onPendingChangeRef.current?.({ specId });
+    };
+
+    /**
+     * Face-to-face attach: unlike vertex-attach, two congruent regular n-gon
+     * faces have no continuously-free rotation once aligned — only n
+     * discrete "registrations" (which incoming vertex sits at which target
+     * vertex), since rotating a regular n-gon by any multiple of 360/n
+     * around its own center maps it onto itself. The exact alignment angle
+     * is computed analytically (align incoming's own reference vertex
+     * direction to target's, in the shared plane) rather than searched —
+     * verified in scripts/verify-face-attach.ts across every matching-size
+     * face pair; a first attempt assumed "no extra twist" or "a multiple of
+     * 360/n from zero" was always already correct, which turned out false
+     * for most pairs (confirmed empirically, not assumed).
+     */
+    const beginFaceAttach = (specId: string) => {
+      const targetPlaced = selectedNodeRef.current;
+      const targetFaceIndex = selectedFaceIndexRef.current;
+      const spec = POLYHEDRA[specId];
+      if (!targetPlaced || targetFaceIndex === null || !spec || pendingRef.current) return;
+      if (targetPlaced.faceOccupied[targetFaceIndex]) return;
+
+      const { specId: targetSpecId } = targetPlaced.object.userData as ShapeObjectUserData;
+      const targetSpec = POLYHEDRA[targetSpecId];
+      const targetFaceSize = targetSpec.faces[targetFaceIndex].length;
+      const incomingFaceIndex = spec.faces.findIndex((f) => f.length === targetFaceSize);
+      if (incomingFaceIndex === -1) return; // UI should only ever offer compatible shapes
+
+      scene.updateMatrixWorld(true);
+
+      const targetFaceConnector = buildFaceConnectors(targetSpec)[targetFaceIndex];
+      const incomingFaceConnector = buildFaceConnectors(spec)[incomingFaceIndex];
+
+      const targetWorldPos = new THREE.Vector3(...targetFaceConnector.pos).applyMatrix4(targetPlaced.object.matrixWorld);
+      const targetWorldQuat = new THREE.Quaternion();
+      targetPlaced.object.getWorldQuaternion(targetWorldQuat);
+      const targetWorldNormal = new THREE.Vector3(...targetFaceConnector.normal).applyQuaternion(targetWorldQuat).normalize();
+
+      const Cg = new THREE.Vector3(...incomingFaceConnector.pos);
+      const Ng = new THREE.Vector3(...incomingFaceConnector.normal);
+
+      // Point the incoming face's outward normal opposite the target's, same
+      // principle as vertex-attach: incoming grows away from target, faces
+      // meeting back-to-back rather than overlapping.
+      const desiredWorldDir = targetWorldNormal.clone().negate();
+      const baseQuat = new THREE.Quaternion().setFromUnitVectors(Ng, desiredWorldDir);
+
+      // Analytic twist: align incoming's own face-vertex-0 direction to
+      // where target's face-vertex-0 needs it, in the shared plane.
+      const targetFaceVertexIndices = targetSpec.faces[targetFaceIndex];
+      const targetV0World = new THREE.Vector3(...targetSpec.vertices[targetFaceVertexIndices[0]]).applyMatrix4(
+        targetPlaced.object.matrixWorld,
+      );
+      const dTargetWorld = targetV0World.clone().sub(targetWorldPos).normalize();
+      const dTargetLocal = dTargetWorld.clone().applyQuaternion(baseQuat.clone().invert());
+
+      const incomingFaceVertexIndices = spec.faces[incomingFaceIndex];
+      const incomingV0 = new THREE.Vector3(...spec.vertices[incomingFaceVertexIndices[0]]);
+      const dIncomingLocal = incomingV0.clone().sub(Cg).normalize();
+
+      const u = dIncomingLocal.clone();
+      const w = new THREE.Vector3().crossVectors(Ng, u).normalize();
+      const theta = Math.atan2(dTargetLocal.dot(w), dTargetLocal.dot(u));
+
+      const registrationBaseQuat = baseQuat.clone().multiply(new THREE.Quaternion().setFromAxisAngle(Ng, theta));
+      const rotatedCg = Cg.clone().applyQuaternion(registrationBaseQuat);
+      const position = targetWorldPos.clone().sub(rotatedCg);
+
+      const nodeId = crypto.randomUUID();
+      const placed = buildPlacedShape(spec, nodeId);
+      placed.object.quaternion.copy(registrationBaseQuat);
+      placed.object.position.copy(position);
+      applyViewMode(placed, viewModeRef.current);
+
+      scene.add(placed.object);
+      applyNodeAppearance(placed, false);
+
+      targetPlaced.faceOccupied[targetFaceIndex] = true; // reserved while pending; cancelAttach restores this
+      applyNodeAppearance(targetPlaced, targetPlaced === selectedNodeRef.current);
+      placed.faceOccupied[incomingFaceIndex] = true;
+
+      pendingRef.current = {
+        kind: 'face',
+        placed,
+        nodeId,
+        targetPlaced,
+        targetFaceIndex,
+        incomingFaceIndex,
+        baseQuaternion: registrationBaseQuat,
+        axis: Ng,
+        faceSize: targetFaceSize,
+        registration: 0,
+        dragAccumPx: 0,
+      };
+      controls.enabled = false;
+      clearNodeSelection();
       onPendingChangeRef.current?.({ specId });
     };
 
@@ -491,33 +668,56 @@ export default function ShapeViewer({
       if (!pending) return;
 
       placedRef.current.push(pending.placed);
-      paintVertex(pending.targetSphere, {});
-      const newAttachSphere = pending.placed.vertexGroup.children[ATTACH_VERTEX_INDEX] as THREE.Mesh;
-      paintVertex(newAttachSphere, {});
-
-      const parentGroup = pending.targetSphere.parent!.parent as THREE.Group;
-      const { nodeId: parentNodeId } = parentGroup.userData as ShapeObjectUserData;
-      const { vertexId: targetVertexIndex } = pending.targetSphere.userData as VertexUserData;
-      const { specId: newSpecId } = pending.placed.object.userData as ShapeObjectUserData;
-
-      const parentPlaced = findPlaced(parentNodeId);
-      if (parentPlaced) applyNodeAppearance(parentPlaced, parentPlaced === selectedNodeRef.current);
       applyNodeAppearance(pending.placed, false);
 
-      graphRef.current.nodes.push({
-        id: pending.nodeId,
-        shape: newSpecId,
-        transform: {
-          position: pending.placed.object.position.toArray() as [number, number, number],
-          quaternion: pending.placed.object.quaternion.toArray() as [number, number, number, number],
-        },
-      });
-      graphRef.current.connections.push({
-        nodeA: parentNodeId,
-        vertexA: targetVertexIndex,
-        nodeB: pending.nodeId,
-        vertexB: ATTACH_VERTEX_INDEX,
-      });
+      if (pending.kind === 'vertex') {
+        paintVertex(pending.targetSphere, {});
+        const newAttachSphere = pending.placed.vertexGroup.children[ATTACH_VERTEX_INDEX] as THREE.Mesh;
+        paintVertex(newAttachSphere, {});
+
+        const parentGroup = pending.targetSphere.parent!.parent as THREE.Group;
+        const { nodeId: parentNodeId } = parentGroup.userData as ShapeObjectUserData;
+        const { vertexId: targetVertexIndex } = pending.targetSphere.userData as VertexUserData;
+        const { specId: newSpecId } = pending.placed.object.userData as ShapeObjectUserData;
+
+        const parentPlaced = findPlaced(parentNodeId);
+        if (parentPlaced) applyNodeAppearance(parentPlaced, parentPlaced === selectedNodeRef.current);
+
+        graphRef.current.nodes.push({
+          id: pending.nodeId,
+          shape: newSpecId,
+          transform: {
+            position: pending.placed.object.position.toArray() as [number, number, number],
+            quaternion: pending.placed.object.quaternion.toArray() as [number, number, number, number],
+          },
+        });
+        graphRef.current.connections.push({
+          nodeA: parentNodeId,
+          vertexA: targetVertexIndex,
+          nodeB: pending.nodeId,
+          vertexB: ATTACH_VERTEX_INDEX,
+        });
+      } else {
+        const { nodeId: parentNodeId } = pending.targetPlaced.object.userData as ShapeObjectUserData;
+        const { specId: newSpecId } = pending.placed.object.userData as ShapeObjectUserData;
+        applyNodeAppearance(pending.targetPlaced, pending.targetPlaced === selectedNodeRef.current);
+
+        graphRef.current.nodes.push({
+          id: pending.nodeId,
+          shape: newSpecId,
+          transform: {
+            position: pending.placed.object.position.toArray() as [number, number, number],
+            quaternion: pending.placed.object.quaternion.toArray() as [number, number, number, number],
+          },
+        });
+        graphRef.current.connections.push({
+          nodeA: parentNodeId,
+          vertexA: pending.targetFaceIndex,
+          nodeB: pending.nodeId,
+          vertexB: pending.incomingFaceIndex,
+          kind: 'face',
+        });
+      }
 
       pendingRef.current = null;
       controls.enabled = true;
@@ -528,13 +728,16 @@ export default function ShapeViewer({
 
     /**
      * Stage 7: swap the selected node's mesh between D10 and D12 in place.
-     * Existing connections to/from this node are re-anchored to the most
-     * directionally-similar vertex on the new shape where one exists above
-     * the match threshold and isn't already claimed by a better-scoring
-     * connection; otherwise the connection is flagged orphaned. Crucially,
-     * the *other* node in every such connection is never touched — its
-     * transform, its own vertex's occupied state, all untouched — so
-     * existing neighbors never move, matched or not.
+     * Existing *vertex* connections to/from this node are re-anchored to
+     * the most directionally-similar vertex on the new shape where one
+     * exists above the match threshold and isn't already claimed by a
+     * better-scoring connection; otherwise the connection is flagged
+     * orphaned. Face connections have no analogous re-matching implemented
+     * yet, so they're always orphaned on rewrite rather than silently kept
+     * with a possibly-wrong face index — surfacing the gap honestly rather
+     * than guessing. Crucially, the *other* node in every connection is
+     * never touched — its transform, its own occupied state, all untouched
+     * — so existing neighbors never move, matched or not.
      */
     const rewriteSelectedNode = (): RewriteResult | null => {
       const node = selectedNodeRef.current;
@@ -550,10 +753,19 @@ export default function ShapeViewer({
         oldVertex: number;
       }
       const refs: Ref[] = [];
+      let faceOrphaned = 0;
       for (const connection of graphRef.current.connections) {
         if (connection.orphaned) continue;
-        if (connection.nodeA === nodeId) refs.push({ connection, side: 'A', oldVertex: connection.vertexA });
-        if (connection.nodeB === nodeId) refs.push({ connection, side: 'B', oldVertex: connection.vertexB });
+        const touchesA = connection.nodeA === nodeId;
+        const touchesB = connection.nodeB === nodeId;
+        if (!touchesA && !touchesB) continue;
+        if (connection.kind === 'face') {
+          connection.orphaned = true;
+          faceOrphaned++;
+          continue;
+        }
+        if (touchesA) refs.push({ connection, side: 'A', oldVertex: connection.vertexA });
+        if (touchesB) refs.push({ connection, side: 'B', oldVertex: connection.vertexB });
       }
 
       const matches = matchRewriteVertices(
@@ -573,6 +785,7 @@ export default function ShapeViewer({
       const replacement = buildPlacedShape(newSpec, nodeId);
       replacement.object.position.copy(oldPosition);
       replacement.object.quaternion.copy(oldQuaternion);
+      applyViewMode(replacement, viewModeRef.current);
       scene.add(replacement.object);
 
       const index = placedRef.current.indexOf(node);
@@ -596,7 +809,7 @@ export default function ShapeViewer({
       }
 
       let reattached = 0;
-      let orphaned = 0;
+      let orphaned = faceOrphaned;
       refs.forEach((ref, i) => {
         const newVertex = matches[i];
         if (newVertex === undefined) {
@@ -623,8 +836,8 @@ export default function ShapeViewer({
     /**
      * Stage 8: remove the selected node and cascade to its whole subtree
      * (every node reachable by following nodeA -> nodeB edges from it — see
-     * collectSubtree in app/lib/graph.ts). The parent's own vertex, if any,
-     * is freed again so something new can attach there.
+     * collectSubtree in app/lib/graph.ts). The parent's own vertex or face,
+     * if any, is freed again so something new can attach there.
      */
     const deleteSelectedNode = (): DeleteResult | null => {
       const node = selectedNodeRef.current;
@@ -654,12 +867,16 @@ export default function ShapeViewer({
         (c) => !subtreeIds.has(c.nodeA) && !subtreeIds.has(c.nodeB),
       );
 
-      if (parentConn) {
+      if (parentConn && !parentConn.orphaned) {
         const parentPlaced = findPlaced(parentConn.nodeA);
-        const parentSphere = parentPlaced?.vertexGroup.children[parentConn.vertexA] as THREE.Mesh | undefined;
-        if (parentSphere) {
-          (parentSphere.userData as VertexUserData).occupied = false;
-          paintVertex(parentSphere, {});
+        if (parentConn.kind === 'face') {
+          if (parentPlaced) parentPlaced.faceOccupied[parentConn.vertexA] = false;
+        } else {
+          const parentSphere = parentPlaced?.vertexGroup.children[parentConn.vertexA] as THREE.Mesh | undefined;
+          if (parentSphere) {
+            (parentSphere.userData as VertexUserData).occupied = false;
+            paintVertex(parentSphere, {});
+          }
         }
         if (parentPlaced) applyNodeAppearance(parentPlaced, parentPlaced === selectedNodeRef.current);
       }
@@ -683,14 +900,22 @@ export default function ShapeViewer({
       }
     };
 
+    const setViewMode = (mode: ViewMode) => {
+      viewModeRef.current = mode;
+      for (const placed of placedRef.current) applyViewMode(placed, mode);
+      if (pendingRef.current) applyViewMode(pendingRef.current.placed, mode);
+    };
+
     onReadyRef.current?.({
       reset: placeRoot,
       beginAttach,
+      beginFaceAttach,
       confirmAttach,
       cancelAttach,
       save: saveAssembly,
       rewriteSelectedNode,
       deleteSelectedNode,
+      setViewMode,
     });
 
     let cancelled = false;
@@ -723,6 +948,7 @@ export default function ShapeViewer({
       }
       hoveredRef.current = null;
       hoveredNodeRef.current = null;
+      hoveredFaceIndexRef.current = null;
       label.style.display = 'none';
     };
 
@@ -732,12 +958,29 @@ export default function ShapeViewer({
 
       if (pending) {
         if (isDragging) {
-          pending.twistAngle += event.movementX * TWIST_SENSITIVITY;
-          const twistQuat = new THREE.Quaternion().setFromAxisAngle(pending.attachLocalDir, pending.twistAngle);
-          pending.placed.object.quaternion.copy(pending.baseQuaternion).multiply(twistQuat);
+          if (pending.kind === 'vertex') {
+            pending.twistAngle += event.movementX * TWIST_SENSITIVITY;
+            const twistQuat = new THREE.Quaternion().setFromAxisAngle(pending.attachLocalDir, pending.twistAngle);
+            pending.placed.object.quaternion.copy(pending.baseQuaternion).multiply(twistQuat);
 
-          const degrees = THREE.MathUtils.radToDeg(pending.twistAngle) % 360;
-          label.textContent = `twist ${degrees.toFixed(0)}°`;
+            const degrees = THREE.MathUtils.radToDeg(pending.twistAngle) % 360;
+            label.textContent = `twist ${degrees.toFixed(0)}°`;
+          } else {
+            pending.dragAccumPx += event.movementX;
+            while (pending.dragAccumPx >= FACE_REGISTRATION_DRAG_PX) {
+              pending.dragAccumPx -= FACE_REGISTRATION_DRAG_PX;
+              pending.registration = (pending.registration + 1) % pending.faceSize;
+            }
+            while (pending.dragAccumPx <= -FACE_REGISTRATION_DRAG_PX) {
+              pending.dragAccumPx += FACE_REGISTRATION_DRAG_PX;
+              pending.registration = (pending.registration - 1 + pending.faceSize) % pending.faceSize;
+            }
+            const angle = (pending.registration * 2 * Math.PI) / pending.faceSize;
+            const twistQuat = new THREE.Quaternion().setFromAxisAngle(pending.axis, angle);
+            pending.placed.object.quaternion.copy(pending.baseQuaternion).multiply(twistQuat);
+
+            label.textContent = `registration ${pending.registration + 1}/${pending.faceSize}`;
+          }
           label.style.left = `${event.clientX - rect.left + 14}px`;
           label.style.top = `${event.clientY - rect.top + 14}px`;
           label.style.display = 'block';
@@ -761,6 +1004,7 @@ export default function ShapeViewer({
 
       if (hit) {
         hoveredNodeRef.current = null;
+        hoveredFaceIndexRef.current = null;
         const { vertexId, degree, occupied } = hit.userData as VertexUserData;
         label.textContent = occupied
           ? `vertex ${vertexId} — capacity ${degree} (occupied)`
@@ -772,22 +1016,32 @@ export default function ShapeViewer({
       }
 
       // No vertex under the cursor — check for any node body (select for
-      // delete, and for rewrite when the shape is D10/D12).
-      const faceHit = raycaster.intersectObjects(allFaceMeshes())[0]?.object as THREE.Mesh | undefined;
-      const node = faceHit ? placedRef.current.find((p) => p.mesh === faceHit) : undefined;
+      // delete, rewrite when D10/D12, or face-attach on the specific
+      // triangle's own polygon face).
+      const faceHits = raycaster.intersectObjects(allFaceMeshes());
+      const faceHit = faceHits[0];
+      const node = faceHit ? placedRef.current.find((p) => p.mesh === faceHit.object) : undefined;
 
-      if (node) {
+      if (node && faceHit) {
         hoveredNodeRef.current = node;
+        const faceIndex = typeof faceHit.faceIndex === 'number' ? node.triangleToFaceIndex[faceHit.faceIndex] : null;
+        hoveredFaceIndexRef.current = faceIndex;
+
         const { specId } = node.object.userData as ShapeObjectUserData;
         const rewriteTarget = REWRITE_TARGET[specId];
-        label.textContent = rewriteTarget
-          ? `click to select ${specId} (delete, or transform → ${rewriteTarget})`
-          : `click to select ${specId} node (delete)`;
+        const actions = ['delete'];
+        if (rewriteTarget) actions.push(`transform → ${rewriteTarget}`);
+        if (faceIndex !== null && !node.faceOccupied[faceIndex]) {
+          const faceSize = POLYHEDRA[specId].faces[faceIndex].length;
+          actions.push(`attach via this ${faceSize}-gon face`);
+        }
+        label.textContent = `click to select ${specId} node (${actions.join(', ')})`;
         label.style.left = `${event.clientX - rect.left + 14}px`;
         label.style.top = `${event.clientY - rect.top + 14}px`;
         label.style.display = 'block';
       } else {
         hoveredNodeRef.current = null;
+        hoveredFaceIndexRef.current = null;
         label.style.display = 'none';
       }
     };
@@ -858,9 +1112,27 @@ export default function ShapeViewer({
       }
 
       selectedNodeRef.current = hoveredNode;
+      selectedFaceIndexRef.current = hoveredFaceIndexRef.current;
       applyNodeAppearance(hoveredNode, true);
+
       const { specId, nodeId } = hoveredNode.object.userData as ShapeObjectUserData;
-      onNodeSelectionChangeRef.current?.({ nodeId, specId, rewriteTarget: REWRITE_TARGET[specId] ?? null });
+      const faceIndex = selectedFaceIndexRef.current;
+      const faceSize = faceIndex !== null ? POLYHEDRA[specId].faces[faceIndex].length : null;
+      const faceOccupied = faceIndex !== null ? hoveredNode.faceOccupied[faceIndex] : true;
+      const faceAttachOptions =
+        faceIndex !== null && !faceOccupied
+          ? POLYHEDRON_IDS.filter((id) => POLYHEDRA[id].faces.some((f) => f.length === faceSize))
+          : [];
+
+      onNodeSelectionChangeRef.current?.({
+        nodeId,
+        specId,
+        rewriteTarget: REWRITE_TARGET[specId] ?? null,
+        faceIndex,
+        faceSize,
+        faceOccupied,
+        faceAttachOptions,
+      });
     };
 
     const onKeyDown = (event: KeyboardEvent) => {

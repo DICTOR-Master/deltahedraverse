@@ -44,6 +44,9 @@ jobs:
       - run: npm run verify:twist
       - run: npm run verify:rewrite
       - run: npm run verify:graph
+      - run: npm run verify:face-connectors
+      - run: npm run verify:face-attach
+      - run: npm run verify:face-twist
 
   e2e:
     # Real-browser check (Playwright) -- the actual app, driven the same

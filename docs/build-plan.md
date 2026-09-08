@@ -348,13 +348,94 @@ deltahedra. First step, done:
   they never touch `buildFaceGeometry`. Full suite (unit-level +
   Playwright, 8/8) re-run and passing after the restructure.
 
-Still outstanding, in rough order: Archimedean solids (13), Johnson solids
-(92 — by far the largest remaining lift), face-to-face connections for
-shapes with matching face geometry (the "dual / face-snap mode" already
-sketched in `construction-kit-spec.md` — a face connector
-`{faceIndex, pos: centroid(face), normal: outwardNormal(face)}` derived from
-vertices+faces the same way vertex connectors derive from vertices+edges),
-and an inside/cutaway view toggle (similar in spirit to Rhombiverse's World
-View: Color/Translucent/Skeleton). An eventual introductory puzzle game
-(working name DELTIS) remains speculative — see vercel-deployment-plan.md
-and README.md.
+## Face-to-face connections (face-snap mode) and the view toggle
+
+The user's next ask (2026-09-08): shapes with matching face geometry
+should connect via shared faces, not just vertex-to-vertex, plus an
+inside/cutaway view toggle. Both done:
+
+- **`buildFaceConnectors()`** (`app/lib/polyhedra/core.ts`) — the
+  face-snap-mode primitive `construction-kit-spec.md` already sketched:
+  `{faceIndex, size, pos: centroid(face), normal: outwardNormal(face)}`,
+  derived from `vertices` + `faces` the same way vertex connectors derive
+  from `vertices` + `edges`. The outward normal comes from the face's own
+  CCW winding, so `scripts/verify-face-connectors.ts` (334 checks) is
+  also a genuine cross-check of that winding for every face of every
+  shape — not just an assumption repeated — via a universal property: for
+  a convex shape centered at the origin, `dot(face_centroid,
+  outward_normal)` must be positive for every face.
+- **The attach math took a real wrong turn worth recording.** First
+  assumption: align the two faces' normals (opposite directions, same
+  principle as vertex-attach), then the remaining twist must be one of
+  the *n* multiples of 360/n starting from "zero extra twist." Checked
+  broadly (8280 matching-size face pairs) rather than trusting the first
+  passing example: only 1188 actually coincided at zero twist, and a
+  wider sweep confirmed varying the twist by multiples of 360/n often
+  changed nothing (D4-D4 self-attach: stuck at the same 1.7321 error for
+  every one of the 3 candidates) — the polygon vertex *set* was fixed
+  under that whole family, just *mirrored* relative to the target. The
+  fix: compute the twist angle **analytically** — align the incoming
+  face's own vertex-0 direction to where target's vertex-0 needs it to
+  be, via `atan2` in the shared plane — rather than assuming zero or
+  searching discrete multiples from zero. That fixed all 8280 pairs
+  exactly (`scripts/verify-face-attach.ts`). A real, physical sanity
+  check for why this had to be solvable: D6 (triangular bipyramid) *is*
+  two regular tetrahedra glued face-to-face, already sitting in the
+  registry — if gluing two D4s together weren't achievable by pure
+  rotation, D6 couldn't exist as a valid unit-edge shape either.
+- **Discrete registration cycling**: unlike vertex-attach's continuous
+  twist, two coincident regular n-gon faces have no free rotation — only
+  *n* discrete states (rotating a regular n-gon by any multiple of
+  360/n around its own center maps it onto itself), verified directly
+  in `scripts/verify-face-twist.ts` (order-independent — checks the
+  vertex *sets* coincide, not a presumed index-correspondence formula,
+  since which specific vertex lands where isn't something either the
+  app or the geometry needs to track). Dragging during a pending
+  face-attach accumulates pixel distance and steps through registrations
+  in whole increments, unlike vertex-attach's continuous angle.
+- **Schema**: `AssemblyConnection` gained an optional `kind?: 'vertex' |
+  'face'` tag (absent ≡ `'vertex'`, preserving every save made before
+  this existed) rather than separate `faceA`/`faceB` fields — reuses
+  `vertexA`/`vertexB` as face indices when `kind === 'face'`, since
+  exactly one interpretation is ever meaningful per connection.
+  `isValidAssembly` checks the index range against `faces.length` or
+  `vertices.length` accordingly.
+- **Interaction**: clicking a node's body already selected it for
+  delete/rewrite (Stage 7/8) — extended, not replaced: the same click
+  also captures which specific triangle (hence which polygon face, via a
+  `triangleToFaceIndex` map built alongside fan-triangulation) was under
+  the cursor. If that face is free, `page.tsx` offers "Attach {shape}
+  via face" buttons for every registered shape sharing that face size —
+  currently CUBE-CUBE and DODECAHEDRON-DODECAHEDRON self-pairs, plus any
+  two of the 8 triangular-faced deltahedra, since Archimedean/Johnson
+  solids aren't in yet.
+- **A real gap, honestly left open rather than silently guessed**: the
+  D10<->D12 rewrite rule only re-anchors *vertex* connections. A face
+  connection on a node being rewritten is marked orphaned unconditionally
+  — re-matching a face by normal-similarity the way vertices are
+  re-matched by direction is a real, doable extension, just not built
+  yet.
+- **View toggle**: `ShapeViewer.setViewMode('normal' | 'translucent' |
+  'skeleton')`, applied to every placed (and pending) shape's material.
+  Skeleton mode keeps the mesh technically visible at ~0.04 opacity
+  rather than `.visible = false` — Three.js's `Raycaster` skips invisible
+  objects, which would have silently broken node/face selection while
+  looking "inside" a structure.
+
+Verified end-to-end, not just at the math level: a real Playwright test
+(`tests/e2e/face-attach.spec.ts`) selects a CUBE's face, attaches a
+second CUBE via face, drags to cycle the discrete registration, confirms,
+and checks the **actual persisted assembly** (via `/api/assemblies`,
+since the newly-attached cube now genuinely occludes the root at the
+original screen position — real 3D occlusion, not a bug, that a naive
+re-hover check got fooled by on the first attempt) — 2 CUBE nodes, 1
+`kind: 'face'` connection. `tests/e2e/view-mode.spec.ts` checks the
+3-way cycle. Full suite: 11/11 passing, lint/tsc clean, all 9
+verification scripts passing (334 + 8280 + 201 new checks for this
+feature alone).
+
+Still outstanding, in rough order: Archimedean solids (13), Johnson
+solids (92 — by far the largest remaining lift), re-matching face
+connections on rewrite (the gap noted above), and an eventual
+introductory puzzle game (working name DELTIS), which remains
+speculative — see vercel-deployment-plan.md and README.md.

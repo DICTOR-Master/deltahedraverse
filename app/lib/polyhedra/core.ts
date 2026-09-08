@@ -29,6 +29,13 @@ export interface PolyhedronSpec {
   connectors: Connector[];
 }
 
+export interface FaceConnector {
+  faceIndex: number;
+  size: number; // vertex/edge count bounding this face (3 = triangle, 4 = square, 5 = pentagon, ...)
+  pos: Vec3; // face centroid, local space
+  normal: Vec3; // outward unit normal, local space
+}
+
 export function centerVertices(vs: Vec3[]): Vec3[] {
   const c: Vec3 = [0, 0, 0];
   for (const v of vs) {
@@ -72,6 +79,43 @@ export function makeSpec(
   const unit = rawVerts.map((v) => [v[0] / L, v[1] / L, v[2] / L] as Vec3);
   const vertices = centerVertices(unit);
   return { id, name, faceCount, vertices, edges, faces, connectors: buildConnectors(vertices, edges) };
+}
+
+/**
+ * Face connectors — the face-snap-mode counterpart to buildConnectors(),
+ * derived from `vertices` + `faces` exactly the way vertex connectors are
+ * derived from `vertices` + `edges` (construction-kit-spec.md's "Dual /
+ * face-snap mode" design, not a new stored field). The outward normal comes
+ * from the face's own CCW winding (already required for correct flat-shaded
+ * rendering), so it's a genuine cross-check of that winding wherever it's
+ * used, not just an assumption repeated — see scripts/verify-face-connectors.ts.
+ */
+export function buildFaceConnectors(spec: PolyhedronSpec): FaceConnector[] {
+  return spec.faces.map((face, faceIndex) => {
+    const pts = face.map((i) => spec.vertices[i]);
+    const pos: Vec3 = [0, 0, 0];
+    for (const p of pts) {
+      pos[0] += p[0];
+      pos[1] += p[1];
+      pos[2] += p[2];
+    }
+    pos[0] /= pts.length;
+    pos[1] /= pts.length;
+    pos[2] /= pts.length;
+
+    const [p0, p1, p2] = pts;
+    const e1: Vec3 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+    const e2: Vec3 = [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]];
+    const cross: Vec3 = [
+      e1[1] * e2[2] - e1[2] * e2[1],
+      e1[2] * e2[0] - e1[0] * e2[2],
+      e1[0] * e2[1] - e1[1] * e2[0],
+    ];
+    const len = Math.hypot(cross[0], cross[1], cross[2]);
+    const normal: Vec3 = [cross[0] / len, cross[1] / len, cross[2] / len];
+
+    return { faceIndex, size: face.length, pos, normal };
+  });
 }
 
 /** Fan-triangulates a convex n-gon face from its own first vertex — for rendering only, never stored. */

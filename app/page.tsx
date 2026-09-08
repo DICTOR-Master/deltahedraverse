@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { POLYHEDRA, POLYHEDRON_IDS } from './lib/polyhedra';
-import type { NodeSelection, ShapeSelection, ShapeViewerHandle } from './components/ShapeViewer';
+import type { NodeSelection, ShapeSelection, ShapeViewerHandle, ViewMode } from './components/ShapeViewer';
 
 const ShapeViewer = dynamic(() => import('./components/ShapeViewer'), {
   ssr: false,
@@ -15,6 +15,13 @@ interface Pending {
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
+const VIEW_MODES: ViewMode[] = ['normal', 'translucent', 'skeleton'];
+const VIEW_MODE_LABELS: Record<ViewMode, string> = {
+  normal: 'Solid',
+  translucent: 'Translucent',
+  skeleton: 'Inside view',
+};
+
 export default function Home() {
   const handleRef = useRef<ShapeViewerHandle | null>(null);
   const [selection, setSelection] = useState<ShapeSelection | null>(null);
@@ -23,6 +30,7 @@ export default function Home() {
   const [rewriteNote, setRewriteNote] = useState<string | null>(null);
   const [cageClosed, setCageClosed] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [viewMode, setViewModeState] = useState<ViewMode>('normal');
 
   const handleSave = async () => {
     setSaveStatus('saving');
@@ -53,13 +61,19 @@ export default function Home() {
     setTimeout(() => setRewriteNote(null), 4000);
   };
 
+  const cycleViewMode = () => {
+    const next = VIEW_MODES[(VIEW_MODES.indexOf(viewMode) + 1) % VIEW_MODES.length];
+    setViewModeState(next);
+    handleRef.current?.setViewMode(next);
+  };
+
   return (
     <div className="flex h-screen w-full flex-col bg-black">
       <header className="flex items-start justify-between px-6 py-4 text-zinc-50">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Deltahedraverse</h1>
           <p className="text-sm text-zinc-400">
-            8 deltahedra + Platonic solids (cube, dodecahedron) — more families coming
+            Deltahedra + Platonic solids — vertex ball-joints and face-to-face connections
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -70,6 +84,13 @@ export default function Home() {
           )}
           {saveStatus === 'saved' && <span className="text-xs text-emerald-400">Saved</span>}
           {saveStatus === 'error' && <span className="text-xs text-red-400">Save failed</span>}
+          <button
+            type="button"
+            onClick={cycleViewMode}
+            className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
+          >
+            View: {VIEW_MODE_LABELS[viewMode]}
+          </button>
           <button
             type="button"
             onClick={handleSave}
@@ -102,7 +123,7 @@ export default function Home() {
         {pending ? (
           <>
             <span className="text-xs uppercase tracking-wide text-pink-400">
-              Placing {pending.specId} — drag the view to twist it, then:
+              Placing {pending.specId} — drag to rotate it, then:
             </span>
             <button
               type="button"
@@ -122,7 +143,8 @@ export default function Home() {
         ) : nodeSelection ? (
           <>
             <span className="text-xs uppercase tracking-wide text-amber-400">
-              Selected {nodeSelection.specId} node:
+              Selected {nodeSelection.specId} node
+              {nodeSelection.faceIndex !== null ? ` (face ${nodeSelection.faceIndex}, ${nodeSelection.faceSize}-gon${nodeSelection.faceOccupied ? ', occupied' : ''})` : ''}:
             </span>
             {nodeSelection.rewriteTarget && (
               <button
@@ -140,6 +162,17 @@ export default function Home() {
             >
               Delete
             </button>
+            {nodeSelection.faceAttachOptions.length > 0 &&
+              nodeSelection.faceAttachOptions.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => handleRef.current?.beginFaceAttach(id)}
+                  className="rounded-full bg-sky-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-sky-400"
+                >
+                  Attach {id} via face
+                </button>
+              ))}
           </>
         ) : selection ? (
           <>
@@ -161,7 +194,8 @@ export default function Home() {
         ) : (
           <span className="text-xs text-zinc-600">
             Click a highlighted, free vertex to attach a shape, or click a node&apos;s body to
-            select it (glowing nodes still have room to build from).
+            select it — a free face offers face-to-face attach for shapes with a matching face
+            size (glowing nodes still have room to build from).
           </span>
         )}
       </nav>

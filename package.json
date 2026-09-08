@@ -13,6 +13,9 @@
     "verify:twist": "tsx scripts/verify-twist.ts",
     "verify:rewrite": "tsx scripts/verify-rewrite.ts",
     "verify:graph": "tsx scripts/verify-graph.ts",
+    "verify:face-connectors": "tsx scripts/verify-face-connectors.ts",
+    "verify:face-attach": "tsx scripts/verify-face-attach.ts",
+    "verify:face-twist": "tsx scripts/verify-face-twist.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
