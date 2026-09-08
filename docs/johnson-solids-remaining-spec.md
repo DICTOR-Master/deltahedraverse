@@ -14,9 +14,9 @@ concretely diagnosed root cause first, since fixes there may carry
 lessons (verification discipline, registration-checking habits) that
 make the harder groups easier too, rather than the reverse.
 
-**Status (2026-09-09): Group 1 (all 6 of J66-J71) and Group 2 (J64) are
-both done — see below. 14 remain (92 - 78): J79 (1) and ~13 with no
-closed form at all.**
+**Status (2026-09-09): Groups 1-3 are all done (8 shapes: J64, J66-J71,
+J79) — see below. 13 remain (92 - 79), all Group 4: no closed form at
+all, needing genuinely new numerical-solver tooling.**
 
 ## Group 1 (simplest — single root cause already diagnosed): J66–J71
 
@@ -137,27 +137,39 @@ third-region choices failed with an IDENTICAL error magnitude
 (max=3.05). That uniformity across all 10 candidates was already the
 tell that this isn't about which region to pick.
 
-**New finding this doc adds**: web research confirms the correct
-construction is exactly what was attempted — two non-adjacent cupolae
-gyrated, a third (non-adjacent to both) removed.⁴ That means Group 3's
-failure is NOT a wrong combinatorial choice (unlike Group 1 and Group
-2, where research revealed the attempted construction was simply
-wrong) — the construction plan was already right, so the bug is
-somewhere in its execution.
+**Original finding this doc added**: web research described the
+correct construction as "two non-adjacent cupolae gyrated, a third
+(non-adjacent to both) removed."⁴ At the time this was read as
+confirming batch 9's own "para pair" choice (para = maximally
+non-adjacent, 180°), so the hypothesis was that the construction plan
+was already right and the bug was purely in execution.
 
-**Recommended protocol, different in kind from Groups 1-2**: this
-needs the same "trace the actual transform, don't guess" discipline
-that found the real Catalan-solids self-attach bug (vertex-0 role
-inconsistency) after two wrong hypotheses were ruled out. Specifically:
-print the vertex positions after the first gyration, after the second
-gyration, and going into the diminish step, and check each stage
-independently against what a single-gyration diminished
-rhombicosidodecahedron (already correctly built, J77/J78) would
-produce for the same region — the identical-error-across-all-10 result
-strongly suggests the two gyrations aren't composing correctly (second
-gyration applied in a frame that's already been rotated by the first,
-or a shared-vertex bookkeeping error between the two regions), not
-that a right answer is hiding among 10 wrong candidates.
+**That reading was itself the bug — corrected 2026-09-09.** The
+source's exact wording is "two further NON-OPPOSITE caps" — para
+specifically means *opposite* (180°), so batch 9's premise was wrong
+from the start, not just its execution. Confirmed decisively, not
+just re-read more carefully: rebuilding the gyrate/diminish machinery
+from scratch and checking combinatorially, EVERY ONE of the remaining
+10 regions' waist rings shares 2 vertices with the para pair's own
+pentagon caps — a structural consequence of RD's vertex configuration
+(every vertex belongs to exactly one pentagon, so the para pair
+between them already touches every other region). That's exactly why
+all 10 candidates failed identically: not a coincidence needing
+transform-tracing, but a real geometric impossibility baked into the
+wrong premise. With the correct pair (RD's "meta" class, 116.6°) two
+of the remaining 10 regions have zero waist overlap with either
+gyrated cap — diminishing either produces a clean, valid J79.
+
+**Fixed (2026-09-09, batch 11).** Rebuilt gyrate/diminish from scratch
+(the original derivation script wasn't kept) and self-checked each
+operation independently before combining: single gyrate exactly
+reproduced J72 (0.000000 unordered point-set error), double gyrate
+exactly reproduced J73 (5e-13), single diminish exactly reproduced J76
+(confirmed via rotation-invariant histogram, since J76's stored
+orientation differs from RD's own — an arbitrary choice, not a bug).
+V=55, E=105, F=52 (15 triangles + 25 squares + 11 pentagons + 1
+decagon), zero non-square quads, confirmed not congruent to J76/J77/
+J78 via the same histogram check.
 
 ## Group 4 (hardest, tackle last): ~15 with no closed-form construction
 

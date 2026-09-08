@@ -1889,6 +1889,93 @@ const FACES_J83_TRIDIMINISHED_RHOMBICOSIDODECAHEDRON: number[][] = [
   [5, 6, 4], [8, 29, 44, 23, 38, 20, 28, 40, 9, 13], [24, 12, 19, 18, 37, 30, 41, 25, 27, 14], [42, 44, 29, 26, 36], [15, 8, 13, 5, 31], [32, 31, 1], [20, 7, 19, 12, 28], [9, 40, 24, 14, 6], [22, 34, 17, 32, 33], [16, 1, 4, 27, 25], [33, 16, 3], [26, 15, 17], [39, 2, 21, 42, 36, 34, 22, 11, 43, 35], [10, 39, 35, 37, 18], [43, 11, 3, 41, 30], [23, 21, 2, 0, 38], [0, 10, 7], [26, 29, 8, 15], [21, 23, 44, 42], [13, 9, 6, 5], [31, 5, 4, 1], [40, 28, 12, 24], [4, 6, 14, 27], [33, 32, 1, 16], [36, 26, 17, 34], [17, 15, 31, 32], [35, 43, 30, 37], [7, 10, 18, 19], [3, 16, 25, 41], [11, 22, 33, 3], [0, 2, 39, 10], [38, 0, 7, 20],
 ];
 
+/**
+ * 1 more Johnson solid: bigyrate diminished rhombicosidodecahedron
+ * (J79) -- the one shape this batch originally left out. Re-derived
+ * from scratch (the original batch-9 derivation script wasn't kept,
+ * per this project's own convention of deriving offline and
+ * transcribing only the final result) with the gyrate/diminish
+ * machinery rebuilt and INDEPENDENTLY self-checked against every
+ * already-verified single-operation shape before attempting J79
+ * itself: gyrating one region exactly reproduced J72 (unordered
+ * point-set match, 0.000000 error); gyrating two regions
+ * simultaneously exactly reproduced J73 (5e-13, floating-point noise);
+ * diminishing one region exactly reproduced J76 (confirmed via a
+ * rotation-invariant pairwise-distance-histogram, since J76's own
+ * stored orientation turned out to differ from RD's — not a bug, just
+ * an arbitrary orientation choice from whichever batch built it).
+ *
+ * **The actual root cause of batch 9's failure, found here**: batch 9
+ * assumed J79's two gyrated regions were RD's "para" (opposite) pair,
+ * reasoning it should reproduce J73's own already-verified
+ * construction. External research (`docs/johnson-solids-remaining-spec.md`)
+ * corrected this directly: the two gyrated caps are explicitly
+ * "non-opposite" -- the "meta" pair, not "para". This wasn't just a
+ * subtle wrong guess: checked computationally, EVERY ONE of the 10
+ * remaining regions' waist rings shares 2 vertices with the para
+ * pair's own pentagon caps (RD's vertex configuration means every
+ * vertex belongs to exactly one pentagon, so a "para" pair's high
+ * connectivity leaves no region with an undisturbed waist ring to
+ * diminish) -- explaining exactly why batch 9's attempt failed
+ * IDENTICALLY across all 10 candidates, not because of a wrong
+ * region choice within the (already wrong) para-pair premise. With
+ * the correct meta pair, exactly 2 of the remaining 10 regions have
+ * ZERO waist-ring overlap with either gyrated cap (regions
+ * classified "meta" to both, matching the external "none of the
+ * cupolae being adjacent" description) -- diminishing either produces
+ * a fully clean result. V=55, E=105, F=52 (15 triangles + 25 squares +
+ * 11 pentagons + 1 decagon), zero non-square quads, and directly
+ * confirmed NOT congruent to J76/J77/J78 (the other diminished/
+ * gyrate-diminished variants already in this registry) via the same
+ * pairwise-distance-histogram check used throughout this project.
+ */
+
+const VERTS_J79_BIGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON: Vec3[] = [
+  [1.309016994374923, 1.8090169943748937, -3.700743415417188e-17], [-1.309016994374923, -1.8090169943748937, -3.700743415417188e-17], [1.6180339887499047, 1.309016994374923, -0.8090169943749523],
+  [-1.309016994374923, -0.8090169943749523, -1.6180339887499047], [-1.6180339887499047, -1.309016994374923, 0.8090169943749523], [-0.8090169943749523, -1.6180339887499047, 1.309016994374923],
+  [-1.309016994374923, -0.8090169943749523, 1.6180339887499047], [0.4999999999999706, 2.1180339887498754, 0.4999999999999705], [0.8090169943749523, -1.6180339887499047, 1.309016994374923],
+  [-0.4999999999999706, -0.4999999999999706, 2.1180339887498754], [0.4999999999999706, 2.1180339887498754, -0.49999999999997063], [-0.4999999999999706, -0.4999999999999706, -2.1180339887498754],
+  [-2.203444185374842, 0.36180339887496127, 1.9013935119909913e-14], [-1.8944271909999133, 0.8618033988749435, 0.809016994374932], [-0.8090169943749523, 1.6180339887499047, 1.309016994374923],
+  [-7.401486830834377e-18, -1.309016994374923, 1.8090169943748937], [-1.8090169943748937, -3.7007434154171884e-18, 1.309016994374923], [0.4999999999999706, -2.1180339887498754, 0.4999999999999705],
+  [-1.6180339887499047, -1.309016994374923, -0.8090169943749523], [0.4999999999999706, -2.1180339887498754, -0.49999999999997063], [-0.4999999999999706, 2.1180339887498754, -0.49999999999997063],
+  [-0.4999999999999706, 2.1180339887498754, 0.4999999999999705], [-1.39442719099992, 1.6708203932499002, 0.4999999999999976], [0.8090169943749523, 1.6180339887499047, 1.309016994374923],
+  [1.6708203932498995, -0.4999999999999978, 1.3944271909999193], [2.1180339887498754, 0.4999999999999706, -0.49999999999997063], [-7.401486830834377e-18, -1.309016994374923, -1.8090169943748937],
+  [2.1180339887498754, 0.4999999999999706, 0.4999999999999705], [-1.309016994374923, 0.8090169943749523, 1.6180339887499047], [-2.1180339887498754, -0.4999999999999706, -0.49999999999997063],
+  [-1.3944271909999184, 1.6708203932499024, -0.49999999999999417], [1.309016994374923, -1.8090169943748937, -3.700743415417188e-17], [-2.1180339887498754, -0.4999999999999706, 0.4999999999999705],
+  [-7.401486830834377e-18, 1.309016994374923, 1.8090169943748937], [1.6180339887499047, -1.309016994374923, 0.8090169943749523], [-1.309016994374923, 0.8090169943749523, -1.6180339887499047],
+  [-0.4999999999999706, -2.1180339887498754, 0.4999999999999705], [-0.4999999999999706, -2.1180339887498754, -0.49999999999997063], [-0.8090169943749523, -1.6180339887499047, -1.309016994374923],
+  [0.8090169943749523, -1.6180339887499047, -1.309016994374923], [-1.894427190999906, 0.8618033988749554, -0.8090169943749365], [1.6708203932499017, 0.49999999999999417, 1.394427190999918],
+  [0.3618033988749606, -1.886401362078317e-14, 2.2034441853748414], [-7.401486830834377e-18, 1.309016994374923, -1.8090169943748937], [1.6180339887499047, -1.309016994374923, -0.8090169943749523],
+  [-0.8090169943749523, 1.6180339887499047, -1.309016994374923], [1.6180339887499047, 1.309016994374923, 0.8090169943749523], [0.8090169943749523, 1.6180339887499047, -1.309016994374923],
+  [-0.4999999999999706, 0.4999999999999706, 2.1180339887498754], [-1.8090169943748937, -3.7007434154171884e-18, -1.309016994374923], [0.8618033988749428, -0.8090169943749321, 1.8944271909999126],
+  [2.1180339887498754, -0.4999999999999706, -0.49999999999997063], [-0.4999999999999706, 0.4999999999999706, -2.1180339887498754], [2.1180339887498754, -0.4999999999999706, 0.4999999999999705],
+  [0.8618033988749547, 0.8090169943749366, 1.8944271909999053],
+];
+
+const EDGES_J79_BIGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON: [number, number][] = [
+  [0, 2], [0, 7], [0, 10], [0, 46], [1, 4], [1, 18], [1, 36], [1, 37], [2, 25], [2, 47], [3, 11], [3, 18],
+  [3, 38], [3, 49], [4, 5], [4, 6], [4, 32], [5, 6], [5, 15], [5, 36], [6, 9], [6, 16], [7, 10], [7, 21],
+  [7, 23], [8, 15], [8, 17], [8, 34], [8, 50], [9, 15], [9, 42], [9, 48], [10, 20], [10, 47], [11, 26], [11, 52],
+  [12, 13], [12, 29], [12, 32], [12, 40], [13, 16], [13, 22], [13, 28], [14, 21], [14, 22], [14, 28], [14, 33], [15, 50],
+  [16, 28], [16, 32], [17, 19], [17, 31], [17, 36], [18, 29], [18, 38], [19, 31], [19, 37], [19, 39], [20, 21], [20, 30],
+  [20, 45], [21, 22], [22, 30], [23, 33], [23, 46], [23, 54], [24, 34], [24, 41], [24, 50], [24, 53], [25, 27], [25, 51],
+  [26, 38], [26, 39], [27, 41], [27, 46], [27, 53], [28, 48], [29, 32], [29, 49], [30, 40], [30, 45], [31, 34], [31, 44],
+  [33, 48], [33, 54], [34, 53], [35, 40], [35, 45], [35, 49], [35, 52], [36, 37], [37, 38], [39, 44], [40, 49], [41, 46],
+  [41, 54], [42, 48], [42, 50], [42, 54], [43, 45], [43, 47], [43, 52], [44, 51], [51, 53],
+];
+
+const FACES_J79_BIGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON: number[][] = [
+  [50, 42, 9, 15], [2, 25, 51, 44, 39, 26, 11, 52, 43, 47], [26, 39, 19, 37, 38], [38, 18, 3], [14, 21, 22], [20, 45, 30],
+  [9, 48, 28, 16, 6], [8, 50, 15], [17, 8, 15, 5, 36], [12, 29, 32], [12, 40, 49, 29], [53, 24, 34],
+  [37, 36, 1], [54, 23, 33], [23, 7, 21, 14, 33], [51, 53, 34, 31, 44], [10, 47, 43, 45, 20], [35, 49, 40],
+  [52, 11, 3, 49, 35], [42, 48, 9], [42, 54, 33, 48], [28, 13, 16], [13, 12, 32, 16], [18, 1, 4, 32, 29],
+  [5, 6, 4], [31, 17, 19], [0, 10, 7], [27, 46, 41], [27, 25, 2, 0, 46], [15, 9, 6, 5],
+  [11, 26, 38, 3], [21, 20, 30, 22], [34, 24, 50, 8], [3, 18, 29, 49], [24, 41, 54, 42, 50], [53, 27, 41, 24],
+  [25, 27, 53, 51], [38, 37, 1, 18], [31, 34, 8, 17], [43, 52, 35, 45], [45, 35, 40, 30], [7, 10, 20, 21],
+  [48, 33, 14, 28], [22, 30, 40, 12, 13], [28, 14, 22, 13], [4, 6, 16, 32], [36, 5, 4, 1], [44, 31, 19, 39],
+  [19, 17, 36, 37], [0, 2, 47, 10], [46, 0, 7, 23], [41, 46, 23, 54],
+];
+
 // ---------------------------------------------------------------------------
 // batch 10 (2026-09-09) -- augmented truncated cube (J66), correcting
 // batch 8's excluded attempt
@@ -2688,6 +2775,14 @@ export const JOHNSON_ADDITIONS: Record<string, PolyhedronSpec> = {
     VERTS_J64_AUGMENTED_TRIDIMINISHED_ICOSAHEDRON,
     EDGES_J64_AUGMENTED_TRIDIMINISHED_ICOSAHEDRON,
     FACES_J64_AUGMENTED_TRIDIMINISHED_ICOSAHEDRON,
+  ),
+  J79_BIGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON: makeSpec(
+    'J79_BIGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON',
+    'bigyrate_diminished_rhombicosidodecahedron',
+    52,
+    VERTS_J79_BIGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON,
+    EDGES_J79_BIGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON,
+    FACES_J79_BIGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON,
   ),
   J49_AUGMENTED_TRIANGULAR_PRISM: makeSpec(
     'J49_AUGMENTED_TRIANGULAR_PRISM',

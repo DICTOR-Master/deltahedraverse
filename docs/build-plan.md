@@ -1490,3 +1490,64 @@ shapes have no closed form at all, requiring genuine numerical
 optimization rather than the closed-form/registration-sweep
 constructions used for every batch so far, saved for last as
 originally planned.
+
+## Batch 11 (2026-09-09) — J79, correcting batch 9's one excluded shape
+
+The original batch-9 derivation script wasn't kept (this project's own
+convention: derive offline, transcribe only the final result) so J79
+was rebuilt from scratch, with the RD-region gyrate/diminish machinery
+INDEPENDENTLY self-checked against every already-verified
+single-operation shape already in the registry before attempting J79
+itself, the same discipline batch 5 used reproducing all 8 of batch 3's
+compounds before trusting a new construction: gyrating one region
+exactly reproduced J72 (unordered point-set match, 0.000000 error);
+gyrating two regions simultaneously exactly reproduced J73 (5e-13,
+floating-point noise); diminishing one region exactly reproduced J76
+(confirmed via a rotation-invariant pairwise-distance-histogram, since
+J76's own stored orientation turned out to differ from RD's — an
+arbitrary choice from whichever batch built it, not a bug).
+
+**The actual root cause of batch 9's failure, found here**: batch 9
+assumed J79's two gyrated regions were RD's "para" (opposite, 180°)
+pair, reasoning it should reproduce J73's own already-verified
+construction — and this doc's own earlier scoping pass (batch 10)
+read the external research the same way, taking "two non-adjacent
+cupolae" to mean the para pair satisfied it. Re-reading the source
+precisely settled it: it says "two further NON-OPPOSITE caps" — para
+specifically means opposite, so the premise was wrong from the start,
+not just its execution. Confirmed decisively, not just re-read more
+carefully: checking combinatorially, EVERY ONE of the 10 remaining
+regions' waist rings shares 2 vertices with the para pair's own
+pentagon caps — a direct consequence of RD's vertex configuration
+(every vertex belongs to exactly one pentagon, so the para pair's
+combined reach already touches every other region's waist ring).
+That's exactly why all 10 candidates failed identically in batch 9:
+not a coincidence needing transform-tracing to explain, but a real
+geometric impossibility baked into the wrong premise. With the
+correct pair (RD's "meta" class, 116.6°, matching J74's own
+metabigyrate construction) exactly 2 of the remaining 10 regions have
+zero waist-ring overlap with either gyrated cap — diminishing either
+produces a clean, valid result immediately.
+
+Also checked and ruled out along the way (worth recording since it
+was the leading hypothesis walking in): NOT a two-gyrations-composing-
+incorrectly bug — the double-gyrate reconstruction that exactly
+reproduced J73 already proves 2 simultaneous gyrations compose
+correctly in general; the actual issue was specific to which 2 regions
+batch 9 chose to gyrate in the first place.
+
+V=55, E=105, F=52 (15 triangles + 25 squares + 11 pentagons + 1
+decagon), zero non-square quads, directly confirmed NOT congruent to
+J76/J77/J78 (the registry's other diminished/gyrate-diminished RD
+variants) via the same pairwise-distance-histogram check used
+throughout this project.
+
+Verified end to end: `validate-johnson.ts` (all 79 OK), `tsc --noEmit`
+and lint clean, `verify:attach` (356,478), `verify:twist` (250,632),
+`verify:rewrite`, `verify:graph`, `verify:face-connectors` (8,803),
+`verify:face-attach` (2,903,249, 0 failures), `verify:face-twist`
+(22,378, 0 failures), and the full Playwright suite on dicto-node.
+
+Still outstanding for Johnson solids: 13 remain (92 - 79), all with no
+closed form at all — the only group left, needing genuinely new
+numerical-solver tooling this registry doesn't have yet.

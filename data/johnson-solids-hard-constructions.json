@@ -1,0 +1,215 @@
+{
+  "$schema_note": "Open-data reference for the Johnson solids in this registry whose construction needed something beyond a single closed-form apex-height equation -- a discrete registration search, a combinatorial face-selection rule, or a multi-step operation composed from smaller verified pieces. Companion to docs/johnson-solids-constructions.md (human-readable) and docs/build-plan.md (full narrative postmortems). Every numeric claim here was verified computationally in this project (scipy ConvexHull + this registry's own validateShape/verify:face-attach/verify:face-twist scripts) before being recorded -- see 'verification' per entry.",
+  "generated": "2026-09-09",
+  "source_project": "https://github.com/DICTOR-Master/polyhedraverse",
+  "license_note": "Same license as the parent repository (see LICENSE).",
+  "shapes": {
+    "J64": {
+      "name": "augmented_tridiminished_icosahedron",
+      "base_shapes": ["J63_TRIDIMINISHED_ICOSAHEDRON", "D4"],
+      "operation": "face-attach",
+      "target_face_selector": {
+        "rule": "the unique triangular face of J63 that is edge-adjacent to all 3 of its pentagonal faces",
+        "method": "combinatorial: for each of J63's 5 triangles, count shared edges with each of its 3 pentagons; exactly one triangle scores 3",
+        "found_face_vertices": [0, 1, 5]
+      },
+      "cap_shape": "D4 (regular tetrahedron, unit edge)",
+      "registration": {
+        "note": "trivial -- a triangle's 3-fold symmetry makes all 3 discrete registrations equivalent by symmetry, verified not assumed",
+        "registration_count": 3,
+        "chosen": 0
+      },
+      "prior_wrong_attempt": {
+        "what": "augmenting a PENTAGON face with a pentagonal pyramid",
+        "why_wrong": "provably forced back onto J62 (a regular pentagon's matching pyramid apex position has no freedom)",
+        "collapsed_into": "J62_METABIDIMINISHED_ICOSAHEDRON"
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "congruence_check_not_equal_to: J62_METABIDIMINISHED_ICOSAHEDRON (pairwise-distance histogram, max diff 0.618)"
+      ],
+      "result": { "V": 10, "E": 18, "F": 10, "face_composition": { "triangle": 7, "pentagon": 3 } },
+      "external_sources": [
+        "https://en.wikipedia.org/wiki/Augmented_tridiminished_icosahedron",
+        "https://mathworld.wolfram.com/AugmentedTridiminishedIcosahedron.html"
+      ]
+    },
+    "J66": {
+      "name": "augmented_truncated_cube",
+      "base_shapes": ["TRUNCATED_CUBE", "J4_SQUARE_CUPOLA"],
+      "operation": "face-attach",
+      "target_face_selector": { "rule": "any one of the truncated cube's 6 octagonal faces (all equivalent by symmetry)" },
+      "cap_shape": "J4_SQUARE_CUPOLA (octagonal base)",
+      "registration": {
+        "note": "an octagon has 8 discrete registrations; exactly the ODD offsets (relative to computeFaceAttach's own theta0 baseline) produce the correct result -- the cupola's own squares must land adjacent to the truncated cube's TRIANGLES, not its own larger faces",
+        "registration_count": 8,
+        "chosen": 1,
+        "wrong_offsets": [0, 2, 4, 6],
+        "wrong_offset_symptom": "one pre-existing truncated-cube triangle becomes exactly coplanar with an adjacent cupola triangle and merges into a RHOMBUS (unit edges, unequal diagonals sqrt(3) vs 1), not a true square"
+      },
+      "prior_wrong_attempt": {
+        "what": "used computeFaceAttach's default registration (offset 0, 'no extra twist from the measured base vertex')",
+        "why_wrong": "happened to be one of the 4 wrong offsets"
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check (equal diagonals sqrt(2) required for a true square)"
+      ],
+      "result": { "V": 28, "E": 48, "F": 22, "face_composition": { "triangle": 12, "square": 5, "octagon": 5 } },
+      "external_sources": ["https://en.wikipedia.org/wiki/Augmented_truncated_cube"]
+    },
+    "J67": {
+      "name": "biaugmented_truncated_cube",
+      "base_shapes": ["TRUNCATED_CUBE", "J4_SQUARE_CUPOLA"],
+      "operation": "face-attach (x2, independent)",
+      "target_face_selector": {
+        "rule": "two of the truncated cube's 6 octagonal faces, specifically the OPPOSITE pair (dot(normal_a, normal_b) = -1)",
+        "confirmed_externally": true,
+        "note": "not adjacent -- confirmed by external source before building, not assumed"
+      },
+      "cap_shape": "J4_SQUARE_CUPOLA x2",
+      "registration": {
+        "note": "each of the 2 capped faces needed its own registration verified INDEPENDENTLY (10 total registrations checked across the 2 faces) before combining -- they happened to need the same parity here, but that was checked, not assumed",
+        "per_face_registration_count": 8,
+        "chosen": [1, 1]
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check"
+      ],
+      "result": { "V": 32, "E": 60, "F": 30, "face_composition": { "triangle": 16, "square": 10, "octagon": 4 } },
+      "external_sources": ["https://en.wikipedia.org/wiki/Biaugmented_truncated_cube"]
+    },
+    "J68": {
+      "name": "augmented_truncated_dodecahedron",
+      "base_shapes": ["TRUNCATED_DODECAHEDRON", "J5_PENTAGONAL_CUPOLA"],
+      "operation": "face-attach",
+      "target_face_selector": { "rule": "any one of the truncated dodecahedron's 12 decagonal faces (all equivalent by symmetry)" },
+      "cap_shape": "J5_PENTAGONAL_CUPOLA (decagonal base)",
+      "registration": {
+        "note": "a decagon has 10 discrete registrations; exactly the ODD offsets produce the correct result -- identical pattern to J66, generalized from octagon to decagon",
+        "registration_count": 10,
+        "chosen": 1,
+        "wrong_offsets": [0, 2, 4, 6, 8]
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check"
+      ],
+      "result": { "V": 65, "E": 105, "F": 42, "face_composition": { "triangle": 25, "square": 5, "pentagon": 1, "decagon": 11 } },
+      "external_sources": ["https://en.wikipedia.org/wiki/Augmented_truncated_dodecahedron"]
+    },
+    "J69": {
+      "name": "parabiaugmented_truncated_dodecahedron",
+      "base_shapes": ["TRUNCATED_DODECAHEDRON", "J5_PENTAGONAL_CUPOLA"],
+      "operation": "face-attach (x2, independent)",
+      "target_face_selector": {
+        "rule": "two decagons in the 'para' (opposite, dot=-1) class",
+        "classification_scheme": "the truncated dodecahedron's 12 decagons carry the SAME adjacent/meta/para face-angle classes as the plain dodecahedron (cos 0.4472 / -0.4472 / -1) -- confirmed, not assumed, since the 12 decagons correspond 1:1 to the dodecahedron's 12 faces"
+      },
+      "cap_shape": "J5_PENTAGONAL_CUPOLA x2",
+      "registration": {
+        "per_face_registration_count": 10,
+        "chosen": [1, 1],
+        "note": "verified independently per face before combining, same discipline as J67"
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check",
+        "congruence_check_not_equal_to: J70_METABIAUGMENTED_TRUNCATED_DODECAHEDRON (pairwise-distance histogram, max diff 0.244, despite identical V/E/F)"
+      ],
+      "result": { "V": 70, "E": 120, "F": 52, "face_composition": { "triangle": 30, "square": 10, "pentagon": 2, "decagon": 10 } },
+      "external_sources": ["https://en.wikipedia.org/wiki/Parabiaugmented_truncated_dodecahedron"]
+    },
+    "J70": {
+      "name": "metabiaugmented_truncated_dodecahedron",
+      "base_shapes": ["TRUNCATED_DODECAHEDRON", "J5_PENTAGONAL_CUPOLA"],
+      "operation": "face-attach (x2, independent)",
+      "target_face_selector": {
+        "rule": "two decagons in the 'meta' (dot approx -0.4472) class -- NOT the para pair J69 uses"
+      },
+      "cap_shape": "J5_PENTAGONAL_CUPOLA x2",
+      "registration": {
+        "per_face_registration_count": 10,
+        "chosen": [1, 1]
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check",
+        "congruence_check_not_equal_to: J69_PARABIAUGMENTED_TRUNCATED_DODECAHEDRON"
+      ],
+      "result": { "V": 70, "E": 120, "F": 52, "face_composition": { "triangle": 30, "square": 10, "pentagon": 2, "decagon": 10 } },
+      "external_sources": ["https://en.wikipedia.org/wiki/Metabiaugmented_truncated_dodecahedron"]
+    },
+    "J71": {
+      "name": "triaugmented_truncated_dodecahedron",
+      "base_shapes": ["TRUNCATED_DODECAHEDRON", "J5_PENTAGONAL_CUPOLA"],
+      "operation": "face-attach (x3, independent)",
+      "target_face_selector": {
+        "rule": "three MUTUALLY-meta decagons (all 3 pairwise dot products approx -0.4472)",
+        "note": "20 such triples exist by symmetry; any one works -- arbitrarily picked one",
+        "chosen_faces": [1, 6, 14]
+      },
+      "cap_shape": "J5_PENTAGONAL_CUPOLA x3",
+      "registration": {
+        "per_face_registration_count": 10,
+        "chosen": [1, 0, 0],
+        "note": "IMPORTANT: the 3 faces did NOT all need the same registration parity -- 1 odd, 2 even. This is the concrete instance of a hazard this project had only hypothesized before (J67's own doc comment): two faces of the same solid can need different-parity registrations depending on that specific face's own vertex-0 phase. Caught only because each face was verified fully independently, not assumed to share J67's 'they happened to match' result."
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check"
+      ],
+      "result": { "V": 75, "E": 135, "F": 62, "face_composition": { "triangle": 35, "square": 15, "pentagon": 3, "decagon": 9 } },
+      "external_sources": ["https://en.wikipedia.org/wiki/Triaugmented_truncated_dodecahedron"]
+    },
+    "J79": {
+      "name": "bigyrate_diminished_rhombicosidodecahedron",
+      "base_shapes": ["RHOMBICOSIDODECAHEDRON"],
+      "operation": "region-gyrate (x2) + region-diminish (x1), composed on the same base",
+      "region_decomposition": {
+        "rule": "RHOMBICOSIDODECAHEDRON decomposes into 12 local pentagonal-cupola-shaped regions, one per pentagon face, each pentagon's 5 vertices (the 'cap') surrounded by a ring of 5 triangles alternating with 5 squares (the 'waist', 10 vertices) -- extracted combinatorially from the registry's own face/edge data, not assumed",
+        "classification_scheme": "the 12 regions carry the SAME adjacent/meta/para face-angle classes as the dodecahedron (cos 0.4472 / -0.4472 / -1), confirmed since RD's 12 pentagons correspond 1:1 to dodecahedron faces"
+      },
+      "gyrate_operation": {
+        "definition": "rotate a region's 5 pentagon-cap vertices by exactly 36 degrees (one waist-ring step) around the axis through the solid's center and the pentagon's own centroid, keeping the 10 waist vertices fixed",
+        "regions_gyrated": "the 'meta' pair (dot approx -0.4472) -- NOT the 'para' (opposite) pair",
+        "self_check": "reproduces J72_GYRATE_RHOMBICOSIDODECAHEDRON exactly for a single region (0.000000 unordered point-set error) and J73_PARABIGYRATE_RHOMBICOSIDODECAHEDRON exactly for a para pair (5e-13 error, floating-point noise) -- validated against already-registered shapes BEFORE trusting the operation for J79's own (different) region pair"
+      },
+      "diminish_operation": {
+        "definition": "remove a region's 5 pentagon-cap vertices entirely, exposing its 10-vertex waist ring as a real decagon face once the convex hull recomputes",
+        "region_selection_constraint": "the diminished region's waist ring must share ZERO vertices with either gyrated region's pentagon cap -- of the 10 regions remaining after picking the meta pair, exactly 2 satisfy this (both classified 'meta' to both gyrated regions, i.e. non-adjacent, matching the external description 'none of the cupolae being adjacent')",
+        "region_chosen": 14,
+        "self_check": "reproduces J76_DIMINISHED_RHOMBICOSIDODECAHEDRON exactly for a single region, confirmed via rotation-invariant pairwise-distance histogram (max diff 8.9e-16) since J76's own stored orientation differs from RD's (an arbitrary choice from whichever batch built it, not a geometric discrepancy)"
+      },
+      "prior_wrong_attempt": {
+        "what": "gyrated the 'para' (opposite) pair, reasoning it should reproduce J73's own already-verified construction, then tried diminishing each of the 10 remaining regions",
+        "why_wrong": "the external source's 'non-opposite' wording was misread as satisfied by the para pair; it actually excludes it. Checked combinatorially: the para pair's pentagon caps overlap ALL 10 remaining regions' waist rings (a structural fact of RD's vertex configuration -- every vertex belongs to exactly one pentagon), which is exactly why all 10 diminish attempts failed identically (max edge length 3.05 in every case) -- not a coincidence needing transform-tracing, a real geometric impossibility from the wrong premise",
+        "note": "this wrong reading was made TWICE independently -- once in the original batch 9 attempt, once again in this project's own batch-10 scoping doc before the source was re-read precisely -- worth remembering that citing an external source doesn't by itself guarantee correct interpretation of it"
+      },
+      "verification": [
+        "euler_formula",
+        "unit_edge_length",
+        "outward_face_winding",
+        "quad_diagonal_check",
+        "congruence_check_not_equal_to: [J76_DIMINISHED_RHOMBICOSIDODECAHEDRON, J77_PARAGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON, J78_METAGYRATE_DIMINISHED_RHOMBICOSIDODECAHEDRON]"
+      ],
+      "result": { "V": 55, "E": 105, "F": 52, "face_composition": { "triangle": 15, "square": 25, "pentagon": 11, "decagon": 1 } },
+      "external_sources": ["https://en.wikipedia.org/wiki/Bigyrate_diminished_rhombicosidodecahedron"]
+    }
+  }
+}

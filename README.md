@@ -50,7 +50,7 @@ This list is intentionally open-ended, describing the project's
 direction rather than a feature checklist — so the README doesn't need
 rewriting every time a new capability lands. **"What's here now" below
 is the ground truth for what's actually shipped today**; Johnson solids
-are in progress (78 of 92 so far), Catalan solids just started (2 of 13
+are in progress (79 of 92 so far), Catalan solids just started (2 of 13
 so far), and lattice construction / interpenetrating structures are
 still direction, not yet delivered.
 
@@ -89,7 +89,7 @@ Since then:
   script's tolerance without the shapes themselves being wrong — all
   worked examples in `docs/build-plan.md` of why every claim here gets a
   computational cross-check rather than trust.
-- **78 of 92 Johnson solids so far**, in batches, each with a full
+- **79 of 92 Johnson solids so far**, in batches, each with a full
   postmortem in `docs/build-plan.md`. Batches 1-6 built the pyramids,
   cupolas, rotunda, and every elongated/gyroelongated/bicupola/
   augmented-prism form of them (34 shapes) — along the way, verifying
@@ -140,12 +140,21 @@ Since then:
   triangle edge-adjacent to all 3 of its pentagons), not a pentagonal
   pyramid on a pentagon. Directly confirmed not congruent to J62 (the
   shape batch 7's wrong attempt collapsed into) via the same
-  congruence check that first caught that mistake. 5 of the 92 are
-  already deltahedra in this registry (D6/D10/D12/D14/D16) and aren't
-  re-derived. J79 stays genuinely unresolved and documented, not
-  silently missing; the remaining ~13 shapes with no closed form at
-  all are the last stretch, requiring real numerical
-  optimization rather than the closed-form constructions used so far.
+  congruence check that first caught that mistake. **Batch 11 fixed
+  J79 too**: batch 9's own attempt, and this doc's first reading of
+  the external research describing it, both assumed the 2 gyrated
+  regions were RD's "para" (opposite) pair — the source actually says
+  "non-opposite." Checked combinatorially, the para pair touches every
+  other region's waist ring (a structural consequence of RD's vertex
+  configuration), explaining why all 10 diminish choices failed
+  identically; with the correct "meta" pair, 2 of the 10 remaining
+  regions diminish cleanly. Rebuilt the gyrate/diminish machinery from
+  scratch and self-checked each operation against already-registered
+  shapes (exact match to J72/J73/J76) before trusting it for J79
+  itself. 5 of the 92 are already deltahedra in this registry (D6/D10/
+  D12/D14/D16) and aren't re-derived. The remaining ~13 shapes have no
+  closed form at all — the only group left, needing genuinely new
+  numerical-solver tooling this registry doesn't have yet.
   First shape in this registry that isn't vertex-transitive: J1's apex
   has degree 4 while its base vertices have degree 3. First with no
   degree-3 vertex at all: J10 (only degree 4 and 5).
@@ -215,7 +224,7 @@ polyhedraverse/
         deltahedra.ts    # the 8 deltahedra, verified against a convex hull
         platonic.ts      # cube + dodecahedron (the 2 Platonic solids not already deltahedra)
         archimedean.ts   # all 13 Archimedean solids
-        johnson.ts       # 78 of 92 Johnson solids so far
+        johnson.ts       # 79 of 92 Johnson solids so far
         catalan.ts       # 2 of 13 Catalan solids so far (rhombic dodecahedron, rhombic triacontahedron)
         rewrite.ts       # D10<->D12 vertex-matching (pure function, no three.js)
         index.ts         # combined POLYHEDRA / POLYHEDRON_IDS across every family
@@ -227,12 +236,15 @@ polyhedraverse/
     page.tsx             # UI shell around ShapeViewer
   scripts/               # validate-*, verify-attach/twist/rewrite/graph/face-* -- run outside the browser
   tests/e2e/             # permanent Playwright suite (npm run test:e2e)
+  data/
+    johnson-solids-hard-constructions.json  # open, machine-readable construction recipes for the 8 non-closed-form Johnson solids
   docs/
     build-plan.md               # the build plan, with how each stage was verified
     construction-kit-spec.md    # the vertex-snapping design law + extensibility notes
     catalan-solids-spec.md      # scoping + design record for the Catalan solids family (2/13 done)
     prisms-antiprisms-spec.md   # scoping + design record for prisms/antiprisms (14/14 done)
-    johnson-solids-remaining-spec.md  # alternative construction protocols for the remaining Johnson solids (Groups 1+2, 7 shapes, fixed)
+    johnson-solids-remaining-spec.md  # alternative construction protocols for the remaining Johnson solids (Groups 1-3, 8 shapes, fixed)
+    johnson-solids-constructions.md   # human-readable directory of those same 8 constructions, alongside data/johnson-solids-hard-constructions.json
     vercel-deployment-plan.md   # planned repo/Vercel layout once this deploys
   playwright.config.ts
 ```
@@ -261,15 +273,25 @@ cutoff the way Catalan solids' 13 or Johnson's 92 have one) — capped at
 n=10, 14 shapes, all now in the registry.
 `docs/johnson-solids-remaining-spec.md` diagnosed the 21 Johnson solids
 that were originally missing, grouped simplest-first by how well the
-failure was understood: **Groups 1 and 2 are done** — Group 1 (J66-
+failure was understood: **Groups 1-3 are all done** — Group 1 (J66-
 J71, all 6) shared one root cause (a specific cupola registration
 detail, confirmed via external research, not guessed); Group 2 (J64)
 needed an entirely different construction than what was tried (a
-tetrahedron on a triangle, not a pyramid on a pentagon) — both fixed
-and verified in batch 10. J79 (Group 3) has the right construction
-plan already but an undiagnosed execution bug — not yet rebuilt; the
-remaining ~13 (Group 4) need genuinely new numerical-solver tooling
-this registry doesn't have yet.
+tetrahedron on a triangle, not a pyramid on a pentagon); Group 3 (J79)
+turned out to be the same class of mistake as Group 2 — the "fix"
+this doc first proposed (trace the transform, assuming the plan was
+already right) was itself built on a misreading of the same external
+source, corrected in batch 11 once re-read precisely. Only Group 4
+remains: ~13 shapes with no closed form at all, needing genuinely new
+numerical-solver tooling this registry doesn't have yet.
+`docs/johnson-solids-constructions.md` distills the 8 Groups 1-3
+shapes' construction recipes into a standalone reference (base
+shape(s), target-face selection rule, registration parameter, and
+verification method for each), alongside a machine-readable open-data
+companion, `data/johnson-solids-hard-constructions.json` — every field
+in it cross-checked against this registry's own live `POLYHEDRA` data
+before being recorded, not transcribed from the narrative postmortems
+by hand.
 `docs/vercel-deployment-plan.md` records the intended repo/Vercel
 layout for when this deploys alongside Rhombiverse.
 
