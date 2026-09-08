@@ -73,7 +73,7 @@ export default function Home() {
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Deltahedraverse</h1>
           <p className="text-sm text-zinc-400">
-            Deltahedra + Platonic solids — vertex ball-joints and face-to-face connections
+            Deltahedra, Platonic & Archimedean solids — vertex ball-joints and face-to-face connections
           </p>
         </div>
         <div className="flex items-center gap-2">

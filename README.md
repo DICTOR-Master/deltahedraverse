@@ -40,6 +40,15 @@ Since then:
   on a plausible-looking heuristic, produced silently wrong, non-planar
   faces — see `docs/build-plan.md` for what that looked like and how it
   was actually fixed.
+- **A first batch of 3 Archimedean solids** — cuboctahedron, truncated
+  tetrahedron, truncated octahedron (10 more exist; the rest need
+  golden-ratio coordinates or a numerically-solved chiral root, deferred
+  rather than rushed). Caught two real transcription bugs building these
+  — one where independently-generated vertex and edge/face data silently
+  disagreed on ordering, one where an edge list was hand-guessed instead
+  of derived from the already-verified faces — both are in
+  `docs/build-plan.md` as worked examples of exactly the failure mode
+  `validateShape()` exists to catch.
 - **Pick, attach, twist, confirm/cancel** — hover a vertex to see its
   capacity, pick a shape to attach, drag to twist it around the one
   remaining rotational degree of freedom, then confirm or cancel.
@@ -78,6 +87,7 @@ deltahedraverse/
         core.ts          # family-agnostic infra: PolyhedronSpec, makeSpec, validateShape, triangulateFace, buildFaceConnectors
         deltahedra.ts    # the 8 deltahedra, verified against a convex hull
         platonic.ts      # cube + dodecahedron (the 2 Platonic solids not already deltahedra)
+        archimedean.ts   # cuboctahedron, truncated tetrahedron, truncated octahedron (first batch of 13)
         rewrite.ts       # D10<->D12 vertex-matching (pure function, no three.js)
         index.ts         # combined POLYHEDRA / POLYHEDRON_IDS across every family
       assembly.ts        # the real {nodes, connections} graph + validation (vertex- and face-kind)
