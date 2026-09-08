@@ -1,5 +1,10 @@
 # Catalan Solids — Scoping
 
+**Status (2026-09-09): all 13 are done.** See the batch 1/2/3 sections
+below for the full build record — this doc also serves as the
+authoritative postmortem for the family, not just its original
+scoping.
+
 The 13 Catalan solids are the exact face/vertex duals of the 13
 Archimedean solids — every one of which is already in this registry,
 verified (`app/lib/polyhedra/archimedean.ts`). Scoped as the next family
@@ -428,8 +433,30 @@ The section above is the full record of the reasoning trail
 authoritative record for the Catalan solids family, matching how batch
 1 was documented too.
 
-## Still outstanding: 2 chiral solids
+## Batch 3 done (2026-09-09): the 2 chiral solids — all 13 complete
 
 Pentagonal icositetrahedron (dual of snub cube) and pentagonal
 hexecontahedron (dual of snub dodecahedron) — irregular pentagon
-faces, genuinely chiral. Not yet attempted.
+faces (3 short sides + 2 long sides, single edge-length signature
+confirmed per shape), genuinely chiral. Same polar-reciprocation
+construction and vertex-0 canonicalization as batches 1-2; the
+midsphere check held for both snub Archimedean bases too (differences
+under 1e-11, verified directly rather than assumed despite their
+coordinates coming from a numerically-solved chiral root, which made
+this check matter more than usual, not less).
+
+**The real open question going in**: does the `facesCongruent`
+reversed-matching fix (found and fixed on `DISDYAKIS_TRIACONTAHEDRON`'s
+chiral scalene triangles in batch 2) correctly generalize to these
+chiral pentagons too, without any further changes? Confirmed, not
+assumed: the complete `verify:face-attach` suite passed at 0 failures
+across the full, final 137-shape registry on the first attempt with
+both shapes included — no additional fix was needed. Makes sense in
+hindsight (the fix addresses the general relationship between any
+chiral 2D face and the normal-opposing attach transform, nothing
+specific to triangles), but generalizing an argument correctly still
+needed checking, not assuming, per this whole project's own
+discipline.
+
+**All 13 Catalan solids are now in this registry.** Nothing outstanding
+for this family.

@@ -50,9 +50,9 @@ This list is intentionally open-ended, describing the project's
 direction rather than a feature checklist — so the README doesn't need
 rewriting every time a new capability lands. **"What's here now" below
 is the ground truth for what's actually shipped today**; Johnson
-solids are complete (92 of 92), Catalan solids are nearly there (11 of
-13 — only the 2 chiral ones left), and lattice construction /
-interpenetrating structures are still direction, not yet delivered.
+solids and Catalan solids are BOTH complete (92 of 92, 13 of 13), and
+lattice construction / interpenetrating structures are still
+direction, not yet delivered.
 
 ## What's here now
 
@@ -169,7 +169,7 @@ Since then:
   First shape in this registry that isn't vertex-transitive: J1's apex
   has degree 4 while its base vertices have degree 3. First with no
   degree-3 vertex at all: J10 (only degree 4 and 5).
-- **Catalan solids — 11 of 13** (only the 2 chiral ones left), the
+- **All 13 of 13 Catalan solids — complete**, the
   first family with genuinely irregular faces (face-transitive, not
   vertex-transitive). Needed two real generalizations, not just more
   registry entries: `makeSpecByCircumradius` (circumradius = 1
@@ -194,10 +194,14 @@ Since then:
   nothing for every achiral face already in the registry (confirmed by
   the full `verify:face-attach` suite staying at 0 failures across all
   135 shapes), but was silently wrong for chiral faces until fixed.
-  See `docs/catalan-solids-spec.md` for the full design record,
-  including why an earlier, related investigation reached the opposite
-  conclusion for a different (achiral) shape and was correct for that
-  case.
+  **Batch 3 (the 2 chiral pentagon solids, duals of the snub cube/
+  dodecahedron) confirmed — not assumed — that the same fix already
+  covered them too**: the full `verify:face-attach` suite passed at 0
+  failures across the complete, final 137-shape registry on the first
+  attempt, no further changes needed. See `docs/catalan-solids-spec.md`
+  for the full design record, including why an earlier, related
+  investigation reached the opposite conclusion for a different
+  (achiral) shape and was correct for that case.
 - **Pick, attach, twist, confirm/cancel** — hover a vertex to see its
   capacity, pick a shape to attach, drag to twist it around the one
   remaining rotational degree of freedom, then confirm or cancel.
@@ -249,7 +253,7 @@ polyhedraverse/
         platonic.ts      # cube + dodecahedron (the 2 Platonic solids not already deltahedra)
         archimedean.ts   # all 13 Archimedean solids
         johnson.ts       # all 92 Johnson solids -- complete
-        catalan.ts       # 11 of 13 Catalan solids -- only the 2 chiral ones left
+        catalan.ts       # all 13 of 13 Catalan solids -- complete
         rewrite.ts       # D10<->D12 vertex-matching (pure function, no three.js)
         index.ts         # combined POLYHEDRA / POLYHEDRON_IDS across every family
       assembly.ts        # the real {nodes, connections} graph + validation (vertex- and face-kind)
@@ -265,7 +269,7 @@ polyhedraverse/
   docs/
     build-plan.md               # the build plan, with how each stage was verified
     construction-kit-spec.md    # the vertex-snapping design law + extensibility notes
-    catalan-solids-spec.md      # scoping + design record for the Catalan solids family (11/13 done)
+    catalan-solids-spec.md      # scoping + design record for the Catalan solids family (13/13 done)
     prisms-antiprisms-spec.md   # scoping + design record for prisms/antiprisms (14/14 done)
     johnson-solids-remaining-spec.md  # alternative construction protocols -- all 4 groups (21 shapes) fixed, Johnson solids complete
     johnson-solids-constructions.md   # human-readable directory of those same 8 constructions, alongside data/johnson-solids-hard-constructions.json
