@@ -111,12 +111,35 @@ export const CONTENT_FACES_PER_PAGE = 11; // must match PolyhedralWheel.tsx's ow
 export async function clickWheelLabelPaged(page: Page, text: string, familyIds: string[]): Promise<void> {
   const pages = familyIds.length > CONTENT_FACES_PER_PAGE ? Math.ceil(familyIds.length / CONTENT_FACES_PER_PAGE) : 1;
   for (let p = 0; p < pages; p++) {
-    try {
+    // Cheap presence check before the expensive path: clickWheelLabel's
+    // exhaustive 24-orientation search (worst case tens of seconds) is
+    // only worth running once we already know the target is somewhere
+    // on THIS page -- calling it unconditionally on every wrong page,
+    // just to have it fail and conclude "not here", scales terribly as
+    // a family grows past a handful of pages (Johnson alone is 6 pages
+    // as of this batch, worse every batch after). A DOM-only count()
+    // check for the label text (present regardless of which way the
+    // wheel currently faces, same as clickWheelLabel's own locator)
+    // settles that in one query instead of a multi-second sweep -- but
+    // it has to POLL, not check once: a single instant count() removes
+    // the implicit wait Playwright's own locator.click() used to give
+    // (up to 900ms of actionability auto-retry) before this fix existed.
+    // Caught for real: this passed standalone but failed as test #6 in
+    // the full suite, right after a heavier persisted 2-node assembly
+    // had just loaded -- the DOM genuinely hadn't caught up to the new
+    // page's labels yet at the exact instant a one-shot check would run.
+    const labelLocator = page.locator('.pw-label', { hasText: text });
+    let present = (await labelLocator.count()) > 0;
+    const deadline = Date.now() + 2000;
+    while (!present && Date.now() < deadline) {
+      await page.waitForTimeout(100);
+      present = (await labelLocator.count()) > 0;
+    }
+    if (present) {
       await clickWheelLabel(page, text);
       return;
-    } catch {
-      if (p < pages - 1) await clickWheelLabel(page, 'More');
     }
+    if (p < pages - 1) await clickWheelLabel(page, 'More');
   }
   throw new Error(`clickWheelLabelPaged: could not find "${text}" across ${pages} page(s)`);
 }

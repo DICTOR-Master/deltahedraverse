@@ -1308,6 +1308,166 @@ const FACES_J57_TRIAUGMENTED_HEXAGONAL_PRISM: number[][] = [
 ];
 
 // ---------------------------------------------------------------------------
+// batch 7 (2026-09-08) -- augmented dodecahedra, bidiminished/tridiminished
+// icosahedra
+// ---------------------------------------------------------------------------
+
+/**
+ * 6 more Johnson solids: augmented (J58), parabiaugmented (J59),
+ * metabiaugmented (J60), and triaugmented (J61) dodecahedron, plus
+ * metabidiminished (J62) and tridiminished (J63) icosahedron.
+ *
+ * **Augmented dodecahedra**: a pentagonal pyramid (J2's own closed-form
+ * apex height) glued onto one or more of the dodecahedron's 12
+ * pentagonal faces. Which faces can be augmented together, and why some
+ * combinations aren't separately named, comes directly from the
+ * registry's own DODECAHEDRON face data (centroid-angle classification,
+ * not assumed): each face has 5 adjacent faces (63.4 degrees), 5 "meta"
+ * faces (116.6 degrees), and exactly 1 "para" (opposite, 180 degrees)
+ * face. J59/J60 use a para/meta pair respectively; J61 uses 3 mutually
+ * meta faces (found by searching for face triples where all 3 pairwise
+ * angles are the meta value, confirmed to have the right 3-fold
+ * symmetric relationship).
+ *
+ * **Diminished icosahedra, and a subtlety about which vertex pairs are
+ * valid at all**: "diminishing" an icosahedron vertex removes it and
+ * its 5 surrounding triangles, leaving a regular pentagon (the convex
+ * hull of its 5 neighbors, coplanar by symmetry). Diminishing exactly
+ * ONE vertex gives exactly J11 (gyroelongated pentagonal pyramid) --
+ * not a new Johnson solid, which is why the family starts at J62 (2
+ * removed). Verified via self-check: removing 1 vertex from this
+ * registry's own D20 (icosahedron) matches the registered J11 exactly,
+ * vertex for vertex -- strong independent corroboration of the whole
+ * diminishing method before trusting it for 2/3-vertex removal.
+ *
+ * Not every vertex PAIR gives a valid result, checked directly rather
+ * than assumed: removing two ADJACENT vertices produces two
+ * overlapping pentagon-holes that merge into non-regular quadrilateral
+ * faces (invalid, correctly rejected). Removing two ANTIPODAL vertices
+ * DOES produce a valid, uniform-edge, all-triangle/pentagon convex
+ * shape -- but it's a genuinely different (non-congruent, confirmed via
+ * pairwise-distance histogram) solid from the two-META-vertex removal,
+ * and only the meta version is one of the 92 ("metabidiminished"),
+ * matching what the name itself says. J63 (tridiminished) removes 3
+ * mutually-meta vertices -- confirmed to be the *only* valid 3-vertex
+ * removal by brute-force checking all 220 possible vertex triples, not
+ * assumed from the 2-vertex pattern.
+ *
+ * **J64 (augmented tridiminished icosahedron) was investigated and
+ * deliberately left out**, matching this project's standing precedent
+ * from batch 3's excluded gyrobirotunda: augmenting any one of J63's 3
+ * pentagon faces with a matching pentagonal pyramid was tried, and its
+ * apex lands EXACTLY on the position of the icosahedron vertex that
+ * pentagon's diminishing had removed (confirmed to zero within floating-
+ * point precision) -- which is mathematically forced, not a computation
+ * bug: a regular unit-edge pentagon has a unique matching pyramid apex
+ * position regardless of surrounding context. The resulting shape is
+ * then provably congruent to J62 (confirmed via the same histogram
+ * check), which can't be the intended distinct J64. Whatever J64
+ * actually is, it isn't "diminish 3 mutually-meta vertices, then
+ * re-augment one pentagon" -- rather than guess at an alternative
+ * construction without a confident basis, it's left out of this batch
+ * entirely, exactly the same standard applied to batch 3's excluded
+ * shape: declining to claim a right construction without confidence,
+ * not just catching a wrong one.
+ *
+ * Faces again come from a real `scipy.spatial.ConvexHull` (batches
+ * 4-6's method).
+ */
+
+const VERTS_J58_AUGMENTED_DODECAHEDRON: Vec3[] = [
+  [0.8090169943749473, 0.8090169943749473, 0.8090169943749473], [0.8090169943749473, 0.8090169943749473, -0.8090169943749473], [0.8090169943749473, -0.8090169943749473, 0.8090169943749473],
+  [0.8090169943749473, -0.8090169943749473, -0.8090169943749473], [-0.8090169943749473, 0.8090169943749473, 0.8090169943749473], [-0.8090169943749473, 0.8090169943749473, -0.8090169943749473],
+  [-0.8090169943749473, -0.8090169943749473, 0.8090169943749473], [-0.8090169943749473, -0.8090169943749473, -0.8090169943749473], [0.0, 0.4999999999999999, 1.3090169943749475],
+  [0.0, 0.4999999999999999, -1.3090169943749475], [0.0, -0.4999999999999999, 1.3090169943749475], [0.0, -0.4999999999999999, -1.3090169943749475],
+  [0.4999999999999999, 1.3090169943749475, 0.0], [0.4999999999999999, -1.3090169943749475, 0.0], [-0.4999999999999999, 1.3090169943749475, 0.0],
+  [-0.4999999999999999, -1.3090169943749475, 0.0], [1.3090169943749475, 0.0, 0.4999999999999999], [1.3090169943749475, 0.0, -0.4999999999999999],
+  [-1.3090169943749475, 0.0, 0.4999999999999999], [-1.3090169943749475, 0.0, -0.4999999999999999], [-0.8618033988749896, 0.0, -1.394427190999916],
+];
+const EDGES_J58_AUGMENTED_DODECAHEDRON: [number, number][] = [
+  [0, 8], [0, 12], [0, 16], [1, 9], [1, 12], [1, 17], [2, 10], [2, 13], [2, 16], [3, 11], [3, 13], [3, 17], [4, 8], [4, 14], [4, 18], [5, 9], [5, 14], [5, 19], [5, 20], [6, 10], [6, 15], [6, 18], [7, 11], [7, 15], [7, 19], [7, 20], [8, 10], [9, 11], [9, 20], [11, 20], [12, 14], [13, 15], [16, 17], [18, 19], [19, 20],
+];
+const FACES_J58_AUGMENTED_DODECAHEDRON: number[][] = [
+  [20, 7, 19], [5, 20, 19], [9, 20, 5], [9, 11, 20], [11, 7, 20], [13, 2, 10, 6, 15], [17, 16, 2, 13, 3], [7, 15, 6, 18, 19], [2, 16, 0, 8, 10], [10, 8, 4, 18, 6], [4, 14, 5, 19, 18], [0, 12, 14, 4, 8], [16, 17, 1, 12, 0], [12, 1, 9, 5, 14], [1, 17, 3, 11, 9], [3, 13, 15, 7, 11],
+];
+
+const VERTS_J59_PARABIAUGMENTED_DODECAHEDRON: Vec3[] = [
+  [0.8090169943749473, 0.8090169943749473, 0.8090169943749473], [0.8090169943749473, 0.8090169943749473, -0.8090169943749473], [0.8090169943749473, -0.8090169943749473, 0.8090169943749473],
+  [0.8090169943749473, -0.8090169943749473, -0.8090169943749473], [-0.8090169943749473, 0.8090169943749473, 0.8090169943749473], [-0.8090169943749473, 0.8090169943749473, -0.8090169943749473],
+  [-0.8090169943749473, -0.8090169943749473, 0.8090169943749473], [-0.8090169943749473, -0.8090169943749473, -0.8090169943749473], [0.0, 0.4999999999999999, 1.3090169943749475],
+  [0.0, 0.4999999999999999, -1.3090169943749475], [0.0, -0.4999999999999999, 1.3090169943749475], [0.0, -0.4999999999999999, -1.3090169943749475],
+  [0.4999999999999999, 1.3090169943749475, 0.0], [0.4999999999999999, -1.3090169943749475, 0.0], [-0.4999999999999999, 1.3090169943749475, 0.0],
+  [-0.4999999999999999, -1.3090169943749475, 0.0], [1.3090169943749475, 0.0, 0.4999999999999999], [1.3090169943749475, 0.0, -0.4999999999999999],
+  [-1.3090169943749475, 0.0, 0.4999999999999999], [-1.3090169943749475, 0.0, -0.4999999999999999], [-0.8618033988749896, 0.0, -1.394427190999916],
+  [0.8618033988749896, 0.0, 1.394427190999916],
+];
+const EDGES_J59_PARABIAUGMENTED_DODECAHEDRON: [number, number][] = [
+  [0, 8], [0, 12], [0, 16], [0, 21], [1, 9], [1, 12], [1, 17], [2, 10], [2, 13], [2, 16], [2, 21], [3, 11], [3, 13], [3, 17], [4, 8], [4, 14], [4, 18], [5, 9], [5, 14], [5, 19], [5, 20], [6, 10], [6, 15], [6, 18], [7, 11], [7, 15], [7, 19], [7, 20], [8, 10], [8, 21], [9, 11], [9, 20], [10, 21], [11, 20], [12, 14], [13, 15], [16, 17], [16, 21], [18, 19], [19, 20],
+];
+const FACES_J59_PARABIAUGMENTED_DODECAHEDRON: number[][] = [
+  [20, 7, 19], [5, 20, 19], [16, 21, 2], [2, 21, 10], [21, 8, 10], [21, 0, 8], [16, 0, 21], [9, 20, 5], [9, 11, 20], [11, 7, 20], [13, 2, 10, 6, 15], [17, 16, 2, 13, 3], [7, 15, 6, 18, 19], [10, 8, 4, 18, 6], [4, 14, 5, 19, 18], [0, 12, 14, 4, 8], [16, 17, 1, 12, 0], [12, 1, 9, 5, 14], [1, 17, 3, 11, 9], [3, 13, 15, 7, 11],
+];
+
+const VERTS_J60_METABIAUGMENTED_DODECAHEDRON: Vec3[] = [
+  [0.8090169943749473, 0.8090169943749473, 0.8090169943749473], [0.8090169943749473, 0.8090169943749473, -0.8090169943749473], [0.8090169943749473, -0.8090169943749473, 0.8090169943749473],
+  [0.8090169943749473, -0.8090169943749473, -0.8090169943749473], [-0.8090169943749473, 0.8090169943749473, 0.8090169943749473], [-0.8090169943749473, 0.8090169943749473, -0.8090169943749473],
+  [-0.8090169943749473, -0.8090169943749473, 0.8090169943749473], [-0.8090169943749473, -0.8090169943749473, -0.8090169943749473], [0.0, 0.4999999999999999, 1.3090169943749475],
+  [0.0, 0.4999999999999999, -1.3090169943749475], [0.0, -0.4999999999999999, 1.3090169943749475], [0.0, -0.4999999999999999, -1.3090169943749475],
+  [0.4999999999999999, 1.3090169943749475, 0.0], [0.4999999999999999, -1.3090169943749475, 0.0], [-0.4999999999999999, 1.3090169943749475, 0.0],
+  [-0.4999999999999999, -1.3090169943749475, 0.0], [1.3090169943749475, 0.0, 0.4999999999999999], [1.3090169943749475, 0.0, -0.4999999999999999],
+  [-1.3090169943749475, 0.0, 0.4999999999999999], [-1.3090169943749475, 0.0, -0.4999999999999999], [-0.8618033988749896, 0.0, -1.394427190999916],
+  [-0.8618033988749896, 0.0, 1.394427190999916],
+];
+const EDGES_J60_METABIAUGMENTED_DODECAHEDRON: [number, number][] = [
+  [0, 8], [0, 12], [0, 16], [1, 9], [1, 12], [1, 17], [2, 10], [2, 13], [2, 16], [3, 11], [3, 13], [3, 17], [4, 8], [4, 14], [4, 18], [4, 21], [5, 9], [5, 14], [5, 19], [5, 20], [6, 10], [6, 15], [6, 18], [6, 21], [7, 11], [7, 15], [7, 19], [7, 20], [8, 10], [8, 21], [9, 11], [9, 20], [10, 21], [11, 20], [12, 14], [13, 15], [16, 17], [18, 19], [18, 21], [19, 20],
+];
+const FACES_J60_METABIAUGMENTED_DODECAHEDRON: number[][] = [
+  [20, 7, 19], [5, 20, 19], [10, 8, 21], [10, 21, 6], [6, 21, 18], [8, 4, 21], [21, 4, 18], [9, 20, 5], [9, 11, 20], [11, 7, 20], [13, 2, 10, 6, 15], [17, 16, 2, 13, 3], [7, 15, 6, 18, 19], [2, 16, 0, 8, 10], [4, 14, 5, 19, 18], [0, 12, 14, 4, 8], [16, 17, 1, 12, 0], [12, 1, 9, 5, 14], [1, 17, 3, 11, 9], [3, 13, 15, 7, 11],
+];
+
+const VERTS_J61_TRIAUGMENTED_DODECAHEDRON: Vec3[] = [
+  [0.8090169943749473, 0.8090169943749473, 0.8090169943749473], [0.8090169943749473, 0.8090169943749473, -0.8090169943749473], [0.8090169943749473, -0.8090169943749473, 0.8090169943749473],
+  [0.8090169943749473, -0.8090169943749473, -0.8090169943749473], [-0.8090169943749473, 0.8090169943749473, 0.8090169943749473], [-0.8090169943749473, 0.8090169943749473, -0.8090169943749473],
+  [-0.8090169943749473, -0.8090169943749473, 0.8090169943749473], [-0.8090169943749473, -0.8090169943749473, -0.8090169943749473], [0.0, 0.4999999999999999, 1.3090169943749475],
+  [0.0, 0.4999999999999999, -1.3090169943749475], [0.0, -0.4999999999999999, 1.3090169943749475], [0.0, -0.4999999999999999, -1.3090169943749475],
+  [0.4999999999999999, 1.3090169943749475, 0.0], [0.4999999999999999, -1.3090169943749475, 0.0], [-0.4999999999999999, 1.3090169943749475, 0.0],
+  [-0.4999999999999999, -1.3090169943749475, 0.0], [1.3090169943749475, 0.0, 0.4999999999999999], [1.3090169943749475, 0.0, -0.4999999999999999],
+  [-1.3090169943749475, 0.0, 0.4999999999999999], [-1.3090169943749475, 0.0, -0.4999999999999999], [-0.8618033988749896, 0.0, -1.394427190999916],
+  [-0.8618033988749896, 0.0, 1.394427190999916], [1.394427190999916, -0.8618033988749896, 0.0],
+];
+const EDGES_J61_TRIAUGMENTED_DODECAHEDRON: [number, number][] = [
+  [0, 8], [0, 12], [0, 16], [1, 9], [1, 12], [1, 17], [2, 10], [2, 13], [2, 16], [2, 22], [3, 11], [3, 13], [3, 17], [3, 22], [4, 8], [4, 14], [4, 18], [4, 21], [5, 9], [5, 14], [5, 19], [5, 20], [6, 10], [6, 15], [6, 18], [6, 21], [7, 11], [7, 15], [7, 19], [7, 20], [8, 10], [8, 21], [9, 11], [9, 20], [10, 21], [11, 20], [12, 14], [13, 15], [13, 22], [16, 17], [16, 22], [17, 22], [18, 19], [18, 21], [19, 20],
+];
+const FACES_J61_TRIAUGMENTED_DODECAHEDRON: number[][] = [
+  [5, 20, 19], [11, 7, 20], [20, 7, 19], [9, 11, 20], [9, 20, 5], [17, 16, 22], [22, 13, 3], [17, 22, 3], [22, 2, 13], [22, 16, 2], [8, 4, 21], [21, 4, 18], [10, 8, 21], [10, 21, 6], [6, 21, 18], [0, 12, 14, 4, 8], [4, 14, 5, 19, 18], [12, 1, 9, 5, 14], [16, 17, 1, 12, 0], [7, 15, 6, 18, 19], [3, 13, 15, 7, 11], [1, 17, 3, 11, 9], [13, 2, 10, 6, 15], [2, 16, 0, 8, 10],
+];
+
+const VERTS_J62_METABIDIMINISHED_ICOSAHEDRON: Vec3[] = [
+  [0.4999999999999999, 0.8090169943749472, 9.25185853854297e-18], [0.8090169943749472, 9.25185853854297e-18, 0.4999999999999999], [0.4999999999999999, -0.8090169943749472, 9.25185853854297e-18],
+  [-0.8090169943749472, 9.25185853854297e-18, 0.4999999999999999], [9.25185853854297e-18, -0.4999999999999999, 0.8090169943749472], [-0.4999999999999999, 0.8090169943749472, 9.25185853854297e-18],
+  [0.8090169943749472, 9.25185853854297e-18, -0.4999999999999999], [9.25185853854297e-18, -0.4999999999999999, -0.8090169943749472], [-0.4999999999999999, -0.8090169943749472, 9.25185853854297e-18],
+  [-0.8090169943749472, 9.25185853854297e-18, -0.4999999999999999],
+];
+const EDGES_J62_METABIDIMINISHED_ICOSAHEDRON: [number, number][] = [
+  [0, 1], [0, 5], [0, 6], [1, 2], [1, 4], [1, 6], [2, 4], [2, 6], [2, 7], [2, 8], [3, 4], [3, 5], [3, 8], [3, 9], [4, 8], [5, 9], [6, 7], [7, 8], [7, 9], [8, 9],
+];
+const FACES_J62_METABIDIMINISHED_ICOSAHEDRON: number[][] = [
+  [2, 1, 4], [5, 9, 3], [0, 1, 6], [6, 1, 2], [4, 3, 8], [3, 9, 8], [2, 4, 8], [6, 2, 7], [7, 8, 9], [7, 2, 8], [4, 1, 0, 5, 3], [0, 6, 7, 9, 5],
+];
+
+const VERTS_J63_TRIDIMINISHED_ICOSAHEDRON: Vec3[] = [
+  [0.4999999999999999, 0.8090169943749472, 9.25185853854297e-18], [0.8090169943749472, 9.25185853854297e-18, 0.4999999999999999], [-0.8090169943749472, 9.25185853854297e-18, 0.4999999999999999],
+  [9.25185853854297e-18, -0.4999999999999999, 0.8090169943749472], [-0.4999999999999999, 0.8090169943749472, 9.25185853854297e-18], [0.8090169943749472, 9.25185853854297e-18, -0.4999999999999999],
+  [9.25185853854297e-18, -0.4999999999999999, -0.8090169943749472], [-0.4999999999999999, -0.8090169943749472, 9.25185853854297e-18], [-0.8090169943749472, 9.25185853854297e-18, -0.4999999999999999],
+];
+const EDGES_J63_TRIDIMINISHED_ICOSAHEDRON: [number, number][] = [
+  [0, 1], [0, 4], [0, 5], [1, 3], [1, 5], [2, 3], [2, 4], [2, 7], [2, 8], [3, 7], [4, 8], [5, 6], [6, 7], [6, 8], [7, 8],
+];
+const FACES_J63_TRIDIMINISHED_ICOSAHEDRON: number[][] = [
+  [2, 8, 7], [3, 2, 7], [4, 8, 2], [6, 7, 8], [0, 1, 5], [3, 1, 0, 4, 2], [5, 1, 3, 7, 6], [0, 5, 6, 8, 4],
+];
+
+// ---------------------------------------------------------------------------
 // registry
 // ---------------------------------------------------------------------------
 
@@ -1495,6 +1655,54 @@ export const JOHNSON_ADDITIONS: Record<string, PolyhedronSpec> = {
     VERTS_J26_GYROBIFASTIGIUM,
     EDGES_J26_GYROBIFASTIGIUM,
     FACES_J26_GYROBIFASTIGIUM,
+  ),
+  J58_AUGMENTED_DODECAHEDRON: makeSpec(
+    'J58_AUGMENTED_DODECAHEDRON',
+    'augmented_dodecahedron',
+    16,
+    VERTS_J58_AUGMENTED_DODECAHEDRON,
+    EDGES_J58_AUGMENTED_DODECAHEDRON,
+    FACES_J58_AUGMENTED_DODECAHEDRON,
+  ),
+  J59_PARABIAUGMENTED_DODECAHEDRON: makeSpec(
+    'J59_PARABIAUGMENTED_DODECAHEDRON',
+    'parabiaugmented_dodecahedron',
+    20,
+    VERTS_J59_PARABIAUGMENTED_DODECAHEDRON,
+    EDGES_J59_PARABIAUGMENTED_DODECAHEDRON,
+    FACES_J59_PARABIAUGMENTED_DODECAHEDRON,
+  ),
+  J60_METABIAUGMENTED_DODECAHEDRON: makeSpec(
+    'J60_METABIAUGMENTED_DODECAHEDRON',
+    'metabiaugmented_dodecahedron',
+    20,
+    VERTS_J60_METABIAUGMENTED_DODECAHEDRON,
+    EDGES_J60_METABIAUGMENTED_DODECAHEDRON,
+    FACES_J60_METABIAUGMENTED_DODECAHEDRON,
+  ),
+  J61_TRIAUGMENTED_DODECAHEDRON: makeSpec(
+    'J61_TRIAUGMENTED_DODECAHEDRON',
+    'triaugmented_dodecahedron',
+    24,
+    VERTS_J61_TRIAUGMENTED_DODECAHEDRON,
+    EDGES_J61_TRIAUGMENTED_DODECAHEDRON,
+    FACES_J61_TRIAUGMENTED_DODECAHEDRON,
+  ),
+  J62_METABIDIMINISHED_ICOSAHEDRON: makeSpec(
+    'J62_METABIDIMINISHED_ICOSAHEDRON',
+    'metabidiminished_icosahedron',
+    12,
+    VERTS_J62_METABIDIMINISHED_ICOSAHEDRON,
+    EDGES_J62_METABIDIMINISHED_ICOSAHEDRON,
+    FACES_J62_METABIDIMINISHED_ICOSAHEDRON,
+  ),
+  J63_TRIDIMINISHED_ICOSAHEDRON: makeSpec(
+    'J63_TRIDIMINISHED_ICOSAHEDRON',
+    'tridiminished_icosahedron',
+    8,
+    VERTS_J63_TRIDIMINISHED_ICOSAHEDRON,
+    EDGES_J63_TRIDIMINISHED_ICOSAHEDRON,
+    FACES_J63_TRIDIMINISHED_ICOSAHEDRON,
   ),
   J49_AUGMENTED_TRIANGULAR_PRISM: makeSpec(
     'J49_AUGMENTED_TRIANGULAR_PRISM',

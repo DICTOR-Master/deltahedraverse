@@ -1178,8 +1178,79 @@ and lint clean, `verify:attach` (125,704), `verify:twist` (103,968),
 `verify:face-attach` (1,101,537, 0 failures), `verify:face-twist`
 (12,550, 0 failures), and the full Playwright suite on dicto-node.
 
-Still outstanding for Johnson solids: 39 remain (92 - 53) — augmented
-dodecahedra (J58-J61), diminished/augmented icosahedra (J62-J64),
-augmented truncated Archimedean solids (J65-J71), and gyrate/diminished
-rhombicosidodecahedra (J72-J83) next (roughly two dozen shapes), then
-the ~15 with no closed form at all, saved for last.
+Still outstanding for Johnson solids at this point: 39 remain (92 - 53)
+— augmented dodecahedra (J58-J61), diminished/augmented icosahedra
+(J62-J64), augmented truncated Archimedean solids (J65-J71), and
+gyrate/diminished rhombicosidodecahedra (J72-J83) next (roughly two
+dozen shapes), then the ~15 with no closed form at all, saved for last.
+
+## Johnson solids — augmented dodecahedra, bidiminished/tridiminished icosahedra (2026-09-08)
+
+6 more Johnson solids, bringing the family to 59/92: augmented (J58),
+parabiaugmented (J59), metabiaugmented (J60), and triaugmented (J61)
+dodecahedron; metabidiminished (J62) and tridiminished (J63)
+icosahedron.
+
+**Augmented dodecahedra**: a pentagonal pyramid (J2's own closed-form
+apex height) glued onto one or more of the dodecahedron's 12 pentagonal
+faces. Which combinations are separately named comes directly from the
+registry's own `DODECAHEDRON` face data via centroid-angle
+classification, not assumed: each face has 5 adjacent faces (63.4°), 5
+"meta" faces (116.6°), and exactly 1 "para" (opposite, 180°) face.
+J59/J60 augment a para/meta pair respectively; J61 augments 3 mutually-
+meta faces (found by searching for face triples where all 3 pairwise
+angles equal the meta value — confirming genuine 3-fold symmetry rather
+than an arbitrary choice).
+
+**Diminished icosahedra — and a real subtlety about which vertex
+removals are even valid, found by testing rather than assuming**:
+"diminishing" an icosahedron vertex removes it and its 5 surrounding
+triangles, leaving a regular pentagon (the convex hull of its 5
+neighbors, coplanar by symmetry). Diminishing exactly ONE vertex gives
+exactly J11 (gyroelongated pentagonal pyramid) — not a new Johnson
+solid, which is why this family starts at J62 (2 removed). Verified via
+self-check before trusting the method for anything new: removing 1
+vertex from this registry's own `D20` (icosahedron) matches the
+registered `J11` exactly, vertex for vertex.
+
+Checked computationally, not assumed, which vertex-pair relationships
+even produce a valid result: removing two ADJACENT vertices produces
+overlapping pentagon-holes that merge into non-regular quadrilateral
+faces (correctly rejected). Removing two ANTIPODAL vertices DOES
+produce a valid, uniform-edge, all-triangle/pentagon convex shape — but
+a pairwise-distance-histogram check shows it's a genuinely different
+(non-congruent) solid from the two-meta-vertex removal, and only the
+meta version is one of the 92 ("metabidiminished" — the name itself
+says which). For J63 (tridiminished), a brute-force check of all 220
+possible vertex triples confirmed the 3-mutually-meta configuration is
+the *only* one producing a valid result — not assumed from the
+2-vertex pattern.
+
+**J64 (augmented tridiminished icosahedron) was investigated and
+deliberately left out of this batch** — a direct continuation of this
+project's standing precedent from batch 3's excluded gyrobirotunda.
+Augmenting any one of J63's 3 pentagon faces with a matching pentagonal
+pyramid was tried, and its apex lands EXACTLY on the position of the
+icosahedron vertex that pentagon's diminishing had removed (confirmed
+to zero within floating-point precision). This is mathematically
+forced, not a bug: a regular unit-edge pentagon has a unique matching
+pyramid apex position regardless of surrounding context. The resulting
+shape is then provably congruent to J62 (same histogram check) — which
+can't be the intended, separately-counted J64. Whatever J64 actually
+is, it isn't "diminish 3 mutually-meta vertices, then re-augment one
+pentagon." Rather than guess at a different construction without a
+confident basis, it's left out entirely: the same standard as batch 3's
+exclusion — declining to claim a right construction without confidence,
+not just catching a wrong one.
+
+Verified end to end: `validate-johnson.ts` (all 59 OK), `tsc --noEmit`
+and lint clean, `verify:attach` (144,402), `verify:twist` (121,032),
+`verify:rewrite`, `verify:graph`, `verify:face-connectors` (5,425),
+`verify:face-attach` (1,224,187, 0 failures), `verify:face-twist`
+(14,962, 0 failures), and the full Playwright suite on dicto-node.
+
+Still outstanding for Johnson solids: 33 remain (92 - 59) — J64's
+status stays genuinely unresolved (see above); augmented truncated
+Archimedean solids (J65-J71) next, then gyrate/diminished
+rhombicosidodecahedra (J72-J83), then the ~15 with no closed form at
+all, saved for last.

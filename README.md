@@ -1,5 +1,9 @@
 # Polyhedraverse
 
+<p align="center">
+  <img src="public/brand/logo.png" alt="Polyhedraverse" width="280">
+</p>
+
 **Open-source spatial geometry environment**
 
 ### Spatial Editing Suite
@@ -44,7 +48,7 @@ This list is intentionally open-ended, describing the project's
 direction rather than a feature checklist — so the README doesn't need
 rewriting every time a new capability lands. **"What's here now" below
 is the ground truth for what's actually shipped today**; Johnson solids
-are in progress (53 of 92 so far), and lattice construction /
+are in progress (59 of 92 so far), and lattice construction /
 interpenetrating structures are still direction, not yet delivered.
 
 ## What's here now
@@ -82,51 +86,44 @@ Since then:
   script's tolerance without the shapes themselves being wrong — all
   worked examples in `docs/build-plan.md` of why every claim here gets a
   computational cross-check rather than trust.
-- **53 of 92 Johnson solids so far** — batch 1: the two simple pyramids,
-  the three cupolas, and the pentagonal rotunda (derived directly from
-  this registry's own icosidodecahedron — it's genuinely half of one).
-  Batch 2: their elongated (prism-inserted) and gyroelongated
-  (antiprism-inserted) forms. Batch 3: bicupolae and cupola-rotunda
-  compounds (two batch-1 pieces joined at a matching face, aligned or
-  twisted) — the ortho/gyro twist angle was verified empirically, not
-  assumed: for the triangular case it turns out to coincide exactly with
-  the cuboctahedron already in this registry, the real reason "triangular
-  gyrobicupola" isn't its own Johnson solid. Batch 4: the elongated
-  bipyramids (triangular/square/pentagonal) and the gyrobifastigium — the
-  latter's own unrotated ("ortho") pairing was checked too and found to
-  produce non-square rhombic faces rather than a second valid solid, not
-  merely a duplicate. Batch 5: elongated/gyroelongated bicupolae,
-  cupola-rotundas, and birotundas — batch 3's own pieces, extracted
-  straight from this registry's already-verified data and rejoined
-  through a prism or antiprism spacer, with a self-check requiring the
-  same machinery to first reproduce all 8 batch-3 compounds exactly
-  before trusting it for anything new. That self-check caught two real
-  bugs (a "gyro" offset that must rotate only the cap, never the shared
-  waist ring; cupola+rotunda pairs that must be extracted from the same
-  source compound, not assembled from independently-built pieces with no
-  guaranteed rotational alignment) — and a third, subtler bug slipped
-  past the self-check entirely and only showed up in the cross-shape
-  face-attach verification scripts: a rounding step meant only to make a
-  floating-point comparison safe was accidentally reused as the actual
-  shift amount, leaking ~5e-7 of pure rounding noise into every vertex as
-  a uniform offset invisible to any single-shape check (Euler's formula,
-  edge-length uniformity) but large enough to fail a strict cross-shape
-  tolerance. Batch 6: augmented/biaugmented/triaugmented prisms
-  (triangular/pentagonal/hexagonal) — a pyramid glued onto one or more
-  square side faces, with a real convex hull doubling as an automatic
-  correctness check (an apex placed too shallow to actually protrude
-  would just vanish back into a flat face). Triaugmenting a triangular
-  prism (J51) is deliberately excluded and used only as a self-check —
-  its own vertex data matches this registry's `D14` exactly, the
-  strongest confidence signal available for a new construction method.
-  Also confirmed computationally (not recalled) that batch 5's
+- **59 of 92 Johnson solids so far**, in batches, each with a full
+  postmortem in `docs/build-plan.md`: (1) the two simple pyramids, three
+  cupolas, and pentagonal rotunda — the rotunda derived directly from
+  this registry's own icosidodecahedron, genuinely half of one; (2)
+  their elongated/gyroelongated (prism/antiprism-inserted) forms; (3)
+  bicupola and cupola-rotunda compounds, with the ortho/gyro twist angle
+  verified empirically rather than assumed (the triangular case
+  coincides exactly with the already-registered cuboctahedron, the real
+  reason "triangular gyrobicupola" isn't its own Johnson solid); (4)
+  elongated bipyramids and the gyrobifastigium; (5) elongated/
+  gyroelongated bicupola/cupola-rotunda/birotunda compounds, built by
+  extracting batch 3's own pieces straight from this registry's verified
+  data rather than re-deriving them, gated behind a self-check requiring
+  the same machinery to first reproduce all 8 batch-3 compounds exactly
+  (which caught two real construction bugs, plus a third subtler
+  precision bug — a rounding step meant only for a safe floating-point
+  comparison got reused as an actual computed value — that slipped past
+  the self-check and only showed up in cross-shape face-attach
+  verification); (6) augmented prisms, using a real convex hull as an
+  automatic correctness check (an apex placed too shallow would silently
+  vanish back into a flat face) — also where a chirality question raised
+  by a user got answered computationally rather than guessed: batch 5's
   gyroelongated family and both existing snub Archimedean solids are
-  genuinely chiral, which matters for face-attach (only one handedness
-  of each is stored) — a mirror-image toggle is a real, not-yet-built
-  gap this surfaced. 5 of the 92 are already deltahedra in this registry
-  (D6/D10/D12/D14/D16) and aren't re-derived. The remaining ~2 dozen
-  composite (diminished/gyrate) solids and ~15 no-closed-form solids are
-  still ahead. First shape in this registry that isn't vertex-
+  confirmed genuinely chiral, and only one handedness of each is stored,
+  which matters for face-attach (a mirror-image toggle is a real,
+  not-yet-built gap this surfaced); (7) augmented dodecahedra and
+  bidiminished/tridiminished icosahedra — where "augmented tridiminished
+  icosahedron" (J64) was investigated and deliberately left out: its
+  natural construction is *provably* congruent to an already-registered
+  batch-7 shape (a regular pentagon's matching pyramid apex position is
+  mathematically forced, not a computation quirk), so whatever J64
+  actually is, it isn't that — the same "decline to claim an unconfident
+  construction" standard as batch 3's excluded gyrobirotunda. 5 of the
+  92 are already deltahedra in this registry (D6/D10/D12/D14/D16) and
+  aren't re-derived. The remaining ~2 dozen composite (gyrate/diminished
+  rhombicosidodecahedra, augmented truncated Archimedean solids) and ~15
+  no-closed-form solids are still ahead. First shape in this registry
+  that isn't vertex-
   transitive: J1's apex has degree 4 while its base vertices have degree
   3. First with no degree-3 vertex at all: J10 (only degree 4 and 5).
 - **Pick, attach, twist, confirm/cancel** — hover a vertex to see its
