@@ -1,27 +1,37 @@
 import { test, expect } from './fixtures';
-import { getCanvasCenter, resetTo, findOnCanvas } from './utils';
-
-const SHAPE_IDS = [
-  'D4', 'D6', 'D8', 'D10', 'D12', 'D14', 'D16', 'D20',
-  'CUBE', 'DODECAHEDRON',
-  'CUBOCTAHEDRON', 'TRUNCATED_TETRAHEDRON', 'TRUNCATED_OCTAHEDRON',
-  'TRUNCATED_CUBE', 'TRUNCATED_DODECAHEDRON', 'TRUNCATED_ICOSAHEDRON',
-  'TRUNCATED_CUBOCTAHEDRON', 'TRUNCATED_ICOSIDODECAHEDRON', 'ICOSIDODECAHEDRON',
-  'RHOMBICUBOCTAHEDRON', 'RHOMBICOSIDODECAHEDRON', 'SNUB_CUBE', 'SNUB_DODECAHEDRON',
-  'J1_SQUARE_PYRAMID', 'J2_PENTAGONAL_PYRAMID', 'J3_TRIANGULAR_CUPOLA',
-  'J4_SQUARE_CUPOLA', 'J5_PENTAGONAL_CUPOLA', 'J6_PENTAGONAL_ROTUNDA',
-];
+import { getCanvasCenter, resetTo, findOnCanvas, WHEEL_FAMILIES, clickWheelLabel, CONTENT_FACES_PER_PAGE } from './utils';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.waitForTimeout(500);
 });
 
-test('renders the canvas and all 29 shape buttons (8 deltahedra + 2 Platonic + 13 Archimedean + 6 Johnson)', async ({ page }) => {
+test('renders the canvas and every shape across all 4 wheel families (8 deltahedra + 2 Platonic + 13 Archimedean + 6 Johnson)', async ({ page }) => {
   await expect(page.locator('canvas')).toBeVisible();
-  for (const id of SHAPE_IDS) {
-    await expect(page.getByRole('button', { name: new RegExp(`^${id}\\(`) })).toBeVisible();
+
+  await page.getByRole('button', { name: /^Start over with/ }).click();
+  for (const family of WHEEL_FAMILIES) {
+    await expect(page.locator('.pw-label-text', { hasText: family.label })).toHaveCount(1);
+
+    await clickWheelLabel(page, family.label);
+    // Existence in the DOM (not visibility -- that depends on which way
+    // the wheel currently faces) is what this test cares about: every
+    // registered shape actually reached the picker as a real face, paging
+    // through "More" for families that overflow a single 12-face wheel.
+    const pages = family.ids.length > CONTENT_FACES_PER_PAGE ? Math.ceil(family.ids.length / CONTENT_FACES_PER_PAGE) : 1;
+    const seen = new Set<string>();
+    for (let p = 0; p < pages; p++) {
+      const texts = await page.locator('.pw-label-text').allTextContents();
+      texts.forEach((t) => seen.add(t));
+      if (p < pages - 1) await clickWheelLabel(page, 'More');
+    }
+    for (const id of family.ids) {
+      expect(seen.has(id.replaceAll('_', ' ')), `${family.label} family should list ${id}`).toBe(true);
+    }
+
+    await page.keyboard.press('Escape'); // back to the family list
   }
+  await page.keyboard.press('Escape'); // close the wheel
 });
 
 test('"Start over" resets to a single fresh shape with no selection', async ({ page }) => {

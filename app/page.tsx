@@ -1,9 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { POLYHEDRA, POLYHEDRON_IDS } from './lib/polyhedra';
+import { POLYHEDRON_IDS } from './lib/polyhedra';
 import type { NodeSelection, ShapeSelection, ShapeViewerHandle, ViewMode } from './components/ShapeViewer';
+import PolyhedralWheel from './components/PolyhedralWheel';
 
 const ShapeViewer = dynamic(() => import('./components/ShapeViewer'), {
   ssr: false,
@@ -31,6 +32,21 @@ export default function Home() {
   const [cageClosed, setCageClosed] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [viewMode, setViewModeState] = useState<ViewMode>('normal');
+  const [wheelOpen, setWheelOpen] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (wheelOpen) return;
+      const target = e.target as HTMLElement | null;
+      if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
+      if (e.key === 'Tab' || e.key === ' ') {
+        e.preventDefault();
+        setWheelOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [wheelOpen]);
 
   const handleSave = async () => {
     setSaveStatus('saving');
@@ -103,20 +119,13 @@ export default function Home() {
       </header>
 
       <nav className="flex flex-wrap items-center gap-2 px-6 pb-2">
-        <span className="text-xs uppercase tracking-wide text-zinc-500">Start over with</span>
-        {POLYHEDRON_IDS.map((id) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => handleRef.current?.reset(id)}
-            className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
-          >
-            {id}
-            <span className="ml-1 text-xs opacity-70">
-              ({POLYHEDRA[id].faceCount})
-            </span>
-          </button>
-        ))}
+        <button
+          type="button"
+          onClick={() => setWheelOpen(true)}
+          className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
+        >
+          Start over with… <span className="ml-1 text-xs opacity-70">(Tab / Space)</span>
+        </button>
       </nav>
 
       <nav className="flex min-h-11 flex-wrap items-center gap-2 px-6 pb-2">
@@ -218,6 +227,12 @@ export default function Home() {
           }}
         />
       </main>
+
+      <PolyhedralWheel
+        open={wheelOpen}
+        onClose={() => setWheelOpen(false)}
+        onSelect={(id) => handleRef.current?.reset(id)}
+      />
     </div>
   );
 }

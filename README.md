@@ -119,6 +119,14 @@ Since then:
 - **A view toggle** (Solid / Translucent / Inside view) for seeing
   through a structure once pieces start nesting — applies to every
   placed shape at once.
+- **PolyhedralWheel** — a dodecahedron-shaped 3D radial menu (`Tab` /
+  `Space` to open) replacing the flat shape-picker button row, which
+  doesn't scale to 100+ shapes. Family-grouped (deltahedra/Platonic/
+  Archimedean/Johnson), ported from Rhombiverse's Rhombic Wheel with its
+  own metallic-silver/green color identity rather than a straight
+  reskin. Actions (augment/diminish), Spherical/X-Ray view modes, and a
+  small always-visible corner HUD element are deliberately deferred —
+  see `docs/build-plan.md`'s own section for the full design record.
 
 ## Structure
 

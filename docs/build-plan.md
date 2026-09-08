@@ -649,11 +649,100 @@ run), `verify:face-twist` (1,524), and the full Playwright suite (29
 shape buttons plus the new apex-hover check), on both this machine and
 dicto-node.
 
-Still outstanding, in rough order: the remaining 87 Johnson solids
-(elongated/gyroelongated pyramids-cupolas-rotunda next, most needing one
-more parameter than this batch but still closed-form; augmented/
-diminished/gyrate composites and the ~15 solids with no closed form at
-all, needing genuine numerical optimization, saved for last), re-matching
-face connections on rewrite (the gap noted in the face-snap section
-above), and an eventual introductory puzzle game (working name DELTIS),
-which remains speculative — see vercel-deployment-plan.md and README.md.
+Still outstanding for Johnson solids: the remaining 87 (elongated/
+gyroelongated pyramids-cupolas-rotunda next, most needing one more
+parameter than this batch but still closed-form; augmented/diminished/
+gyrate composites and the ~15 solids with no closed form at all, needing
+genuine numerical optimization, saved for last).
+
+## PolyhedralWheel — a dodecahedron-shaped 3D shape picker (2026-09-08)
+
+The user's next ask: "copy the UI and HUD wheel idea from rhombiverse."
+Rhombiverse's Rhombic Wheel (`src/app/rhombic-wheel-3d.js`/`-core.js`
+there) is a mature, real THREE.js radial menu built on the RD mesh,
+navigating between game "departments" (Build/Alter/Cultivate/Trade/
+etc.). Polyhedraverse has no departments — its actual analogous problem
+is the shape picker, which was a flat, ever-growing button row (29
+entries already, heading toward 100+ as Johnson solids fill in). Scoped
+by direct user choice to "wheel shell + shape picker" first, deferring
+augment/diminish actions, Spherical/X-Ray view modes, and the small
+corner HUD element Rhombiverse also has — see the roadmap memory for the
+full deferred list.
+
+**Shape**: a regular dodecahedron, not the icosahedron first proposed —
+the user's own call ("may have less empty space"). Built directly from
+this registry's own `POLYHEDRA.DODECAHEDRON` spec (vertices + faces
+already unit-edge, already validated), not a second hand-declared shape —
+same "derive, don't duplicate" rule every file in `app/lib/polyhedra/`
+already follows.
+
+**Color identity**: after initially porting Rhombiverse's exact colors
+1:1 (cyan `#4DD0E1`, gold `#d4af37`), direct user follow-up asked for
+Polyhedraverse's own identity instead: a metallic silver mesh
+(`HUD_METAL_HEX = 0xc7ccd1`, metalness 0.7) for the wheel object itself,
+green (`SCRIPT_COLOR = '#34D399'`, matching the app's existing
+`emerald-500` Confirm-button accent) for labels and panel chrome. The
+interaction *mechanics* — not colors — are still ported as exactly as
+practical: reveal timing (350ms hover/hold-to-reveal text under a
+resting symbol), the `rgba(2,2,6,0.55)` backdrop and
+`rgba(10,12,20,0.85)` panel opacities, a 5px drag-vs-click threshold. The
+future small corner HUD element is planned silver-with-black-script, not
+gold, per the same follow-up direction.
+
+**Deterministic navigation, not just free drag**: a dodecahedron has 12
+faces spread all around a sphere, so whatever's front-facing when the
+wheel opens is arbitrary. Free mouse-drag (via `OrbitControls`) is still
+available, but arrow keys / on-screen ‹›▴▾ buttons step the camera by a
+fixed azimuth/polar increment, re-derived from the camera's *current*
+position each time (not separately tracked state, which could drift out
+of sync with a free drag) — guarantees every face is reachable within a
+bounded number of steps, which matters for real keyboard/accessibility
+use as much as for automated testing.
+
+**Two real bugs found via actual Playwright testing, not code review**:
+1. Label/mesh click handlers originally called `onSelect()`
+   synchronously inside the native `click` listener. Since `onSelect`
+   triggers a React state update that immediately mutates the very label
+   just clicked (its text changes as the newly-selected level's content
+   gets applied), this raced against Playwright's own internal
+   post-click verification — the click had already fired and taken
+   effect, but `locator.click()` still reported a timeout because the
+   DOM it was re-checking had changed out from under it mid-check. Real
+   users would never notice (no external verification step), but it's a
+   real hazard for anything else watching for a completed-click signal.
+   Fixed by deferring `onSelect()` via `setTimeout(fn, 0)`.
+2. Even after that fix, a *reported* click failure remained ambiguous —
+   it could mean nothing happened, or it could mean the click worked and
+   the searched-for label legitimately no longer exists because the
+   wheel already moved on. `tests/e2e/utils.ts`'s `clickWheelLabel`
+   resolves this by treating "the label is now gone entirely"
+   (`locator.count() === 0`, checked fresh) as an alternate success
+   signal, not just trusting the click promise's own pass/fail — found
+   by watching a test reliably fail immediately after the app had
+   visibly already navigated to the right screen in the failure
+   screenshot, not by reasoning about the code in the abstract.
+
+**Testability**: the wheel exposes `__pwGoTo(azimuthIndex, polarIndex)`
+on its container (`data-testid="polyhedral-wheel-scene"`) for absolute,
+deterministic camera repositioning — the same fundamental problem
+`findOnCanvas()` already solves for WebGL vertex-picking, one level up,
+for a second independent 3D scene. `resetTo()` and every spec that used
+it (attach/delete/face-attach/persistence/render/rewrite) now drive the
+wheel via a bounded ~24-orientation search (8 azimuth x 3 polar) with
+paging support (`clickWheelLabelPaged`, for families that overflow 11
+content faces — only Archimedean does today, at 13) — no changes needed
+to the specs themselves beyond that one shared helper.
+`render.spec.ts`'s "renders all shape buttons" test was rewritten to
+open the wheel and check DOM existence of every registered shape across
+all 4 families, paging as needed, since the flat button row it used to
+check no longer exists.
+
+Verified end to end: lint/tsc clean, full Playwright suite (14/14) on
+both this machine and dicto-node.
+
+Still outstanding: PolyhedralWheel's own deferred phases (augment/
+diminish actions, Spherical/X-Ray view modes, the corner HUD element),
+re-matching face connections on rewrite (the gap noted in the face-snap
+section above), and an eventual introductory puzzle game (working name
+DELTIS), which remains speculative — see vercel-deployment-plan.md and
+README.md.
