@@ -190,6 +190,7 @@ polyhedraverse/
   docs/
     build-plan.md               # the build plan, with how each stage was verified
     construction-kit-spec.md    # the vertex-snapping design law + extensibility notes
+    catalan-solids-spec.md      # scoping for the next family after Johnson solids finish
     vercel-deployment-plan.md   # planned repo/Vercel layout once this deploys
   playwright.config.ts
 ```
@@ -202,8 +203,13 @@ scripts, direct API calls, and eventually a real-browser Playwright
 pass) rather than assumed. `docs/construction-kit-spec.md` has the
 underlying design law (vertex-snapping, not face-gluing; derive
 connector data from vertices + edges, never hand-declare it
-separately). `docs/vercel-deployment-plan.md` records the intended
-repo/Vercel layout for when this deploys alongside Rhombiverse.
+separately). `docs/catalan-solids-spec.md` scopes the Catalan solids —
+the family planned right after Johnson solids finish — including why
+they need genuinely new infrastructure (non-uniform edge lengths,
+irregular-polygon face-attach registration) rather than dropping into
+the existing "regular, unit-edge" pipeline unchanged.
+`docs/vercel-deployment-plan.md` records the intended repo/Vercel
+layout for when this deploys alongside Rhombiverse.
 
 ## Contributing
 
