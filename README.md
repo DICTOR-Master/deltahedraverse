@@ -36,6 +36,8 @@ trailing sections for what's actually shipped versus what's still ahead.
 - Lattice construction
 - Interpenetrating structures
 - Polyhedral relationships
+- Concave (non-convex) polyhedra — may be added later, alongside the
+  convex families above
 - (room to grow) more unusual spatial operations as they're developed
 
 This list is intentionally open-ended, describing the project's
