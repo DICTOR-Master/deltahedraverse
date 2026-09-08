@@ -15,8 +15,12 @@ lessons (verification discipline, registration-checking habits) that
 make the harder groups easier too, rather than the reverse.
 
 **Status (2026-09-09): Groups 1-3 are all done (8 shapes: J64, J66-J71,
-J79) — see below. 13 remain (92 - 79), all Group 4: no closed form at
-all, needing genuinely new numerical-solver tooling.**
+J79) — see below. Exactly 8 remain (92 - 79, not the "~13-15"
+estimated earlier — corrected below), all Group 4: J85-J92. The
+tooling needed was also overstated originally — see Group 4's own
+corrected section: 6 of the 8 have a published polynomial root
+`numpy.roots()` already handles (confirmed, not assumed); the other 2
+are pure golden-ratio closed forms needing no root-finding at all.**
 
 ## Group 1 (simplest — single root cause already diagnosed): J66–J71
 
@@ -171,32 +175,66 @@ V=55, E=105, F=52 (15 triangles + 25 squares + 11 pentagons + 1
 decagon), zero non-square quads, confirmed not congruent to J76/J77/
 J78 via the same histogram check.
 
-## Group 4 (hardest, tackle last): ~15 with no closed-form construction
+## Group 4 (hardest, tackle last): exactly 8 shapes, J85-J92
 
-Genuinely different in kind from the other 3 groups: every batch built
-so far (including the corrected Groups 1-2 above) solves for an
-unknown single parameter (a pyramid's apex height, an antiprism's
-insertion height) via one closed-form equation from the law of
-cosines. Several of the remaining ~15 Johnson solids don't reduce to
-a single-equation closed form at all — their defining constraint
-(every face planar, every edge unit length, specific dihedral angles)
-is a genuinely coupled system, solved in the literature numerically
-rather than algebraically.
+**Correction (2026-09-09), computed directly from the live registry,
+not estimated**: this doc's earlier "~15" figure was wrong. With
+Groups 1-3 all fixed (78 + J79 = 79/92), the actual gap is `J85`
+through `J92` — the 8 "elementary" Johnson solids (J84, snub
+disphenoid, is already covered as `D12`). Confirmed by diffing every
+J-number 1-92 against this registry's own `JOHNSON_ADDITION_IDS` plus
+the 5 deltahedra-covered numbers, not by re-counting an old estimate.
 
-**Recommended protocol**: this needs a capability this registry
-doesn't have yet, not just another application of what already
-exists — a general numerical constraint solver (e.g. Newton's method
-or nonlinear least-squares over a parameter vector, driving "every
-face planar and every edge unit length" toward zero residual from a
-reasonable initial guess) rather than one-off closed-form derivations.
-Worth scoping as its own follow-up once Groups 1-3 are done, not
-attempted piecemeal per-shape the way every batch so far has worked.
-Cross-referencing published coordinates (same "verify externally
-sourced starting data through this project's own independent harness,
-never trust blindly" discipline used throughout this registry — see
-the snub cube chiral-constant mistranscription bug this same approach
-already caught once) is the fastest path in here, using numerical
-solving only to confirm/refine rather than derive from nothing.
+**Also corrected: the tooling requirement itself was overstated.**
+Checked each of the 8 directly (Wikipedia, not guessed) rather than
+assuming they're all in the same boat:
+
+| Shape | What's actually needed |
+|---|---|
+| J85 (snub square antiprism) | root of a stated CUBIC polynomial (coefficients involve √2, √3) |
+| J86 (sphenocorona) | root of a stated QUARTIC polynomial (an exact nested-radical form is also published) |
+| J87 (augmented sphenocorona) | J86 + a square pyramid cap — the exact same closed-form pyramid-height technique already used since batch 1; no new root-finding beyond J86's own |
+| J88 (sphenomegacorona) | root of a stated DEGREE-16 polynomial |
+| J89 (hebesphenomegacorona) | the SECOND smallest positive root of a stated degree-10 polynomial — root selection matters, not just root-finding |
+| J90 (disphenocingulum) | the SECOND smallest positive root of a stated degree-12 polynomial — same root-selection caveat as J89 |
+| J91 (bilunabirotunda) | pure golden-ratio (√5-based) closed form — **no root-finding needed at all** |
+| J92 (triangular hebesphenorotunda) | pure golden-ratio (τ-based) closed form — **no root-finding needed at all** |
+
+None of these need a general nonlinear geometric constraint solver
+(the "drive every-face-planar-and-unit-edge toward zero residual"
+approach this doc originally proposed). Every one of the 8 already has
+a *published, closed-form* defining equation — the actual gap is much
+narrower: **numerically extracting the correct real root of an
+already-known polynomial**, not discovering an unknown shape from
+scratch.
+
+**Tooling requirement, defined precisely**: `numpy.roots()` — finds
+all roots (real and complex) of a polynomial from its coefficient
+list via a companion-matrix eigenvalue decomposition, degree
+unbounded in practice. **Already available, nothing to install**: this
+project's `python3` environment already has `numpy` (confirmed
+2.5.0) and `scipy` (1.18.0) installed and in active use throughout
+this whole registry's derivation pipeline. Verified directly, not
+assumed: ran J85's actual published cubic
+(`9x³+3√3(5−√2)x²−3(5−2√2)x−17√3+7√6`) through `numpy.roots()` and got
+`0.8235388277869001`, matching the published `k ≈ 0.82354` to 5
+decimal places; separately confirmed `numpy.roots` handles a
+degree-16 polynomial without issue.
+
+**Recommended protocol per shape**: (1) fetch the shape's exact,
+complete published polynomial and coordinate formula (not just the
+excerpt a search snippet returns — the full coefficient list, since a
+single dropped term changes every root); (2) run it through
+`numpy.roots()`, filter to real roots, and for J89/J90 specifically
+select the SECOND smallest positive one, not the smallest — verify the
+choice, don't assume "smallest" is always right, since a wrong root
+would silently produce self-intersecting or non-convex geometry;
+(3) build coordinates from the published formula using that root;
+(4) run the exact same verification pipeline as every other shape in
+this registry — `scipy.spatial.ConvexHull`, Euler's formula, unit-edge
+check, and (given this family's typically low symmetry) the
+quad/face-regularity diagonal check from the batch-8 lesson. This is a
+genuine batch-12 candidate, not a separate infrastructure project.
 
 ## Sources consulted (external, cross-checked against this project's own verification harness before any construction is accepted — never trusted directly per this registry's established discipline)
 
@@ -204,3 +242,11 @@ solving only to confirm/refine rather than derive from nothing.
 2. [Augmented Tridiminished Icosahedron — Wolfram MathWorld](https://mathworld.wolfram.com/AugmentedTridiminishedIcosahedron.html)
 3. [Augmented tridiminished icosahedron — Wikipedia](https://en.wikipedia.org/wiki/Augmented_tridiminished_icosahedron)
 4. [Bigyrate diminished rhombicosidodecahedron — Wikipedia](https://en.wikipedia.org/wiki/Bigyrate_diminished_rhombicosidodecahedron)
+5. [Snub square antiprism — Wikipedia](https://en.wikipedia.org/wiki/Snub_square_antiprism)
+6. [Sphenocorona — Wikipedia](https://en.wikipedia.org/wiki/Sphenocorona)
+7. [Augmented sphenocorona — Wikipedia](https://en.wikipedia.org/wiki/Augmented_sphenocorona)
+8. [Sphenomegacorona — Wikipedia](https://en.wikipedia.org/wiki/Sphenomegacorona)
+9. [Hebesphenomegacorona — Wikipedia](https://en.wikipedia.org/wiki/Hebesphenomegacorona)
+10. [Disphenocingulum — Wikipedia](https://en.wikipedia.org/wiki/Disphenocingulum)
+11. [Bilunabirotunda — Wikipedia](https://en.wikipedia.org/wiki/Bilunabirotunda)
+12. [Triangular hebesphenorotunda — Wikipedia](https://en.wikipedia.org/wiki/Triangular_hebesphenorotunda)

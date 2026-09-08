@@ -1548,6 +1548,15 @@ and lint clean, `verify:attach` (356,478), `verify:twist` (250,632),
 `verify:face-attach` (2,903,249, 0 failures), `verify:face-twist`
 (22,378, 0 failures), and the full Playwright suite on dicto-node.
 
-Still outstanding for Johnson solids: 13 remain (92 - 79), all with no
-closed form at all — the only group left, needing genuinely new
-numerical-solver tooling this registry doesn't have yet.
+Still outstanding for Johnson solids: exactly 8 remain (J85-J92, not
+the "~13-15" this section originally estimated — corrected directly
+against the registry, not re-estimated). The tooling gap is also
+smaller than first thought: checked each of the 8 individually rather
+than assuming they're all in the same boat — 6 (J85, J86, J88, J89,
+J90, and J87 via J86+a square-pyramid cap) have a *published* defining
+polynomial that `numpy.roots()` (already installed, part of this
+project's existing numpy/scipy environment, confirmed working on both
+a cubic and a degree-16 test case) solves directly; the other 2 (J91,
+J92) are pure golden-ratio closed forms needing no root-finding at
+all. See `docs/johnson-solids-remaining-spec.md`'s corrected Group 4
+section for the full per-shape breakdown and sources.

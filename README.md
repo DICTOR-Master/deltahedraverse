@@ -152,9 +152,12 @@ Since then:
   scratch and self-checked each operation against already-registered
   shapes (exact match to J72/J73/J76) before trusting it for J79
   itself. 5 of the 92 are already deltahedra in this registry (D6/D10/
-  D12/D14/D16) and aren't re-derived. The remaining ~13 shapes have no
-  closed form at all — the only group left, needing genuinely new
-  numerical-solver tooling this registry doesn't have yet.
+  D12/D14/D16) and aren't re-derived. Exactly 8 shapes remain (J85-
+  J92, the "elementary" Johnson solids — computed directly from the
+  registry, not estimated) — see `docs/johnson-solids-remaining-spec.md`'s
+  corrected Group 4 section: 6 of the 8 have a published polynomial
+  root `numpy.roots()` (already installed, nothing new needed) handles
+  directly; the other 2 are pure golden-ratio closed forms.
   First shape in this registry that isn't vertex-transitive: J1's apex
   has degree 4 while its base vertices have degree 3. First with no
   degree-3 vertex at all: J10 (only degree 4 and 5).
@@ -282,8 +285,12 @@ turned out to be the same class of mistake as Group 2 — the "fix"
 this doc first proposed (trace the transform, assuming the plan was
 already right) was itself built on a misreading of the same external
 source, corrected in batch 11 once re-read precisely. Only Group 4
-remains: ~13 shapes with no closed form at all, needing genuinely new
-numerical-solver tooling this registry doesn't have yet.
+remains: exactly 8 shapes (J85-J92, not the "~13-15" earlier
+estimates), and the tooling gap was overstated too — 6 of the 8 need
+only `numpy.roots()` (already installed) on a published polynomial,
+the other 2 are pure golden-ratio closed forms needing no root-finding
+at all. See the doc's own corrected Group 4 section for the full
+per-shape breakdown.
 `docs/johnson-solids-constructions.md` distills the 8 Groups 1-3
 shapes' construction recipes into a standalone reference (base
 shape(s), target-face selection rule, registration parameter, and
