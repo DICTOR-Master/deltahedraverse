@@ -193,11 +193,40 @@ already computes one per-shape reference length for every other family
 (currently "the first edge"); this is the same pattern, just measuring
 farthest-vertex distance instead.
 
-## Remaining open question for the user before implementation starts
+## UI affordance for 1-registration faces — decided: none dedicated, reuse the existing registration counter
 
-- **Does face-attach for a 1-registration face need a different UI
-  affordance?** Right now, dragging a pending face-attach cycles
-  through registrations by design — a face with only one valid
-  registration means that drag interaction does nothing, which could
-  read as broken rather than correct unless the UI says so explicitly
-  (e.g. "no rotation available for this face").
+Considered a dedicated "no rotation available for this face" affordance
+for the 11 of 13 Catalan solids whose faces have only 1 valid
+registration (everything except the 2 rhombic solids' 2-fold faces).
+Argued both directions rather than assumed:
+
+**Against a dedicated affordance**: `ShapeViewer.tsx` already shows a
+live `registration X/N` label during any face-attach drag. Once `N` is
+generalized to each face's real symmetry order (this doc's earlier
+section) rather than assumed equal to vertex count, a 1-registration
+face just shows `registration 1/1` — the same informational pattern a
+user already learns from a square wrapping `4/4 → 1/1`, not a new
+concept. A bespoke banner would also fire on the *majority* of Catalan
+face-attaches (11 of 13 solids are 1-fold), risking becoming ignorable
+noise rather than a meaningful signal.
+
+**For one, and decisive**: that argument only holds if the registration
+counter is genuinely visible throughout *every* face-attach drag,
+including 1-registration ones — not just shown once a multi-step cycle
+is in progress. If the current drag interaction gives no visible
+feedback at all until a registration count above 1 exists, a user
+dragging on a 1-registration face sees nothing move and has no counter
+on screen to explain why. That's the real gap, and it settles the
+question.
+
+**Decision**: no dedicated new UI affordance. Ensure (verify during
+implementation, don't assume) that the existing registration-count
+label is shown for every pending face-attach the moment it's placed —
+before any drag input, not only once dragging begins — so a
+1-registration face reads as `registration 1/1` immediately and
+correctly, the same mechanism as every other face-attach, rather than
+a special case.
+
+Both open questions from the initial scoping are now resolved.
+Implementation hasn't started — everything to date (2026-09-08) has
+been scoping and decision-making, as asked.
