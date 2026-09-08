@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { POLYHEDRA, POLYHEDRON_IDS, type PolyhedronSpec } from '../app/lib/polyhedra';
-import { buildFaceConnectors } from '../app/lib/polyhedra/core';
+import { buildFaceConnectors, facesCongruent, faceRotationalSymmetry } from '../app/lib/polyhedra/core';
 
 // Unlike vertex-attach, a face-to-face join has no continuously-free twist
 // -- but it does have n discrete valid "registrations" (which incoming
@@ -55,7 +55,8 @@ for (const rootId of POLYHEDRON_IDS) {
     // verify-face-attach.ts already covers every face pair exhaustively).
     const tf = 0;
     const gf = 0;
-    if (rootSpec.faces[tf].length !== incomingSpec.faces[gf].length) continue;
+    // Real congruence, not just matching vertex count -- see verify-face-attach.ts.
+    if (!facesCongruent(rootSpec.vertices, rootSpec.faces[tf], incomingSpec.vertices, incomingSpec.faces[gf])) continue;
 
     const { baseQuat, theta, Ng, Cg, Cf, targetFaceIndices, incomingFaceIndices } = computeBaseFaceAttach(
       rootSpec,
@@ -63,12 +64,16 @@ for (const rootId of POLYHEDRON_IDS) {
       incomingSpec,
       gf,
     );
-    const n = targetFaceIndices.length;
+    // The number of valid registrations is the face's OWN rotational
+    // symmetry order, not its vertex count -- only the same for a regular
+    // n-gon. A rhombus has 4 vertices but 2-fold symmetry; most Catalan
+    // faces have 1-fold (no non-identity rotation preserves them at all).
+    const registrationCount = faceRotationalSymmetry(rootSpec.vertices, targetFaceIndices);
     const targetVerts = targetFaceIndices.map((i) => new THREE.Vector3(...rootSpec.vertices[i]));
 
-    for (let k = 0; k < n; k++) {
+    for (let k = 0; k < registrationCount; k++) {
       checks++;
-      const registrationAngle = theta + (k * 2 * Math.PI) / n;
+      const registrationAngle = theta + (k * 2 * Math.PI) / registrationCount;
       const twistQuat = new THREE.Quaternion().setFromAxisAngle(Ng, registrationAngle);
       const finalQuat = baseQuat.clone().multiply(twistQuat);
       const rotatedCg = Cg.clone().applyQuaternion(finalQuat);

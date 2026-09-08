@@ -193,6 +193,89 @@ already computes one per-shape reference length for every other family
 (currently "the first edge"); this is the same pattern, just measuring
 farthest-vertex distance instead.
 
+### A real consequence of independent per-shape normalization, and the fix
+
+Since each Catalan solid is normalized to ITS OWN circumradius = 1 in
+isolation, two different Catalan solids' faces essentially never match
+in absolute size, even on the rare occasion two of them might share the
+same face *proportions* (same interior-angle sequence) — independent
+normalization doesn't know or care that a shared face type exists.
+Checked directly against the first 2 shapes added
+(`RHOMBIC_DODECAHEDRON`, `RHOMBIC_TRIACONTAHEDRON`): their rhombi are
+NOT actually the same shape (diagonal ratio sqrt(2) vs. phi — genuinely
+different proportions, not just different sizes), so this doesn't apply
+to them, but it's a real design question for the remaining 11.
+
+**Rule for future batches**: circumradius = 1 stays the default
+normalization for any new Catalan solid. But before applying it, check
+whether the new solid's face type has IDENTICAL proportions (matching
+interior-angle sequence, not just matching vertex count) to a face type
+already in the registry. If so, normalize the new solid to match that
+existing shape's edge length instead of independently hitting its own
+circumradius = 1 — preserving genuine face-attach compatibility between
+the two, rather than leaving it broken by an avoidable scale mismatch.
+This solves the problem upstream, at normalization time, rather than
+needing any runtime rescaling logic in the face-attach code itself. Not
+yet exercised by any shape pair (the first 2 don't share proportions) —
+apply it the first time it actually matters, not preemptively with no
+real pair to verify it against.
+
+### Face-attach compatibility needs a genuine congruence check, not vertex-count matching
+
+A more immediate, already-relevant finding: `ShapeViewer.tsx`'s
+existing face-attach compatibility check only compares vertex count
+(`targetFaceSize === incomingFace.length`) — correct for every
+regular-faced family so far (any two same-vertex-count faces there
+already ARE the same regular polygon), but wrong once irregular faces
+exist: a rhombus and a kite can both have 4 vertices without being the
+same shape at all. Fixed with `facesCongruent()` in `core.ts`, checking
+each face's own edge-length AND interior-angle sequence against the
+other's under every cyclic rotation — reduces to the old
+vertex-count-only behavior automatically for every regular-faced shape
+already in this registry, so this is a strict generalization, not a
+special case. A first version of this function also accepted a REVERSED (mirrored)
+winding as a valid match, reasoning that flipping which way an incoming
+piece presents its face was a valid physical option — reverted since
+the actual attach transform only ever computes a rotation, never a
+reflection, so offering a mirror-only match as "compatible" would
+promise something the real code couldn't deliver. Rotation-only is
+correct, but this turned out NOT to be the cause of the bug that
+motivated removing it (see below) — worth keeping the fix anyway on its
+own logic, but the real bug needed a separate diagnosis.
+
+### The real bug: face-vertex-list starting point wasn't a consistent geometric role
+
+After the reflection fix above, `verify-face-attach.ts` still failed
+identically at the exact same 448 (of 1,978,657) checks:
+`RHOMBIC_TRIACONTAHEDRON` attaching to a second copy of itself, always
+at specific face-index pairs. Since `facesCongruent` was matching these
+pairs via pure rotation (no reflection needed — every one of its 30
+faces is the same rhombus) and face winding was independently confirmed
+consistent (every face's `dot(centroid, normal) > 0`, correctly
+outward-facing), neither hypothesis explained it. The actual cause:
+`computeFaceAttach`'s twist angle is computed by aligning the incoming
+face's "vertex 0" direction to the target face's "vertex 0" direction —
+this only produces a correct alignment if vertex 0 plays the *same
+geometric role* on every face. For a regular n-gon every vertex is
+interchangeable, so this was always trivially true before Catalan
+solids existed. For a rhombus, vertex 0 can land on either an acute
+(63.4°) or an obtuse (116.6°) corner depending on which vertex the
+hull-merge angle-sort happened to start at for that particular face —
+confirmed directly by printing the interior angle at vertex 0 across
+all 30 faces of `RHOMBIC_TRIACONTAHEDRON`, which showed exactly this
+mix. **Fix**: canonicalize every face's vertex list to start at its own
+acute corner before it ships in the registry (a one-off transform
+applied to `FACES_RHOMBIC_TRIACONTAHEDRON`'s literal data in
+`catalan.ts`, not a runtime step — `RHOMBIC_DODECAHEDRON`'s faces
+happened to already be consistent, verified rather than assumed).
+`verify-face-attach.ts` passed cleanly (0/1,978,657) after this fix.
+**General rule for the remaining 11 Catalan solids**: any face-vertex
+list needs its starting vertex canonicalized to a consistent geometric
+role (e.g. "the acute corner," or whatever role fits that face's own
+shape) before trusting index-0-to-index-0 alignment anywhere — true for
+any irregular polygon, not specific to rhombi, and easy to miss because
+it passes every check except the exhaustive cross-shape one.
+
 ## UI affordance for 1-registration faces — decided: none dedicated, reuse the existing registration counter
 
 Considered a dedicated "no rotation available for this face" affordance

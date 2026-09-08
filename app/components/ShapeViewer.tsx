@@ -3,7 +3,15 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { POLYHEDRA, POLYHEDRON_IDS, type PolyhedronSpec, triangulateFace, buildFaceConnectors } from '../lib/polyhedra';
+import {
+  POLYHEDRA,
+  POLYHEDRON_IDS,
+  type PolyhedronSpec,
+  triangulateFace,
+  buildFaceConnectors,
+  facesCongruent,
+  faceRotationalSymmetry,
+} from '../lib/polyhedra';
 import { DELTAHEDRA } from '../lib/polyhedra/deltahedra';
 import { emptyAssembly, isValidAssembly, type Assembly } from '../lib/assembly';
 import { matchRewriteVertices, REWRITE_TARGET } from '../lib/polyhedra/rewrite';
@@ -65,8 +73,13 @@ interface PendingFaceAttach {
   incomingFaceIndex: number;
   baseQuaternion: THREE.Quaternion; // the fully-aligned (registration 0) orientation
   axis: THREE.Vector3; // local face-normal axis to register/twist around
-  faceSize: number;
-  registration: number; // current discrete rotational registration, 0..faceSize-1
+  // The face's OWN rotational symmetry order (faceRotationalSymmetry), not
+  // its vertex count — only the same for a regular n-gon. A rhombus has 4
+  // vertices but only 2 valid registrations (2-fold symmetry: its interior
+  // angles alternate); most Catalan-solid faces have just 1 (no rotational
+  // symmetry beyond identity). See docs/catalan-solids-spec.md.
+  registrationCount: number;
+  registration: number; // current discrete rotational registration, 0..registrationCount-1
   dragAccumPx: number;
 }
 
@@ -588,8 +601,11 @@ export default function ShapeViewer({
 
       const { specId: targetSpecId } = targetPlaced.object.userData as ShapeObjectUserData;
       const targetSpec = POLYHEDRA[targetSpecId];
-      const targetFaceSize = targetSpec.faces[targetFaceIndex].length;
-      const incomingFaceIndex = spec.faces.findIndex((f) => f.length === targetFaceSize);
+      const targetFaceVerts = targetSpec.faces[targetFaceIndex];
+      // Real congruence (edge lengths + angles), not just matching vertex
+      // count — see the onClick filter above for why this matters once
+      // irregular-faced (Catalan) shapes are selectable.
+      const incomingFaceIndex = spec.faces.findIndex((f) => facesCongruent(targetSpec.vertices, targetFaceVerts, spec.vertices, f));
       if (incomingFaceIndex === -1) return; // UI should only ever offer compatible shapes
 
       scene.updateMatrixWorld(true);
@@ -645,6 +661,7 @@ export default function ShapeViewer({
       applyNodeAppearance(targetPlaced, targetPlaced === selectedNodeRef.current);
       placed.faceOccupied[incomingFaceIndex] = true;
 
+      const registrationCount = faceRotationalSymmetry(targetSpec.vertices, targetFaceVerts);
       pendingRef.current = {
         kind: 'face',
         placed,
@@ -654,13 +671,26 @@ export default function ShapeViewer({
         incomingFaceIndex,
         baseQuaternion: registrationBaseQuat,
         axis: Ng,
-        faceSize: targetFaceSize,
+        registrationCount,
         registration: 0,
         dragAccumPx: 0,
       };
       controls.enabled = false;
       clearNodeSelection();
       onPendingChangeRef.current?.({ specId });
+
+      // Show the registration counter immediately, not only once a drag
+      // begins — essential once irregular-faced (Catalan) shapes exist:
+      // a face with only 1 valid registration gives NO visible feedback
+      // during a drag (there's nothing to cycle through), so without this
+      // the interaction would look inert rather than correct. Reuses the
+      // exact same counter every other face-attach already shows mid-drag
+      // (no dedicated new UI affordance) — see docs/catalan-solids-spec.md.
+      const initialRect = container.getBoundingClientRect();
+      label.textContent = `registration 1/${registrationCount}`;
+      label.style.left = `${initialRect.width / 2}px`;
+      label.style.top = `${initialRect.height / 2}px`;
+      label.style.display = 'block';
     };
 
     const confirmAttach = () => {
@@ -969,17 +999,17 @@ export default function ShapeViewer({
             pending.dragAccumPx += event.movementX;
             while (pending.dragAccumPx >= FACE_REGISTRATION_DRAG_PX) {
               pending.dragAccumPx -= FACE_REGISTRATION_DRAG_PX;
-              pending.registration = (pending.registration + 1) % pending.faceSize;
+              pending.registration = (pending.registration + 1) % pending.registrationCount;
             }
             while (pending.dragAccumPx <= -FACE_REGISTRATION_DRAG_PX) {
               pending.dragAccumPx += FACE_REGISTRATION_DRAG_PX;
-              pending.registration = (pending.registration - 1 + pending.faceSize) % pending.faceSize;
+              pending.registration = (pending.registration - 1 + pending.registrationCount) % pending.registrationCount;
             }
-            const angle = (pending.registration * 2 * Math.PI) / pending.faceSize;
+            const angle = (pending.registration * 2 * Math.PI) / pending.registrationCount;
             const twistQuat = new THREE.Quaternion().setFromAxisAngle(pending.axis, angle);
             pending.placed.object.quaternion.copy(pending.baseQuaternion).multiply(twistQuat);
 
-            label.textContent = `registration ${pending.registration + 1}/${pending.faceSize}`;
+            label.textContent = `registration ${pending.registration + 1}/${pending.registrationCount}`;
           }
           label.style.left = `${event.clientX - rect.left + 14}px`;
           label.style.top = `${event.clientY - rect.top + 14}px`;
@@ -1119,9 +1149,22 @@ export default function ShapeViewer({
       const faceIndex = selectedFaceIndexRef.current;
       const faceSize = faceIndex !== null ? POLYHEDRA[specId].faces[faceIndex].length : null;
       const faceOccupied = faceIndex !== null ? hoveredNode.faceOccupied[faceIndex] : true;
+      // Vertex count alone isn't enough once irregular-faced families exist
+      // (Catalan solids): a rhombus and a kite can both have 4 vertices
+      // without being the same shape at all, so gluing one onto the other
+      // wouldn't sit flush. facesCongruent checks the real edge-length +
+      // angle sequence — reduces to plain vertex-count matching for every
+      // regular-faced shape already in this registry (any two same-size
+      // faces there already ARE the same regular polygon), so this changes
+      // nothing for existing families and only starts mattering once
+      // irregular ones are selectable. See docs/catalan-solids-spec.md.
+      const targetFace = faceIndex !== null ? POLYHEDRA[specId].faces[faceIndex] : null;
+      const targetVertices = POLYHEDRA[specId].vertices;
       const faceAttachOptions =
-        faceIndex !== null && !faceOccupied
-          ? POLYHEDRON_IDS.filter((id) => POLYHEDRA[id].faces.some((f) => f.length === faceSize))
+        faceIndex !== null && targetFace !== null && !faceOccupied
+          ? POLYHEDRON_IDS.filter((id) =>
+              POLYHEDRA[id].faces.some((f) => facesCongruent(targetVertices, targetFace, POLYHEDRA[id].vertices, f)),
+            )
           : [];
 
       onNodeSelectionChangeRef.current?.({

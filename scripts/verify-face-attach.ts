@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { POLYHEDRA, POLYHEDRON_IDS, type PolyhedronSpec } from '../app/lib/polyhedra';
-import { buildFaceConnectors } from '../app/lib/polyhedra/core';
+import { buildFaceConnectors, facesCongruent } from '../app/lib/polyhedra/core';
 
 // Mirrors ShapeViewer.tsx's face-attach math (root parent, identity
 // transform) so the exact placement formula gets checked outside the
@@ -70,7 +70,15 @@ for (const rootId of POLYHEDRON_IDS) {
     const incomingSpec = POLYHEDRA[incomingId];
     for (let tf = 0; tf < rootSpec.faces.length; tf++) {
       for (let gf = 0; gf < incomingSpec.faces.length; gf++) {
-        if (rootSpec.faces[tf].length !== incomingSpec.faces[gf].length) continue; // only matching face sizes attach
+        // Real congruence (edge lengths + angles), not just matching vertex
+        // count -- matching the app's own compatibility check (ShapeViewer.tsx),
+        // now that irregular-faced (Catalan) shapes exist where two
+        // same-vertex-count faces (e.g. two different rhombi) aren't
+        // necessarily the same shape. Testing pairs the app would never
+        // offer isn't useful: their vertices genuinely don't coincide, but
+        // that's not an attach-math bug, it's the app correctly declining
+        // an incompatible pair before this code ever runs.
+        if (!facesCongruent(rootSpec.vertices, rootSpec.faces[tf], incomingSpec.vertices, incomingSpec.faces[gf])) continue;
         checks++;
 
         const { finalQuat, position, targetFaceIndices, incomingFaceIndices, Cf, Nf } = computeFaceAttach(
