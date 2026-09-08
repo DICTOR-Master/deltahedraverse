@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+
+  verify-geometry:
+    # Pure math/logic checks -- deltahedron construction, attach/twist
+    # placement, D10<->D12 rewrite matching, and the assembly graph's
+    # subtree/cycle logic -- all run outside the browser via tsx.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run validate:deltahedra
+      - run: npm run verify:attach
+      - run: npm run verify:twist
+      - run: npm run verify:rewrite
+      - run: npm run verify:graph
+
+  e2e:
+    # Real-browser check (Playwright) -- the actual app, driven the same
+    # way a real user would: vertex select, attach, twist,
+    # confirm/cancel, D10<->D12 rewrite, cascade delete, save/reload.
+    # playwright.config.ts's webServer starts `npm run dev` itself.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
