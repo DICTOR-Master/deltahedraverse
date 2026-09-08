@@ -53,9 +53,14 @@ import {
 // earlier silver-mesh/green-script split down to just green, so this
 // reads as its own identity rather than a reskinned copy. Silver is
 // still the planned color for the small corner HUD element (not built
-// yet) -- see the design-record memory for that distinction.
-const HUD_METAL_HEX = 0x34d399;
-const SCRIPT_COLOR = '#34D399';
+// yet) -- see the design-record memory for that distinction. The green
+// itself was retuned (2026-09-08) to match the project's actual logo
+// (public/brand/) rather than an arbitrary pick -- #47CC24 is the
+// logo's own dominant sampled color (a warm chartreuse), not the
+// bluer/tealer #34D399 (Tailwind's emerald-400) used before the logo
+// existed.
+const HUD_METAL_HEX = 0x47cc24;
+const SCRIPT_COLOR = '#47CC24';
 const LABEL_STYLE = {
   fontFamily: "'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
   fontWeight: 700,
@@ -72,7 +77,7 @@ const REVEAL_HOLD_MS = 350;
 // ported here on purpose.
 const BACKDROP = '#020206';
 const PANEL_BG = 'rgba(10, 12, 20, 0.85)';
-const PANEL_BORDER = 'rgba(52, 211, 153, 0.5)';
+const PANEL_BORDER = 'rgba(71, 204, 36, 0.5)';
 // Drag-vs-click threshold (rhombic-wheel-3d.js's own fix for the same
 // "orbiting the wheel also spuriously selects whatever's under the
 // cursor on release" bug) -- tracked in screen pixels since pointerdown.

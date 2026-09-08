@@ -12,10 +12,24 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const title = "Polyhedraverse";
+const description =
+  "An open-source spatial geometry environment for constructing, transforming, and interconnecting polyhedral forms in three dimensions.";
+
 export const metadata: Metadata = {
-  title: "Polyhedraverse",
-  description:
-    "An open-source spatial geometry environment for constructing, transforming, and interconnecting polyhedral forms in three dimensions.",
+  title,
+  description,
+  openGraph: {
+    title,
+    description,
+    images: [{ url: "/brand/icon.png", width: 600, height: 600, alt: "Polyhedraverse" }],
+  },
+  twitter: {
+    card: "summary",
+    title,
+    description,
+    images: ["/brand/icon.png"],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
