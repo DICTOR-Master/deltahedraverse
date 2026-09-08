@@ -80,10 +80,10 @@ which edge happens to be listed first — silently producing a shape at
 the wrong overall scale relative to its own irregular faces, not
 merely differently-scaled but *internally inconsistent* if the wrong
 reference edge is used inconsistently across vertices. Needs a
-genuinely different normalization convention — the natural, standard
-choice is circumradius = 1 (every Catalan solid has a well-defined
-circumsphere) or insphere radius = 1, decided once, applied
-consistently. `validateShape`'s edge-length assertion needs the same
+genuinely different normalization convention. **Decided (2026-09-08):
+circumradius = 1, computed per shape** (distance to the farthest
+vertex) — see "Normalization convention, decided" below for the
+empirical case. `validateShape`'s edge-length assertion needs the same
 rethink: check that each face's edges match its *own* face-type's
 expected length pattern (e.g. "this isosceles triangle's two long edges
 are equal to each other and its one short edge matches every other
@@ -140,15 +140,61 @@ count the way it already does).
    solids (only one handedness stored; a mirror-image toggle is a
    separate, already-flagged gap).
 
-## Open questions for the user before implementation starts
+## Normalization convention, decided: circumradius = 1, per shape
 
-- **Normalization convention**: circumradius = 1, insphere radius = 1,
-  or something else? Circumradius is the more common convention in
-  reference sources, but insphere radius = 1 might read more naturally
-  next to this registry's existing "unit edge" framing for other
-  families (every OTHER family effectively normalizes so the
-  *shortest* meaningful length is 1). No strong argument either way yet
-  — a real decision, not a default to silently pick.
+Three candidates were checked empirically against real geometry (this
+registry's own already-verified Archimedean solids, reciprocated),
+not decided by argument alone:
+
+1. **Insphere radius = 1** (the cleanest *definition* — every Catalan
+   solid is face-transitive, so its insphere radius is always a single,
+   unambiguous value, unlike circumradius, which is genuinely messier
+   for these shapes: most Catalan solids aren't vertex-transitive, so
+   "circumradius" really means "distance to the farthest of 2-3 vertex
+   classes at different radii," not one clean number). Rejected anyway:
+   picking insphere = 1 makes each solid's *edge length* land wherever
+   that particular shape's own insphere/circumradius ratio happens to
+   put it, with no consistency across the family.
+2. **A single global "skewed insphere" constant**, tuned toward the
+   *average* insphere/circumradius ratio across several Catalan solids,
+   as a compromise attempt to keep insphere's clean definition while
+   approximating circumradius-like consistency. Measured the actual
+   ratio for 4 different solids — 0.707 (rhombic dodecahedron), 0.851
+   (rhombic triacontahedron), 0.863 (deltoidal icositetrahedron), 0.522
+   (triakis tetrahedron). That's real, substantial spread, not noise:
+   a constant tuned to the average (~0.735) leaves the best case only
+   ~4% off circumradius-consistency but the worst case (triakis
+   tetrahedron) ~41% off — oversized enough to look conspicuously wrong
+   next to the others in the same wheel. Rejected.
+3. **Trusting each Catalan solid's own natural scale** — no explicit
+   normalization step at all, just the coordinates that fall out of
+   reciprocating about the shared midsphere the polar-dual construction
+   already uses (a real fact: primal and canonical dual share the same
+   midsphere). Checked the resulting *raw* edge length against 1 for 4
+   solids: rhombic dodecahedron 0.919 (8% off), rhombic triacontahedron
+   1.063 (6% off), deltoidal icositetrahedron 0.84-1.08 (up to 16%
+   off) — genuinely close, a near-free-lunch for these three. But
+   triakis tetrahedron's raw edges came out 1.8-3.0 (80-200% off) —
+   truncated tetrahedron (its dual) has two very differently-sized face
+   types (triangles and hexagons) at quite different centroid distances
+   from center, so the shared-midsphere scale that works well for the
+   more uniform Archimedean solids swings far off for this one.
+   Rejected — the same "usually close, unreliably so" problem as
+   option 2, for a different underlying reason.
+
+**Decision: circumradius = 1, computed and applied per shape** —
+distance to the farthest vertex, normalized to exactly 1, individually
+for each of the 13. This is the only one of the four approaches tried
+that *guarantees* consistent visual scale across the whole family and
+against the rest of the registry, rather than approximating it well
+for some shapes and badly for others. It costs nothing in
+implementation complexity over the rejected alternatives — `makeSpec`
+already computes one per-shape reference length for every other family
+(currently "the first edge"); this is the same pattern, just measuring
+farthest-vertex distance instead.
+
+## Remaining open question for the user before implementation starts
+
 - **Does face-attach for a 1-registration face need a different UI
   affordance?** Right now, dragging a pending face-attach cycles
   through registrations by design — a face with only one valid
