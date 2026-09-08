@@ -1154,6 +1154,160 @@ const FACES_J48_GYROELONGATED_PENTAGONAL_BIROTUNDA: number[][] = [
 ];
 
 // ---------------------------------------------------------------------------
+// batch 6 (2026-09-08) -- augmented prisms
+// ---------------------------------------------------------------------------
+
+/**
+ * 8 more Johnson solids (J49-J57 minus J51): augmented, biaugmented, and
+ * triaugmented triangular/pentagonal/hexagonal prisms -- a unit-edge
+ * n-gon prism (bottom/top rings, unit-height sides so the side faces
+ * are already unit squares, same construction as J7-J9/J14-J16) with a
+ * square pyramid (apex height sqrt(1 - R_4^2), the same closed-form
+ * height as J1) glued onto one or more of its side squares.
+ *
+ * **J51 (triaugmented triangular prism) is deliberately excluded** --
+ * augmenting all 3 of a triangular prism's side squares gives exactly
+ * D14, already in this registry as a deltahedron and not re-derived
+ * (same principle as J12/J13/J17/J84 in platonic.ts/deltahedra.ts).
+ * This was verified computationally, not assumed: the augmented-prism
+ * construction was run for J51 anyway as a pure self-check, and its
+ * pairwise-distance histogram matches this registry's own `D14` vertex
+ * for vertex -- the single strongest confidence signal in this batch,
+ * since it confirms the whole augmentation method (prism + pyramid
+ * apex via `scipy.spatial.ConvexHull`) against a shape already
+ * independently verified in an earlier, unrelated batch, before
+ * trusting it for the 8 new shapes.
+ *
+ * **Which square faces get augmented, and why some combinations aren't
+ * separately named**: a triangular prism's 3 side squares are mutually
+ * equivalent under its own symmetry, so "biaugmented" (J50) has only
+ * one distinct configuration -- any 2 of the 3. A pentagonal prism's 5
+ * side squares are arranged in a single 5-cycle, so "2 non-adjacent"
+ * is likewise the only distinct choice (J53) -- there's no
+ * "parabiaugmented pentagonal prism" because a 5-cycle has no notion of
+ * two faces being directly opposite. A hexagonal prism's 6 side squares
+ * DO have a real para/meta distinction (opposite vs. separated-by-one),
+ * which is exactly why J55/J56 are separately named, and triaugmented
+ * (J57) uses the 3 mutually-alternating squares (the only symmetric way
+ * to pick 3 of 6 without any two adjacent).
+ *
+ * Faces again come from a real `scipy.spatial.ConvexHull` (batches 4-5's
+ * method), which also serves as an automatic correctness check specific
+ * to augmentation: if a pyramid apex were placed at too shallow a
+ * height to actually protrude past the prism's own hull, the hull would
+ * silently swallow it back into a flat face instead of a real
+ * augmentation -- every one of the 9 constructions here was checked to
+ * confirm the apex survives as a genuine, separate hull vertex (no
+ * vertex count ever came back short).
+ */
+
+const VERTS_J49_AUGMENTED_TRIANGULAR_PRISM: Vec3[] = [
+  [0.5773502691896258, 0.0, 0.0], [-0.2886751345948128, 0.5000000000000001, 0.0], [-0.2886751345948132, -0.4999999999999999, 0.0],
+  [0.5773502691896258, 0.0, 1.0], [-0.2886751345948128, 0.5000000000000001, 1.0], [-0.2886751345948132, -0.4999999999999999, 1.0],
+  [0.4978909578906803, 0.8623724356957945, 0.5],
+];
+const EDGES_J49_AUGMENTED_TRIANGULAR_PRISM: [number, number][] = [
+  [0, 1], [0, 2], [0, 3], [0, 6], [1, 2], [1, 4], [1, 6], [2, 5], [3, 4], [3, 5], [3, 6], [4, 5], [4, 6],
+];
+const FACES_J49_AUGMENTED_TRIANGULAR_PRISM: number[][] = [
+  [6, 3, 0], [3, 6, 4], [0, 2, 1], [6, 0, 1], [6, 1, 4], [3, 4, 5], [0, 3, 5, 2], [4, 1, 2, 5],
+];
+
+const VERTS_J50_BIAUGMENTED_TRIANGULAR_PRISM: Vec3[] = [
+  [0.5773502691896258, 0.0, 0.0], [-0.2886751345948128, 0.5000000000000001, 0.0], [-0.2886751345948132, -0.4999999999999999, 0.0],
+  [0.5773502691896258, 0.0, 1.0], [-0.2886751345948128, 0.5000000000000001, 1.0], [-0.2886751345948132, -0.4999999999999999, 1.0],
+  [0.4978909578906803, 0.8623724356957945, 0.5], [-0.9957819157813604, 3.829702935646192e-16, 0.5],
+];
+const EDGES_J50_BIAUGMENTED_TRIANGULAR_PRISM: [number, number][] = [
+  [0, 1], [0, 2], [0, 3], [0, 6], [1, 2], [1, 4], [1, 6], [1, 7], [2, 5], [2, 7], [3, 4], [3, 5], [3, 6], [4, 5], [4, 6], [4, 7], [5, 7],
+];
+const FACES_J50_BIAUGMENTED_TRIANGULAR_PRISM: number[][] = [
+  [6, 3, 0], [3, 6, 4], [2, 5, 7], [5, 4, 7], [3, 4, 5], [6, 0, 1], [0, 2, 1], [1, 2, 7], [4, 1, 7], [6, 1, 4], [0, 3, 5, 2],
+];
+
+const VERTS_J52_AUGMENTED_PENTAGONAL_PRISM: Vec3[] = [
+  [0.8506508083520399, 0.0, 0.0], [0.2628655560595668, 0.8090169943749473, 0.0], [-0.6881909602355867, 0.5000000000000001, 0.0],
+  [-0.6881909602355868, -0.4999999999999999, 0.0], [0.26286555605956663, -0.8090169943749475, 0.0], [0.8506508083520399, 0.0, 1.0],
+  [0.2628655560595668, 0.8090169943749473, 1.0], [-0.6881909602355867, 0.5000000000000001, 1.0], [-0.6881909602355868, -0.4999999999999999, 1.0],
+  [0.26286555605956663, -0.8090169943749475, 1.0], [1.1288195850234874, 0.820135434964927, 0.5],
+];
+const EDGES_J52_AUGMENTED_PENTAGONAL_PRISM: [number, number][] = [
+  [0, 1], [0, 4], [0, 5], [0, 10], [1, 2], [1, 6], [1, 10], [2, 3], [2, 7], [3, 4], [3, 8], [4, 9], [5, 6], [5, 9], [5, 10], [6, 7], [6, 10], [7, 8], [8, 9],
+];
+const FACES_J52_AUGMENTED_PENTAGONAL_PRISM: number[][] = [
+  [5, 10, 6], [10, 1, 6], [10, 0, 1], [10, 5, 0], [1, 0, 4, 3, 2], [7, 2, 3, 8], [6, 1, 2, 7], [9, 5, 6, 7, 8], [0, 5, 9, 4], [4, 9, 8, 3],
+];
+
+const VERTS_J53_BIAUGMENTED_PENTAGONAL_PRISM: Vec3[] = [
+  [0.8506508083520399, 0.0, 0.0], [0.2628655560595668, 0.8090169943749473, 0.0], [-0.6881909602355867, 0.5000000000000001, 0.0],
+  [-0.6881909602355868, -0.4999999999999999, 0.0], [0.26286555605956663, -0.8090169943749475, 0.0], [0.8506508083520399, 0.0, 1.0],
+  [0.2628655560595668, 0.8090169943749473, 1.0], [-0.6881909602355867, 0.5000000000000001, 1.0], [-0.6881909602355868, -0.4999999999999999, 1.0],
+  [0.26286555605956663, -0.8090169943749475, 1.0], [1.1288195850234874, 0.820135434964927, 0.5], [-1.3952977414221341, 2.2509619687594194e-16, 0.5],
+];
+const EDGES_J53_BIAUGMENTED_PENTAGONAL_PRISM: [number, number][] = [
+  [0, 1], [0, 4], [0, 5], [0, 10], [1, 2], [1, 6], [1, 10], [2, 3], [2, 7], [2, 11], [3, 4], [3, 8], [3, 11], [4, 9], [5, 6], [5, 9], [5, 10], [6, 7], [6, 10], [7, 8], [7, 11], [8, 9], [8, 11],
+];
+const FACES_J53_BIAUGMENTED_PENTAGONAL_PRISM: number[][] = [
+  [5, 10, 6], [10, 1, 6], [3, 8, 11], [10, 0, 1], [10, 5, 0], [8, 7, 11], [2, 3, 11], [7, 2, 11], [4, 9, 8, 3], [0, 5, 9, 4], [9, 5, 6, 7, 8], [1, 0, 4, 3, 2], [6, 1, 2, 7],
+];
+
+const VERTS_J54_AUGMENTED_HEXAGONAL_PRISM: Vec3[] = [
+  [1.0000000000000002, 0.0, 0.0], [0.5000000000000002, 0.8660254037844388, 0.0], [-0.4999999999999999, 0.8660254037844389, 0.0],
+  [-1.0000000000000002, 1.2246467991473535e-16, 0.0], [-0.5000000000000006, -0.8660254037844386, 0.0], [0.5000000000000002, -0.8660254037844388, 0.0],
+  [1.0000000000000002, 0.0, 1.0], [0.5000000000000002, 0.8660254037844388, 1.0], [-0.4999999999999999, 0.8660254037844389, 1.0],
+  [-1.0000000000000002, 1.2246467991473535e-16, 1.0], [-0.5000000000000006, -0.8660254037844386, 1.0], [0.5000000000000002, -0.8660254037844388, 1.0],
+  [1.3623724356957947, 0.7865660924854931, 0.5],
+];
+const EDGES_J54_AUGMENTED_HEXAGONAL_PRISM: [number, number][] = [
+  [0, 1], [0, 5], [0, 6], [0, 12], [1, 2], [1, 7], [1, 12], [2, 3], [2, 8], [3, 4], [3, 9], [4, 5], [4, 10], [5, 11], [6, 7], [6, 11], [6, 12], [7, 8], [7, 12], [8, 9], [9, 10], [10, 11],
+];
+const FACES_J54_AUGMENTED_HEXAGONAL_PRISM: number[][] = [
+  [6, 12, 7], [12, 1, 7], [12, 0, 1], [12, 6, 0], [7, 1, 2, 8], [0, 6, 11, 5], [1, 0, 5, 4, 3, 2], [5, 11, 10, 4], [11, 6, 7, 8, 9, 10], [8, 2, 3, 9], [4, 10, 9, 3],
+];
+
+const VERTS_J55_PARABIAUGMENTED_HEXAGONAL_PRISM: Vec3[] = [
+  [1.0000000000000002, 0.0, 0.0], [0.5000000000000002, 0.8660254037844388, 0.0], [-0.4999999999999999, 0.8660254037844389, 0.0],
+  [-1.0000000000000002, 1.2246467991473535e-16, 0.0], [-0.5000000000000006, -0.8660254037844386, 0.0], [0.5000000000000002, -0.8660254037844388, 0.0],
+  [1.0000000000000002, 0.0, 1.0], [0.5000000000000002, 0.8660254037844388, 1.0], [-0.4999999999999999, 0.8660254037844389, 1.0],
+  [-1.0000000000000002, 1.2246467991473535e-16, 1.0], [-0.5000000000000006, -0.8660254037844386, 1.0], [0.5000000000000002, -0.8660254037844388, 1.0],
+  [1.3623724356957947, 0.7865660924854931, 0.5], [-1.3623724356957951, -0.7865660924854927, 0.5],
+];
+const EDGES_J55_PARABIAUGMENTED_HEXAGONAL_PRISM: [number, number][] = [
+  [0, 1], [0, 5], [0, 6], [0, 12], [1, 2], [1, 7], [1, 12], [2, 3], [2, 8], [3, 4], [3, 9], [3, 13], [4, 5], [4, 10], [4, 13], [5, 11], [6, 7], [6, 11], [6, 12], [7, 8], [7, 12], [8, 9], [9, 10], [9, 13], [10, 11], [10, 13],
+];
+const FACES_J55_PARABIAUGMENTED_HEXAGONAL_PRISM: number[][] = [
+  [4, 13, 3], [12, 0, 1], [12, 6, 0], [9, 3, 13], [6, 12, 7], [12, 1, 7], [10, 9, 13], [4, 10, 13], [1, 0, 5, 4, 3, 2], [0, 6, 11, 5], [8, 2, 3, 9], [7, 1, 2, 8], [11, 6, 7, 8, 9, 10], [5, 11, 10, 4],
+];
+
+const VERTS_J56_METABIAUGMENTED_HEXAGONAL_PRISM: Vec3[] = [
+  [1.0000000000000002, 0.0, 0.0], [0.5000000000000002, 0.8660254037844388, 0.0], [-0.4999999999999999, 0.8660254037844389, 0.0],
+  [-1.0000000000000002, 1.2246467991473535e-16, 0.0], [-0.5000000000000006, -0.8660254037844386, 0.0], [0.5000000000000002, -0.8660254037844388, 0.0],
+  [1.0000000000000002, 0.0, 1.0], [0.5000000000000002, 0.8660254037844388, 1.0], [-0.4999999999999999, 0.8660254037844389, 1.0],
+  [-1.0000000000000002, 1.2246467991473535e-16, 1.0], [-0.5000000000000006, -0.8660254037844386, 1.0], [0.5000000000000002, -0.8660254037844388, 1.0],
+  [1.3623724356957947, 0.7865660924854931, 0.5], [-1.3623724356957942, 0.7865660924854934, 0.5],
+];
+const EDGES_J56_METABIAUGMENTED_HEXAGONAL_PRISM: [number, number][] = [
+  [0, 1], [0, 5], [0, 6], [0, 12], [1, 2], [1, 7], [1, 12], [2, 3], [2, 8], [2, 13], [3, 4], [3, 9], [3, 13], [4, 5], [4, 10], [5, 11], [6, 7], [6, 11], [6, 12], [7, 8], [7, 12], [8, 9], [8, 13], [9, 10], [9, 13], [10, 11],
+];
+const FACES_J56_METABIAUGMENTED_HEXAGONAL_PRISM: number[][] = [
+  [12, 0, 1], [12, 6, 0], [6, 12, 7], [12, 1, 7], [8, 13, 9], [8, 2, 13], [2, 3, 13], [13, 3, 9], [5, 11, 10, 4], [0, 6, 11, 5], [11, 6, 7, 8, 9, 10], [7, 1, 2, 8], [1, 0, 5, 4, 3, 2], [4, 10, 9, 3],
+];
+
+const VERTS_J57_TRIAUGMENTED_HEXAGONAL_PRISM: Vec3[] = [
+  [1.0000000000000002, 0.0, 0.0], [0.5000000000000002, 0.8660254037844388, 0.0], [-0.4999999999999999, 0.8660254037844389, 0.0],
+  [-1.0000000000000002, 1.2246467991473535e-16, 0.0], [-0.5000000000000006, -0.8660254037844386, 0.0], [0.5000000000000002, -0.8660254037844388, 0.0],
+  [1.0000000000000002, 0.0, 1.0], [0.5000000000000002, 0.8660254037844388, 1.0], [-0.4999999999999999, 0.8660254037844389, 1.0],
+  [-1.0000000000000002, 1.2246467991473535e-16, 1.0], [-0.5000000000000006, -0.8660254037844386, 1.0], [0.5000000000000002, -0.8660254037844388, 1.0],
+  [1.3623724356957947, 0.7865660924854931, 0.5], [-1.3623724356957942, 0.7865660924854934, 0.5], [-3.025074492448253e-16, -1.573132184970986, 0.5],
+];
+const EDGES_J57_TRIAUGMENTED_HEXAGONAL_PRISM: [number, number][] = [
+  [0, 1], [0, 5], [0, 6], [0, 12], [1, 2], [1, 7], [1, 12], [2, 3], [2, 8], [2, 13], [3, 4], [3, 9], [3, 13], [4, 5], [4, 10], [4, 14], [5, 11], [5, 14], [6, 7], [6, 11], [6, 12], [7, 8], [7, 12], [8, 9], [8, 13], [9, 10], [9, 13], [10, 11], [10, 14], [11, 14],
+];
+const FACES_J57_TRIAUGMENTED_HEXAGONAL_PRISM: number[][] = [
+  [12, 6, 0], [12, 0, 1], [6, 12, 7], [12, 1, 7], [2, 3, 13], [5, 14, 4], [13, 3, 9], [5, 11, 14], [8, 13, 9], [8, 2, 13], [14, 10, 4], [11, 10, 14], [1, 0, 5, 4, 3, 2], [0, 6, 11, 5], [7, 1, 2, 8], [4, 10, 9, 3], [11, 6, 7, 8, 9, 10],
+];
+
+// ---------------------------------------------------------------------------
 // registry
 // ---------------------------------------------------------------------------
 
@@ -1341,6 +1495,70 @@ export const JOHNSON_ADDITIONS: Record<string, PolyhedronSpec> = {
     VERTS_J26_GYROBIFASTIGIUM,
     EDGES_J26_GYROBIFASTIGIUM,
     FACES_J26_GYROBIFASTIGIUM,
+  ),
+  J49_AUGMENTED_TRIANGULAR_PRISM: makeSpec(
+    'J49_AUGMENTED_TRIANGULAR_PRISM',
+    'augmented_triangular_prism',
+    8,
+    VERTS_J49_AUGMENTED_TRIANGULAR_PRISM,
+    EDGES_J49_AUGMENTED_TRIANGULAR_PRISM,
+    FACES_J49_AUGMENTED_TRIANGULAR_PRISM,
+  ),
+  J50_BIAUGMENTED_TRIANGULAR_PRISM: makeSpec(
+    'J50_BIAUGMENTED_TRIANGULAR_PRISM',
+    'biaugmented_triangular_prism',
+    11,
+    VERTS_J50_BIAUGMENTED_TRIANGULAR_PRISM,
+    EDGES_J50_BIAUGMENTED_TRIANGULAR_PRISM,
+    FACES_J50_BIAUGMENTED_TRIANGULAR_PRISM,
+  ),
+  J52_AUGMENTED_PENTAGONAL_PRISM: makeSpec(
+    'J52_AUGMENTED_PENTAGONAL_PRISM',
+    'augmented_pentagonal_prism',
+    10,
+    VERTS_J52_AUGMENTED_PENTAGONAL_PRISM,
+    EDGES_J52_AUGMENTED_PENTAGONAL_PRISM,
+    FACES_J52_AUGMENTED_PENTAGONAL_PRISM,
+  ),
+  J53_BIAUGMENTED_PENTAGONAL_PRISM: makeSpec(
+    'J53_BIAUGMENTED_PENTAGONAL_PRISM',
+    'biaugmented_pentagonal_prism',
+    13,
+    VERTS_J53_BIAUGMENTED_PENTAGONAL_PRISM,
+    EDGES_J53_BIAUGMENTED_PENTAGONAL_PRISM,
+    FACES_J53_BIAUGMENTED_PENTAGONAL_PRISM,
+  ),
+  J54_AUGMENTED_HEXAGONAL_PRISM: makeSpec(
+    'J54_AUGMENTED_HEXAGONAL_PRISM',
+    'augmented_hexagonal_prism',
+    11,
+    VERTS_J54_AUGMENTED_HEXAGONAL_PRISM,
+    EDGES_J54_AUGMENTED_HEXAGONAL_PRISM,
+    FACES_J54_AUGMENTED_HEXAGONAL_PRISM,
+  ),
+  J55_PARABIAUGMENTED_HEXAGONAL_PRISM: makeSpec(
+    'J55_PARABIAUGMENTED_HEXAGONAL_PRISM',
+    'parabiaugmented_hexagonal_prism',
+    14,
+    VERTS_J55_PARABIAUGMENTED_HEXAGONAL_PRISM,
+    EDGES_J55_PARABIAUGMENTED_HEXAGONAL_PRISM,
+    FACES_J55_PARABIAUGMENTED_HEXAGONAL_PRISM,
+  ),
+  J56_METABIAUGMENTED_HEXAGONAL_PRISM: makeSpec(
+    'J56_METABIAUGMENTED_HEXAGONAL_PRISM',
+    'metabiaugmented_hexagonal_prism',
+    14,
+    VERTS_J56_METABIAUGMENTED_HEXAGONAL_PRISM,
+    EDGES_J56_METABIAUGMENTED_HEXAGONAL_PRISM,
+    FACES_J56_METABIAUGMENTED_HEXAGONAL_PRISM,
+  ),
+  J57_TRIAUGMENTED_HEXAGONAL_PRISM: makeSpec(
+    'J57_TRIAUGMENTED_HEXAGONAL_PRISM',
+    'triaugmented_hexagonal_prism',
+    17,
+    VERTS_J57_TRIAUGMENTED_HEXAGONAL_PRISM,
+    EDGES_J57_TRIAUGMENTED_HEXAGONAL_PRISM,
+    FACES_J57_TRIAUGMENTED_HEXAGONAL_PRISM,
   ),
   J35_ELONGATED_TRIANGULAR_ORTHOBICUPOLA: makeSpec(
     'J35_ELONGATED_TRIANGULAR_ORTHOBICUPOLA',

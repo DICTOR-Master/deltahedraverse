@@ -1103,8 +1103,83 @@ failures after the precision fix), `verify:face-twist` (9,670, 0
 failures after the precision fix), and the full Playwright suite on
 dicto-node.
 
-Still outstanding for Johnson solids: 47 remain (92 - 45) — the
-augmented/diminished/gyrate composites (J49 onward, roughly two dozen
-shapes touching prisms and the dodecahedron/rhombicosidodecahedron)
-next, then the ~15 with no closed form at all (genuine numerical
-optimization needed), saved for last.
+Still outstanding for Johnson solids at this point: 47 remain (92 - 45)
+— the augmented/diminished/gyrate composites (J49 onward, roughly two
+dozen shapes touching prisms and the dodecahedron/
+rhombicosidodecahedron) next, then the ~15 with no closed form at all
+(genuine numerical optimization needed), saved for last.
+
+## Johnson solids — augmented prisms (2026-09-08)
+
+8 more Johnson solids, bringing the family to 53/92: augmented (J49),
+biaugmented (J50), and — skipping J51, see below — augmented (J52),
+biaugmented (J53) pentagonal prism, and augmented (J54),
+parabiaugmented (J55), metabiaugmented (J56), and triaugmented (J57)
+hexagonal prism. Each is a unit-edge n-gon prism (bottom/top rings,
+unit height so the side faces are already unit squares — the same
+construction J7-J9/J14-J16 already use) with a square pyramid (apex
+height `sqrt(1 - R_4^2)`, J1's own closed-form height) glued onto one
+or more of its side squares.
+
+**J51 (triaugmented triangular prism) is deliberately excluded — and
+verified, not just recalled, to already be `D14`.** Augmenting all 3 of
+a triangular prism's side squares was run anyway as a pure self-check
+before trusting the construction method for the other 8: its pairwise-
+distance histogram matches this registry's own `D14` (a deltahedron
+from a much earlier, unrelated batch) vertex for vertex. This is the
+strongest confidence signal available for a new construction method —
+not just internally consistent (Euler, edge length, no swallowed
+vertices) but independently corroborated against a shape this registry
+already trusted for a different reason entirely.
+
+**Which square faces get augmented, and why some combinations aren't
+separately named, follows directly from each prism's own symmetry**: a
+triangular prism's 3 side squares are mutually equivalent, so
+"biaugmented" (J50) has only one distinct configuration. A pentagonal
+prism's 5 side squares form a single 5-cycle with no notion of two
+faces being directly "opposite", so — unlike the hexagonal case —
+there's no separately-named "parabiaugmented pentagonal prism": J53's
+"2 non-adjacent" is the only distinct choice. A hexagonal prism's 6
+side squares DO have a real para/meta distinction (opposite vs.
+separated-by-one), which is exactly why J55/J56 are separately named
+and turn out geometrically distinct despite an identical face-size
+mix — confirmed via a pairwise-distance-histogram check, not assumed
+from the different name alone. Triaugmented (J57) uses the 3 mutually-
+alternating squares, the only symmetric way to pick 3 of 6 with no two
+adjacent.
+
+Faces again come from a real `scipy.spatial.ConvexHull` (batches 4-5's
+method), which doubles as an automatic correctness check specific to
+augmentation: if a pyramid apex were placed too shallow to actually
+protrude past the prism's own convex hull, the hull would silently
+swallow it back into a flat face instead of a genuine augmentation —
+every one of the 9 constructions here (8 registered plus the D14
+self-check) was confirmed to keep the apex as a real, separate hull
+vertex.
+
+**A user-asked side investigation, resolved computationally rather than
+from memory**: are any registered Johnson solids chiral, and could that
+matter for face-attach? Checked by testing whether each shape can be
+superimposed on its own mirror image via any rotation (reflecting
+through 360 candidate vertical planes at half-degree steps and looking
+for a point-for-point match) — confirmed genuinely chiral: J44-J48
+(batch 5's gyroelongated bicupola/cupolarotunda/birotunda family) and
+the two already-registered snub Archimedean solids (`SNUB_CUBE`,
+`SNUB_DODECAHEDRON`). Only one handedness of each is stored, which
+matches standard convention (a chiral solid and its mirror share one
+name/count in the official 92 or in the Archimedean 13), but a mirror-
+image toggle for face-attach involving a chiral piece is a real,
+legitimate gap this surfaced — not yet scoped or built, recorded for a
+future session.
+
+Verified end to end: `validate-johnson.ts` (all 53 OK), `tsc --noEmit`
+and lint clean, `verify:attach` (125,704), `verify:twist` (103,968),
+`verify:rewrite`, `verify:graph`, `verify:face-connectors` (5,119),
+`verify:face-attach` (1,101,537, 0 failures), `verify:face-twist`
+(12,550, 0 failures), and the full Playwright suite on dicto-node.
+
+Still outstanding for Johnson solids: 39 remain (92 - 53) — augmented
+dodecahedra (J58-J61), diminished/augmented icosahedra (J62-J64),
+augmented truncated Archimedean solids (J65-J71), and gyrate/diminished
+rhombicosidodecahedra (J72-J83) next (roughly two dozen shapes), then
+the ~15 with no closed form at all, saved for last.
