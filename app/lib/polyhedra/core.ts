@@ -117,25 +117,41 @@ export function makeSpecByCircumradius(
  * are both 4-sided, but gluing one onto the other would not sit flush
  * — a genuinely different shape, not just a scale mismatch. Checks
  * whether face2's own edge-length AND interior-angle sequence (computed
- * the same way faceRotationalSymmetry does) matches face1's under some
- * cyclic rotation. Rotation only, deliberately NOT also checking the
- * reversed (mirrored) winding: a first attempt did, reasoning that
- * flipping which way an incoming piece presents its face was a valid
- * physical option — but the actual attach transform (ShapeViewer.tsx /
- * verify-face-attach.ts's computeFaceAttach) only ever computes a
- * rotation, never a reflection, so a pair that's congruent only via
- * mirroring would be offered as compatible but couldn't actually be
- * achieved by the real transform. Caught by verify-face-attach.ts
- * itself: RHOMBIC_TRIACONTAHEDRON attaching to a second copy of itself,
- * at several of its own face pairs, failed to coincide even though
- * every one of its faces is the identical rhombus — those specific
- * pairs were only reachable via the reflected match, not a true
- * rotation. For every regular-faced family already in this registry,
- * any two same-vertex-count faces already ARE congruent by
- * construction (a unit-edge square always matches another unit-edge
- * square) — this is a strict generalization, not a special case, and
- * reduces to the old "same vertex count" behavior for all of them
- * automatically.
+ * the same way faceRotationalSymmetry does) matches face1's REVERSED
+ * sequence under some cyclic rotation.
+ *
+ * **Why reversed, not direct — a real, two-part finding, not a
+ * first-principles assumption.** The actual attach transform
+ * (ShapeViewer.tsx / verify-face-attach.ts's computeFaceAttach) opposes
+ * the two faces' outward normals (so incoming grows away from target,
+ * not into it) and only ever computes a ROTATION, never a reflection.
+ * A first version of this function checked the DIRECT (non-reversed)
+ * sequence for exactly that reason — "the transform can't reflect, so
+ * don't offer a match that would need one." That was half right: the
+ * transform can't reflect, but normal-opposition itself means the
+ * physical relationship between target and incoming, as seen from a
+ * single fixed external viewpoint, is inherently mirror-like — proven
+ * directly (Catalan solids batch 2, DISDYAKIS_TRIACONTAHEDRON): every
+ * face here is a scalene triangle with NO reflective symmetry of its
+ * own (genuinely chiral as a 2D shape), and attaching a copy of the
+ * solid to ANOTHER INSTANCE of the identical face (same winding, same
+ * handedness — what the old direct check would approve) was checked
+ * by brute-force search over every possible twist angle and found to
+ * have NO solution closer than 0.33 units of error. Attaching that
+ * same face to its actual geometric mirror partner elsewhere on the
+ * solid (found by matching reversed edge-length order at the vertex-0
+ * role), using the exact same unmodified transform, coincides to
+ * within 1e-16 (floating-point noise). For every REGULAR or
+ * achiral-with-a-reflective-symmetry face already in this registry
+ * (squares, rhombi, isosceles triangles, kites — everything through
+ * Catalan batch 1), a face's reversed sequence is ALWAYS reachable via
+ * some rotation of its own direct sequence (that symmetry is exactly
+ * what "achiral" means here), so switching from direct to reversed
+ * matching changes nothing for any of them — confirmed by the full
+ * registry's own `verify:face-attach` staying at 0 failures across
+ * every prior family. It only changes behavior — correctly — once a
+ * genuinely chiral 2D face shape (no reflective symmetry at all, first
+ * appearing with the scalene-triangle Catalan solids) exists.
  */
 export function facesCongruent(
   verticesA: Vec3[],
@@ -164,6 +180,13 @@ export function facesCongruent(
   };
   const a = sequenceFor(verticesA, faceA);
   const b = sequenceFor(verticesB, faceB);
+  // B's REVERSED sequence: reversing the vertex order (keeping index 0
+  // fixed) maps angle[k] -> angle[(n-k)%n], and edge[k] (the edge
+  // starting at vertex k) -> edge[(n-1-k)%n] (the edge ENDING at what
+  // is now vertex k after reversal). Derived and verified directly
+  // against a concrete n=3 case, not assumed.
+  const bReversedAngles = Array.from({ length: n }, (_, k) => b.angles[(n - k) % n]);
+  const bReversedEdges = Array.from({ length: n }, (_, k) => b.edges[(n - 1 - k + n) % n]);
   const matchesAt = (edgesB: number[], anglesB: number[], offset: number): boolean => {
     for (let k = 0; k < n; k++) {
       const j = (k + offset) % n;
@@ -172,7 +195,7 @@ export function facesCongruent(
     return true;
   };
   for (let offset = 0; offset < n; offset++) {
-    if (matchesAt(b.edges, b.angles, offset)) return true;
+    if (matchesAt(bReversedEdges, bReversedAngles, offset)) return true;
   }
   return false;
 }

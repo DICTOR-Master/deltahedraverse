@@ -311,5 +311,125 @@ correctly, the same mechanism as every other face-attach, rather than
 a special case.
 
 Both open questions from the initial scoping are now resolved.
-Implementation hasn't started — everything to date (2026-09-08) has
-been scoping and decision-making, as asked.
+
+## Batch 1 done (2026-09-08/09): rhombic dodecahedron + rhombic triacontahedron
+
+The 2 uniform-edge solids, as planned. Full record already covered
+above and in `docs/build-plan.md` — includes the vertex-0
+canonicalization bug found and fixed on `RHOMBIC_TRIACONTAHEDRON`
+(each face needing a consistent starting-vertex geometric role, not
+just consistent edges).
+
+## Batch 2 done (2026-09-09): the 9 non-chiral, non-uniform-edge solids
+
+Triakis tetrahedron/octahedron/icosahedron, tetrakis hexahedron,
+pentakis dodecahedron, deltoidal icositetrahedron/hexecontahedron,
+disdyakis dodecahedron/triacontahedron — all 9, via the same polar-
+reciprocation construction as batch 1. First real exercise of
+`makeSpecByCircumradius` for shapes that actually NEED it (batch 1's 2
+rhombi happened to have uniform edges despite not needing the
+circumradius approach). Confirmed before trusting it for any of the 9:
+every Archimedean base used here has all its edge midpoints at
+EXACTLY the same distance from center (checked directly, not assumed
+— the midsphere is a real, well-defined feature of this registry's own
+coordinate data for all 8 non-edge-transitive Archimedean bases used,
+not just the 2 edge-transitive ones batch 1 happened to use).
+
+Every one of the 9 passed `validateCatalanShape` cleanly: single
+edge-length signature across all faces (true congruence), uniform
+insphere, exact V/E/F match to the standard table. Checked (per the
+user's own question, asked mid-batch): do any of these 9 share face
+proportions with each other or with batch 1's 2 rhombi, requiring the
+"match an existing shape's scale" rule from the normalization section
+above? No — every isosceles-triangle, kite, and scalene-triangle pair
+across all 11 Catalan solids built so far has genuinely different
+proportions (checked by normalizing each face's own side ratios).
+That rule is written and ready but still hasn't fired even once.
+
+**The vertex-0 canonicalization fix from batch 1 was needed again,
+generalized to more complex face shapes.** Every one of these 9 faces
+(isosceles/scalene triangles, kites) had the same "vertex 0 plays an
+inconsistent geometric role across faces" problem `RHOMBIC_TRIACONTAHEDRON`
+had — checked directly before accepting any of them, not assumed to
+be fine just because batch 1's fix existed. The simple "start at the
+acute corner" rule from the rhombus case doesn't generalize to
+triangles or kites, so a more general rule was used instead: start
+each face at whichever vertex's own interior angle is (a) least
+frequent among that face's own angle values (isolating an isosceles
+triangle's apex, or either "point" of a kite, from the repeated
+angles) and (b) among any remaining ties, the largest such angle.
+Confirmed this reduces every one of the 9 shapes to exactly ONE
+consistent angle value at vertex 0 across all its faces before
+trusting it — not assumed to generalize just because it worked for
+one shape. This mattered MORE here than for the rhombic
+triacontahedron: every face in this batch has `faceRotationalSymmetry`
+of exactly 1 (no non-identity rotation preserves an irregular triangle
+or kite), so there's no fallback registration to mask a wrong
+vertex-0 choice the way a rhombus's 2-fold symmetry could.
+
+## A second, deeper architectural fix found in this batch: `facesCongruent` needed reversed matching, not direct
+
+After the vertex-0 fix, all 11 Catalan solids passed `validateCatalanShape`
+and the initial `verify:face-attach` run still failed — 8352 of
+3,338,241 checks, all on `DISDYAKIS_TRIACONTAHEDRON` (dual of the
+truncated icosidodecahedron, 120 scalene-triangle faces). This is the
+first face type in the whole registry with **zero symmetry of its own**
+— not just no rotational symmetry (already true of every isosceles
+triangle and kite in this batch), but no REFLECTIVE symmetry either: a
+scalene triangle is genuinely chiral as a 2D shape.
+
+Diagnosed by brute-force search over every possible twist angle for a
+self-attach case (`DISDYAKIS_TRIACONTAHEDRON[f119]` to a second copy
+of itself at the identical face): no angle came within 0.33 units of
+exact coincidence — a real geometric impossibility, not a precision
+issue. Worked out why from first principles, then verified
+computationally rather than trusting the derivation alone: opposing
+two faces' outward normals (required for any face-attach, so the
+incoming piece grows away from the target rather than into it) means
+the two faces, viewed from a single fixed external vantage point, are
+inherently related as **mirror images**, not direct copies — for
+achiral face shapes (everything in this registry before this batch),
+a shape's mirror image is reachable via rotating the shape itself, so
+this was invisible; a genuinely chiral face makes it visible for the
+first time. Confirmed directly: `DISDYAKIS_TRIACONTAHEDRON` has
+exactly 60 faces whose edge-length pattern is the REVERSE of `f119`'s
+(a real "mirror partner" set, not a hypothesis) — attaching `f119` to
+one of those 60 (face 0), using the *exact same, unmodified*
+`computeFaceAttach` transform, coincides to within 1e-16.
+
+**Fix**: `facesCongruent` (`core.ts`) now checks face B's edge-length
+and interior-angle sequence in REVERSED order against face A's direct
+sequence (previously checked B's direct order) — see the function's
+own updated doc comment for the full derivation and why this changes
+nothing for every achiral face type already in the registry (confirmed
+by the complete `verify:face-attach` suite staying at 0 failures
+across all 135 shapes after the fix, not just the newly-fixed ones).
+This corrects an earlier, related investigation from batch 1: a first
+version of `facesCongruent` DID check the reversed sequence too (as an
+OR alongside direct matching), removed after `RHOMBIC_TRIACONTAHEDRON`
+kept failing identically with or without it — that removal was correct
+FOR THAT CASE (rhombi are achiral, so reversed matching was genuinely
+redundant there; the real bug was the vertex-0 inconsistency), but the
+underlying reasoning ("the transform can't reflect, so never offer a
+reversed match") turned out to be incomplete, not fully wrong: the
+transform indeed never reflects, but exactly BECAUSE of that, the
+correct match criterion for what it CAN achieve is the reversed
+sequence, not the direct one, for a chiral face.
+
+**Relevant for the 2 chiral Catalan solids still to come** (pentagonal
+icositetrahedron/hexecontahedron, dual of the snub cube/dodecahedron):
+their irregular-pentagon faces are also chiral (no reflective
+symmetry), so this same fix — not a new one — should already cover
+them. Worth confirming directly when building them, not assumed.
+
+The section above is the full record of the reasoning trail
+(brute-force search, mirror-partner discovery, the corrected
+`facesCongruent`) — this doc, not `docs/build-plan.md`, is the
+authoritative record for the Catalan solids family, matching how batch
+1 was documented too.
+
+## Still outstanding: 2 chiral solids
+
+Pentagonal icositetrahedron (dual of snub cube) and pentagonal
+hexecontahedron (dual of snub dodecahedron) — irregular pentagon
+faces, genuinely chiral. Not yet attempted.

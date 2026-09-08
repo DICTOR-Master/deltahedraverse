@@ -50,9 +50,9 @@ This list is intentionally open-ended, describing the project's
 direction rather than a feature checklist — so the README doesn't need
 rewriting every time a new capability lands. **"What's here now" below
 is the ground truth for what's actually shipped today**; Johnson
-solids are complete (92 of 92), Catalan solids just started (2 of 13
-so far), and lattice construction / interpenetrating structures are
-still direction, not yet delivered.
+solids are complete (92 of 92), Catalan solids are nearly there (11 of
+13 — only the 2 chiral ones left), and lattice construction /
+interpenetrating structures are still direction, not yet delivered.
 
 ## What's here now
 
@@ -169,22 +169,35 @@ Since then:
   First shape in this registry that isn't vertex-transitive: J1's apex
   has degree 4 while its base vertices have degree 3. First with no
   degree-3 vertex at all: J10 (only degree 4 and 5).
-- **Catalan solids — 2 of 13 so far** (rhombic dodecahedron, rhombic
-  triacontahedron), the first family with genuinely irregular faces
-  (face-transitive, not vertex-transitive — congruent rhombi, not
-  regular polygons). Needed two real generalizations, not just more
+- **Catalan solids — 11 of 13** (only the 2 chiral ones left), the
+  first family with genuinely irregular faces (face-transitive, not
+  vertex-transitive). Needed two real generalizations, not just more
   registry entries: `makeSpecByCircumradius` (circumradius = 1
   per-shape normalization, chosen empirically over 3 rejected
   alternatives) and `facesCongruent`/`faceRotationalSymmetry` (real
   edge+angle congruence and a face's own rotational-symmetry order,
   replacing vertex-count-only matching that was only ever safe because
   every prior family had regular faces — this fix applies everywhere,
-  not just to Catalan shapes). Building these two surfaced a subtle bug
-  worth remembering for the remaining 11: a face's "vertex 0" needs a
-  consistent geometric role (e.g. always the acute corner of a rhombus)
-  before any index-based alignment can trust it — trivially true for a
-  regular n-gon, not automatically true for an irregular one. See
-  `docs/catalan-solids-spec.md` for the full design record.
+  not just to Catalan shapes). Batch 1 (2 shapes, uniform-edge rhombi)
+  surfaced a subtle bug: a face's "vertex 0" needs a consistent
+  geometric role across every face of a shape, not just consistent
+  edges — trivially true for a regular n-gon, not automatic for an
+  irregular one. **Batch 2 (9 more, all non-chiral/non-uniform-edge)
+  found something deeper**: `DISDYAKIS_TRIACONTAHEDRON`'s 120 scalene-
+  triangle faces are the first face type in this registry with zero
+  symmetry at all — not just no rotation, no reflection either,
+  genuinely chiral as 2D shapes. `facesCongruent` was checking each
+  face pair's DIRECT sequence match; proven (brute-force search over
+  every twist angle, then confirmed by finding the shape's own actual
+  mirror-partner faces) that the real attach transform's normal-
+  opposition inherently requires a REVERSED match instead — changes
+  nothing for every achiral face already in the registry (confirmed by
+  the full `verify:face-attach` suite staying at 0 failures across all
+  135 shapes), but was silently wrong for chiral faces until fixed.
+  See `docs/catalan-solids-spec.md` for the full design record,
+  including why an earlier, related investigation reached the opposite
+  conclusion for a different (achiral) shape and was correct for that
+  case.
 - **Pick, attach, twist, confirm/cancel** — hover a vertex to see its
   capacity, pick a shape to attach, drag to twist it around the one
   remaining rotational degree of freedom, then confirm or cancel.
@@ -236,7 +249,7 @@ polyhedraverse/
         platonic.ts      # cube + dodecahedron (the 2 Platonic solids not already deltahedra)
         archimedean.ts   # all 13 Archimedean solids
         johnson.ts       # all 92 Johnson solids -- complete
-        catalan.ts       # 2 of 13 Catalan solids so far (rhombic dodecahedron, rhombic triacontahedron)
+        catalan.ts       # 11 of 13 Catalan solids -- only the 2 chiral ones left
         rewrite.ts       # D10<->D12 vertex-matching (pure function, no three.js)
         index.ts         # combined POLYHEDRA / POLYHEDRON_IDS across every family
       assembly.ts        # the real {nodes, connections} graph + validation (vertex- and face-kind)
@@ -252,7 +265,7 @@ polyhedraverse/
   docs/
     build-plan.md               # the build plan, with how each stage was verified
     construction-kit-spec.md    # the vertex-snapping design law + extensibility notes
-    catalan-solids-spec.md      # scoping + design record for the Catalan solids family (2/13 done)
+    catalan-solids-spec.md      # scoping + design record for the Catalan solids family (11/13 done)
     prisms-antiprisms-spec.md   # scoping + design record for prisms/antiprisms (14/14 done)
     johnson-solids-remaining-spec.md  # alternative construction protocols -- all 4 groups (21 shapes) fixed, Johnson solids complete
     johnson-solids-constructions.md   # human-readable directory of those same 8 constructions, alongside data/johnson-solids-hard-constructions.json
