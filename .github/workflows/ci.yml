@@ -18,6 +18,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      # LayoutProps/PageProps are ambient types Next.js generates into
+      # .next/types/ from a dev/build run -- a fresh checkout never has
+      # them otherwise, so tsc fails on app/layout.tsx without this.
+      - run: npx next typegen
       - run: npx tsc --noEmit
 
   verify-geometry:
