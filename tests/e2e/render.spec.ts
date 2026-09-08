@@ -7,7 +7,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('renders the canvas and every shape across all 4 wheel families (8 deltahedra + 2 Platonic + 13 Archimedean + 6 Johnson)', async ({ page }) => {
-  await expect(page.locator('canvas')).toBeVisible();
+  // Scoped to <main> -- CornerHudWheel mounts its own small canvas too.
+  await expect(page.getByRole('main').locator('canvas')).toBeVisible();
 
   await page.getByRole('button', { name: /^Start over with/ }).click();
   for (const family of WHEEL_FAMILIES) {

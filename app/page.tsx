@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { POLYHEDRON_IDS } from './lib/polyhedra';
 import type { NodeSelection, ShapeSelection, ShapeViewerHandle, ViewMode } from './components/ShapeViewer';
 import PolyhedralWheel from './components/PolyhedralWheel';
+import CornerHudWheel from './components/CornerHudWheel';
 
 const ShapeViewer = dynamic(() => import('./components/ShapeViewer'), {
   ssr: false,
@@ -233,6 +234,7 @@ export default function Home() {
         onClose={() => setWheelOpen(false)}
         onSelect={(id) => handleRef.current?.reset(id)}
       />
+      {!wheelOpen && <CornerHudWheel onOpen={() => setWheelOpen(true)} />}
     </div>
   );
 }

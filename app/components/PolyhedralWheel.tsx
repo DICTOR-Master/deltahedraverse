@@ -430,7 +430,13 @@ export default function PolyhedralWheel({ open, onClose, onSelect }: PolyhedralW
 
         labelOpacities[i] = THREE.MathUtils.lerp(labelOpacities[i], targetOpacity, 0.25);
 
-        worldPos.addScaledVector(worldNormal, 0.35);
+        // Pushed out just far enough to clear the translucent face mesh
+        // for legibility/raycasting, not so far the label visibly floats
+        // away from its face -- 0.35 (roughly half the dodecahedron's own
+        // face inradius at unit edge length) read as "coming away from
+        // faces" per direct user feedback; 0.06 keeps the label reading
+        // as anchored to the face surface.
+        worldPos.addScaledVector(worldNormal, 0.06);
         worldPos.project(camera);
 
         const el = labelEls[i];

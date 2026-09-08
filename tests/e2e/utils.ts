@@ -2,7 +2,10 @@ import type { Page } from '@playwright/test';
 import { DELTAHEDRON_IDS, PLATONIC_ADDITION_IDS, ARCHIMEDEAN_ADDITION_IDS, JOHNSON_ADDITION_IDS } from '../../app/lib/polyhedra';
 
 export async function getCanvasCenter(page: Page): Promise<{ cx: number; cy: number }> {
-  const canvas = page.locator('canvas');
+  // Scoped to <main> specifically -- CornerHudWheel mounts its own small
+  // canvas too, so a bare `page.locator('canvas')` now matches 2
+  // elements and throws a strict-mode violation.
+  const canvas = page.getByRole('main').locator('canvas');
   const box = await canvas.boundingBox();
   if (!box) throw new Error('canvas not found or not visible');
   return { cx: box.x + box.width / 2, cy: box.y + box.height / 2 };
