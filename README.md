@@ -35,6 +35,7 @@ trailing sections for what's actually shipped versus what's still ahead.
 - Platonic solids
 - Archimedean solids
 - Johnson solids
+- Catalan solids
 - Geometric transformations
 - Spatial placement and orientation
 - Lattice construction
@@ -48,8 +49,9 @@ This list is intentionally open-ended, describing the project's
 direction rather than a feature checklist — so the README doesn't need
 rewriting every time a new capability lands. **"What's here now" below
 is the ground truth for what's actually shipped today**; Johnson solids
-are in progress (71 of 92 so far), and lattice construction /
-interpenetrating structures are still direction, not yet delivered.
+are in progress (71 of 92 so far), Catalan solids just started (2 of 13
+so far), and lattice construction / interpenetrating structures are
+still direction, not yet delivered.
 
 ## What's here now
 
@@ -126,6 +128,22 @@ Since then:
   First shape in this registry that isn't vertex-transitive: J1's apex
   has degree 4 while its base vertices have degree 3. First with no
   degree-3 vertex at all: J10 (only degree 4 and 5).
+- **Catalan solids — 2 of 13 so far** (rhombic dodecahedron, rhombic
+  triacontahedron), the first family with genuinely irregular faces
+  (face-transitive, not vertex-transitive — congruent rhombi, not
+  regular polygons). Needed two real generalizations, not just more
+  registry entries: `makeSpecByCircumradius` (circumradius = 1
+  per-shape normalization, chosen empirically over 3 rejected
+  alternatives) and `facesCongruent`/`faceRotationalSymmetry` (real
+  edge+angle congruence and a face's own rotational-symmetry order,
+  replacing vertex-count-only matching that was only ever safe because
+  every prior family had regular faces — this fix applies everywhere,
+  not just to Catalan shapes). Building these two surfaced a subtle bug
+  worth remembering for the remaining 11: a face's "vertex 0" needs a
+  consistent geometric role (e.g. always the acute corner of a rhombus)
+  before any index-based alignment can trust it — trivially true for a
+  regular n-gon, not automatically true for an irregular one. See
+  `docs/catalan-solids-spec.md` for the full design record.
 - **Pick, attach, twist, confirm/cancel** — hover a vertex to see its
   capacity, pick a shape to attach, drag to twist it around the one
   remaining rotational degree of freedom, then confirm or cancel.
@@ -176,7 +194,8 @@ polyhedraverse/
         deltahedra.ts    # the 8 deltahedra, verified against a convex hull
         platonic.ts      # cube + dodecahedron (the 2 Platonic solids not already deltahedra)
         archimedean.ts   # all 13 Archimedean solids
-        johnson.ts       # first batch of 6 Johnson solids (87 more to go)
+        johnson.ts       # 71 of 92 Johnson solids so far
+        catalan.ts       # 2 of 13 Catalan solids so far (rhombic dodecahedron, rhombic triacontahedron)
         rewrite.ts       # D10<->D12 vertex-matching (pure function, no three.js)
         index.ts         # combined POLYHEDRA / POLYHEDRON_IDS across every family
       assembly.ts        # the real {nodes, connections} graph + validation (vertex- and face-kind)
@@ -203,11 +222,13 @@ scripts, direct API calls, and eventually a real-browser Playwright
 pass) rather than assumed. `docs/construction-kit-spec.md` has the
 underlying design law (vertex-snapping, not face-gluing; derive
 connector data from vertices + edges, never hand-declare it
-separately). `docs/catalan-solids-spec.md` scopes the Catalan solids —
-the family planned right after Johnson solids finish — including why
-they need genuinely new infrastructure (non-uniform edge lengths,
-irregular-polygon face-attach registration) rather than dropping into
-the existing "regular, unit-edge" pipeline unchanged.
+separately). `docs/catalan-solids-spec.md` scopes the Catalan solids — implementation
+started (2 of 13 done) — including why they need genuinely new
+infrastructure (non-uniform edge lengths, irregular-polygon face-attach
+registration) rather than dropping into the existing "regular,
+unit-edge" pipeline unchanged, and a real bug found while building the
+first two (face-vertex-0 needing a consistent geometric role, not just
+a consistent index).
 `docs/vercel-deployment-plan.md` records the intended repo/Vercel
 layout for when this deploys alongside Rhombiverse.
 
