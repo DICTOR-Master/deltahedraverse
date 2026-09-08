@@ -41,6 +41,7 @@ jobs:
       - run: npm run validate:deltahedra
       - run: npm run validate:platonic
       - run: npm run validate:archimedean
+      - run: npm run validate:johnson
       - run: npm run verify:attach
       - run: npm run verify:twist
       - run: npm run verify:rewrite

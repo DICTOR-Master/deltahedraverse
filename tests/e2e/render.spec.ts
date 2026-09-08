@@ -8,6 +8,8 @@ const SHAPE_IDS = [
   'TRUNCATED_CUBE', 'TRUNCATED_DODECAHEDRON', 'TRUNCATED_ICOSAHEDRON',
   'TRUNCATED_CUBOCTAHEDRON', 'TRUNCATED_ICOSIDODECAHEDRON', 'ICOSIDODECAHEDRON',
   'RHOMBICUBOCTAHEDRON', 'RHOMBICOSIDODECAHEDRON', 'SNUB_CUBE', 'SNUB_DODECAHEDRON',
+  'J1_SQUARE_PYRAMID', 'J2_PENTAGONAL_PYRAMID', 'J3_TRIANGULAR_CUPOLA',
+  'J4_SQUARE_CUPOLA', 'J5_PENTAGONAL_CUPOLA', 'J6_PENTAGONAL_ROTUNDA',
 ];
 
 test.beforeEach(async ({ page }) => {
@@ -15,7 +17,7 @@ test.beforeEach(async ({ page }) => {
   await page.waitForTimeout(500);
 });
 
-test('renders the canvas and all 23 shape buttons (8 deltahedra + 2 Platonic + 13 Archimedean)', async ({ page }) => {
+test('renders the canvas and all 29 shape buttons (8 deltahedra + 2 Platonic + 13 Archimedean + 6 Johnson)', async ({ page }) => {
   await expect(page.locator('canvas')).toBeVisible();
   for (const id of SHAPE_IDS) {
     await expect(page.getByRole('button', { name: new RegExp(`^${id}\\(`) })).toBeVisible();
@@ -69,4 +71,19 @@ test('a decagon-faced shape (truncated dodecahedron) renders and its vertices ar
     vertexHit,
     'expected to find a degree-3 truncated-dodecahedron vertex (every vertex has degree 3)',
   ).not.toBeNull();
+});
+
+test('a mixed-vertex-degree shape (square pyramid) renders and its apex is hoverable', async ({ page }) => {
+  // Every shape before the Johnson family is vertex-transitive (every
+  // vertex has the same degree) -- J1's 4 base vertices are degree 3 but
+  // its apex is degree 4 (it meets all 4 triangular faces), the first
+  // shape in this registry with more than one vertex-capacity value.
+  // Exercises that a real browser render/hover shows the correct
+  // per-vertex capacity rather than a uniform one.
+  await resetTo(page, 'J1_SQUARE_PYRAMID');
+  const { cx, cy } = await getCanvasCenter(page);
+  const apexHit = await findOnCanvas(page, cx, cy, (t) => /^vertex \d+ — capacity 4$/.test(t), {
+    click: false,
+  });
+  expect(apexHit, 'expected to find the degree-4 apex vertex of the square pyramid').not.toBeNull();
 });

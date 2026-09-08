@@ -577,8 +577,83 @@ both this machine and dicto-node (the Pi's local Playwright/Chromium
 install is slow and stalls occasionally — see README.md's "Running
 locally" section for the dicto-node fallback).
 
-Still outstanding, in rough order: Johnson solids (92 — by far the
-largest remaining lift), re-matching face connections on rewrite (the gap
-noted in the face-snap section above), and an eventual introductory
-puzzle game (working name DELTIS), which remains speculative — see
-vercel-deployment-plan.md and README.md.
+## Johnson solids — a first batch of 6 (2026-09-08)
+
+92 Johnson solids exist (any strictly-convex, regular-faced polyhedron
+that isn't already Platonic, Archimedean, a prism, or an antiprism). 5 of
+the 92 are already in this registry as deltahedra — J12 (triangular
+bipyramid = D6), J13 (pentagonal bipyramid = D10), J17 (gyroelongated
+square bipyramid = D16), J51 (triaugmented triangular prism = D14), and
+J84 (snub disphenoid = D12) — deliberately not re-derived, same principle
+`platonic.ts` already applies to D4/D8/D20. That leaves 87 new. Unlike
+the deltahedra/Platonic/Archimedean families, most Johnson solids have no
+symmetry-group permutation formula at all — this batch picks the 6 that
+genuinely do have closed-form coordinates (no numerical root-finding),
+deferring the composite augmented/diminished/gyrate/elementary-but-
+irregular solids that make up the bulk of the family to later batches.
+
+**J1 (square pyramid) and J2 (pentagonal pyramid)**: a regular n-gon base
+capped with a single apex. Every lateral face must be an equilateral
+triangle, so with base circumradius `R_n = 1/(2*sin(pi/n))`, the apex
+height solves `R_n^2 + h^2 = 1` — real only for n=4,5 (n=3 degenerates to
+a regular tetrahedron, already Platonic and excluded by definition; n≥6
+has R_n≥1, no valid apex).
+
+**J3/J4/J5 (triangular/square/pentagonal cupola)**: a smaller top n-gon at
+height h above a larger bottom 2n-gon, joined by n alternating squares
+and triangles. Top vertex j sits angularly centered above bottom edge
+`(2j, 2j+1)`, offset by `pi/(2n)` from bottom vertex `2j`; requiring that
+lateral edge equal 1 gives a single closed-form equation for h (law of
+cosines in the vertical triangle formed by the two radii and that angular
+offset): `h^2 = 1 - R_n^2 - R_2n^2 + 2*R_n*R_2n*cos(pi/(2n))`. Top-top and
+bottom-bottom edges are already unit length by construction (R_n and R_2n
+are each the correct circumradius for a unit-edge n-gon), so this one
+equation is everything h needs to satisfy.
+
+**J6 (pentagonal rotunda)**: not built from a formula at all — derived
+directly from this registry's own `ICOSIDODECAHEDRON`. Projecting its 30
+vertices onto a 5-fold axis (through a pentagon face's centroid) splits
+them into 4 bands of 5/5/10/5/5, with the middle 10 exactly coplanar (a
+regular decagon "equator") — confirmed numerically, not assumed from
+symmetry alone. Taking the closed half (10 equatorial + 5 + 5 = 20
+vertices, exactly matching J6's known vertex count) and re-hulling turns
+that flat cross-section into a real decagon face automatically. The
+pentagonal rotunda genuinely *is* half an icosidodecahedron, not a
+coincidental resemblance — deriving it this way sidesteps re-deriving
+golden-ratio coordinates from scratch, the same "derive from an
+already-verified shape" principle `TRUNCATED_ICOSAHEDRON` already uses on
+D20 in `archimedean.ts`.
+
+All 6 closed-form derivations were still cross-checked the same way as
+every other shape in this registry — a real `scipy.spatial.ConvexHull`
+computation, edge-length uniformity, and vertex/edge/face counts against
+each solid's known values — not trusted from the formula alone. All 6
+matched on the first attempt (no transcription bugs this batch — the
+closed-form approach has less room for the ordering-mismatch class of bug
+that hit earlier batches, since there's no independent second data source
+to disagree with the vertex list).
+
+**A genuinely new UI-testable property**: every prior shape in this
+registry is vertex-transitive (every vertex has the same degree). J1's
+apex has degree 4 while its 4 base vertices have degree 3 — the first
+shape with more than one vertex-capacity value. `tests/e2e/render.spec.ts`
+gained a real-browser check that hovering finds the degree-4 apex
+specifically, not just *a* vertex.
+
+Verified end to end: `validate-johnson.ts` (all 6 OK), lint/tsc clean,
+`verify:attach` (20,706), `verify:twist` (15,138), `verify:rewrite`,
+`verify:graph`, `verify:face-connectors` (1,883 — J3/J4/J5/J6 open new
+6-gon/8-gon/10-gon compatibility groups alongside the Archimedean
+truncated solids), `verify:face-attach` (129,258, 0 failures on the first
+run), `verify:face-twist` (1,524), and the full Playwright suite (29
+shape buttons plus the new apex-hover check), on both this machine and
+dicto-node.
+
+Still outstanding, in rough order: the remaining 87 Johnson solids
+(elongated/gyroelongated pyramids-cupolas-rotunda next, most needing one
+more parameter than this batch but still closed-form; augmented/
+diminished/gyrate composites and the ~15 solids with no closed form at
+all, needing genuine numerical optimization, saved for last), re-matching
+face connections on rewrite (the gap noted in the face-snap section
+above), and an eventual introductory puzzle game (working name DELTIS),
+which remains speculative — see vercel-deployment-plan.md and README.md.

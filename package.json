@@ -10,6 +10,7 @@
     "validate:deltahedra": "tsx scripts/validate-deltahedra.ts",
     "validate:platonic": "tsx scripts/validate-platonic.ts",
     "validate:archimedean": "tsx scripts/validate-archimedean.ts",
+    "validate:johnson": "tsx scripts/validate-johnson.ts",
     "verify:attach": "tsx scripts/verify-attach.ts",
     "verify:twist": "tsx scripts/verify-twist.ts",
     "verify:rewrite": "tsx scripts/verify-rewrite.ts",
