@@ -3,9 +3,10 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { DELTAHEDRA, type DeltahedronSpec } from '../lib/deltahedra';
+import { POLYHEDRA, type PolyhedronSpec, triangulateFace } from '../lib/polyhedra';
+import { DELTAHEDRA } from '../lib/polyhedra/deltahedra';
 import { emptyAssembly, isValidAssembly, type Assembly } from '../lib/assembly';
-import { matchRewriteVertices, REWRITE_TARGET } from '../lib/rewrite';
+import { matchRewriteVertices, REWRITE_TARGET } from '../lib/polyhedra/rewrite';
 import { collectSubtree, findParentConnection, hasCycle } from '../lib/graph';
 
 const VERTEX_RADIUS = 0.06; // relative to unit edge length
@@ -89,10 +90,12 @@ export interface NodeSelection {
   rewriteTarget: string | null;
 }
 
-function buildFaceGeometry(spec: DeltahedronSpec): THREE.BufferGeometry {
+function buildFaceGeometry(spec: PolyhedronSpec): THREE.BufferGeometry {
   const positions: number[] = [];
-  for (const [i, j, k] of spec.faces) {
-    positions.push(...spec.vertices[i], ...spec.vertices[j], ...spec.vertices[k]);
+  for (const face of spec.faces) {
+    for (const [i, j, k] of triangulateFace(face)) {
+      positions.push(...spec.vertices[i], ...spec.vertices[j], ...spec.vertices[k]);
+    }
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -100,7 +103,7 @@ function buildFaceGeometry(spec: DeltahedronSpec): THREE.BufferGeometry {
   return geometry;
 }
 
-function buildEdgeGeometry(spec: DeltahedronSpec): THREE.BufferGeometry {
+function buildEdgeGeometry(spec: PolyhedronSpec): THREE.BufferGeometry {
   const positions: number[] = [];
   for (const [i, j] of spec.edges) {
     positions.push(...spec.vertices[i], ...spec.vertices[j]);
@@ -111,7 +114,7 @@ function buildEdgeGeometry(spec: DeltahedronSpec): THREE.BufferGeometry {
 }
 
 /** Small invisible pickable spheres, one per vertex — raycast targets for hover/select, not for display. */
-function buildVertexGroup(spec: DeltahedronSpec): THREE.Group {
+function buildVertexGroup(spec: PolyhedronSpec): THREE.Group {
   const group = new THREE.Group();
   for (const connector of spec.connectors) {
     const sphere = new THREE.Mesh(
@@ -136,9 +139,9 @@ function buildVertexGroup(spec: DeltahedronSpec): THREE.Group {
 }
 
 // vertexGroup.children[i] always corresponds to spec.connectors[i] (== spec.vertices[i]),
-// since buildVertexGroup iterates spec.connectors in order and DeltahedronSpec's own
+// since buildVertexGroup iterates spec.connectors in order and PolyhedronSpec's own
 // buildConnectors() assigns connector.id === its array index.
-function buildPlacedShape(spec: DeltahedronSpec, nodeId: string): PlacedShape {
+function buildPlacedShape(spec: PolyhedronSpec, nodeId: string): PlacedShape {
   const object = new THREE.Group();
   object.userData = { specId: spec.id, nodeId } satisfies ShapeObjectUserData;
 
@@ -369,7 +372,7 @@ export default function ShapeViewer({
 
     const placeRoot = (specId: string) => {
       resetScene();
-      const spec = DELTAHEDRA[specId];
+      const spec = POLYHEDRA[specId];
       if (!spec) return;
       const nodeId = crypto.randomUUID();
       const placed = buildPlacedShape(spec, nodeId);
@@ -399,7 +402,7 @@ export default function ShapeViewer({
       const byNodeId = new Map<string, PlacedShape>();
 
       for (const node of assembly.nodes) {
-        const spec = DELTAHEDRA[node.shape];
+        const spec = POLYHEDRA[node.shape];
         if (!spec) continue; // isValidAssembly already guards against this in practice
         const placed = buildPlacedShape(spec, node.id);
         placed.object.position.fromArray(node.transform.position);
@@ -434,7 +437,7 @@ export default function ShapeViewer({
 
     const beginAttach = (specId: string) => {
       const target = selectedRef.current;
-      const spec = DELTAHEDRA[specId];
+      const spec = POLYHEDRA[specId];
       if (!target || !spec || pendingRef.current) return;
 
       scene.updateMatrixWorld(true); // ensure target's world matrix reflects any prior attach
@@ -447,7 +450,7 @@ export default function ShapeViewer({
       const parentWorldQuat = new THREE.Quaternion();
       parentObject.getWorldQuaternion(parentWorldQuat);
       // Shapes are centered at their own centroid, so a vertex's local position
-      // doubles as its local outward direction (per DeltahedronSpec's Connector doc).
+      // doubles as its local outward direction (per PolyhedronSpec's Connector doc).
       const targetWorldNormal = target.position.clone().normalize().applyQuaternion(parentWorldQuat);
 
       const nodeId = crypto.randomUUID();

@@ -1,9 +1,12 @@
 import * as THREE from 'three';
-import { DELTAHEDRA, DELTAHEDRON_IDS, type DeltahedronSpec } from '../app/lib/deltahedra';
+import { POLYHEDRA, POLYHEDRON_IDS, type PolyhedronSpec } from '../app/lib/polyhedra';
 
 // Mirrors ShapeViewer.tsx's attach() math (root parent, identity transform)
-// so the exact placement formula gets checked outside the browser.
-function computeAttach(rootSpec: DeltahedronSpec, targetVertexIndex: number, incomingSpec: DeltahedronSpec) {
+// so the exact placement formula gets checked outside the browser. Runs
+// across every family in POLYHEDRA (not just deltahedra) since the attach
+// math only depends on vertex positions, never face shape — cube and
+// dodecahedron should generalize exactly the same way.
+function computeAttach(rootSpec: PolyhedronSpec, targetVertexIndex: number, incomingSpec: PolyhedronSpec) {
   const targetLocal = new THREE.Vector3(...rootSpec.vertices[targetVertexIndex]);
   const targetWorldNormal = targetLocal.clone().normalize(); // root is untransformed, so local == world
 
@@ -22,10 +25,10 @@ function computeAttach(rootSpec: DeltahedronSpec, targetVertexIndex: number, inc
 let failures = 0;
 let checks = 0;
 
-for (const rootId of DELTAHEDRON_IDS) {
-  const rootSpec = DELTAHEDRA[rootId];
-  for (const incomingId of DELTAHEDRON_IDS) {
-    const incomingSpec = DELTAHEDRA[incomingId];
+for (const rootId of POLYHEDRON_IDS) {
+  const rootSpec = POLYHEDRA[rootId];
+  for (const incomingId of POLYHEDRON_IDS) {
+    const incomingSpec = POLYHEDRA[incomingId];
     for (let v = 0; v < rootSpec.vertices.length; v++) {
       checks++;
       const { position, quat, targetWorldPos } = computeAttach(rootSpec, v, incomingSpec);

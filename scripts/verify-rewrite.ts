@@ -1,5 +1,5 @@
-import { DELTAHEDRA } from '../app/lib/deltahedra';
-import { matchRewriteVertices } from '../app/lib/rewrite';
+import { DELTAHEDRA } from '../app/lib/polyhedra/deltahedra';
+import { matchRewriteVertices } from '../app/lib/polyhedra/rewrite';
 
 function normalize(v: readonly [number, number, number]): [number, number, number] {
   const len = Math.hypot(v[0], v[1], v[2]);

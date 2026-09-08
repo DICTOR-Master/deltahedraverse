@@ -5,11 +5,11 @@
  * graph, not the other way around.
  */
 
-import { DELTAHEDRA } from './deltahedra';
+import { POLYHEDRA } from './polyhedra';
 
 export interface AssemblyNode {
   id: string;
-  shape: string; // DeltahedronSpec id, e.g. 'D6'
+  shape: string; // PolyhedronSpec id, e.g. 'D6' or 'CUBE'
   transform: {
     position: [number, number, number];
     quaternion: [number, number, number, number]; // x, y, z, w
@@ -78,10 +78,10 @@ export function isAssembly(v: unknown): v is Assembly {
 }
 
 /**
- * Beyond structural shape: every node's `shape` must be a real deltahedron
- * id and every connection must reference node ids and vertex indices that
- * actually exist. Guards the renderer against a corrupted or hand-edited
- * save file crashing on load.
+ * Beyond structural shape: every node's `shape` must be a real polyhedron id
+ * (any family — see app/lib/polyhedra/index.ts) and every connection must
+ * reference node ids and vertex indices that actually exist. Guards the
+ * renderer against a corrupted or hand-edited save file crashing on load.
  */
 export function isValidAssembly(v: unknown): v is Assembly {
   if (!isAssembly(v)) return false;
@@ -89,7 +89,7 @@ export function isValidAssembly(v: unknown): v is Assembly {
   if (nodeById.size !== v.nodes.length) return false; // duplicate ids
 
   for (const node of v.nodes) {
-    if (!(node.shape in DELTAHEDRA)) return false;
+    if (!(node.shape in POLYHEDRA)) return false;
   }
   for (const conn of v.connections) {
     const a = nodeById.get(conn.nodeA);
@@ -98,8 +98,8 @@ export function isValidAssembly(v: unknown): v is Assembly {
     // Orphaned connections keep a deliberately stale vertex index (see
     // AssemblyConnection.orphaned) — only the node references matter for them.
     if (conn.orphaned) continue;
-    if (conn.vertexA < 0 || conn.vertexA >= DELTAHEDRA[a.shape].vertices.length) return false;
-    if (conn.vertexB < 0 || conn.vertexB >= DELTAHEDRA[b.shape].vertices.length) return false;
+    if (conn.vertexA < 0 || conn.vertexA >= POLYHEDRA[a.shape].vertices.length) return false;
+    if (conn.vertexB < 0 || conn.vertexB >= POLYHEDRA[b.shape].vertices.length) return false;
   }
   return true;
 }

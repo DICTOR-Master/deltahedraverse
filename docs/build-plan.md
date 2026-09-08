@@ -282,8 +282,79 @@ projects to the canvas center under the default camera, so
 `findNodeBody()`/`readTooltipAt()` check dead-center directly first and only
 fall back to a full sweep if that misses.
 
-## Later (additive, not a rewrite)
+## Beyond the original 8 stages: Platonic solids
 
-Platonic/Archimedean packs, Johnson solid packs, dual/face-snap mode — all
-slot into the Stage 1 data format. Treat as speculative until Deltahedraverse
-ships independently; see vercel-deployment-plan.md.
+The user expanded the intended scope (2026-09-08): grow into a genuine
+sibling of Rhombiverse covering all polyhedral families, not just the 8
+deltahedra. First step, done:
+
+- **Restructured `app/lib/deltahedra.ts` into `app/lib/polyhedra/`** — a
+  directory per the "all inclusive appropriate directories" instruction,
+  organized to scale as more families get added:
+  - `core.ts` — family-agnostic infrastructure (`PolyhedronSpec`,
+    `makeSpec`, `buildConnectors`, `validateShape`, and a new
+    `triangulateFace()` fan-triangulation helper for rendering non-triangular
+    faces). `PolyhedronSpec.faces` widened from `[number,number,number][]`
+    to `number[][]` — exactly the two schema changes
+    `construction-kit-spec.md` had already called out as needed before
+    Platonic/Archimedean solids would fit, and nothing else needed to
+    change (vertex degree = incident-edge count = incident-face count for
+    *any* convex polyhedron).
+  - `deltahedra.ts` — the same 8 shapes, now importing shared infra from
+    `./core` instead of defining it locally.
+  - `platonic.ts` — the 2 Platonic solids not already covered by
+    deltahedra (tetrahedron/octahedron/icosahedron are already D4/D8/D20 —
+    not re-derived): cube and dodecahedron.
+  - `rewrite.ts` — the D10<->D12 rewrite rule, moved alongside deltahedra
+    since it's specific to that family.
+  - `index.ts` — combined `POLYHEDRA`/`POLYHEDRON_IDS` across every
+    family, used by the shape picker and assembly validation; family
+    files stay independently importable for family-specific logic.
+- **Cube**: hand-derived (8 vertices, 6 square faces) and cross-checked
+  computationally.
+- **Dodecahedron**: the harder case, and a real lesson worth recording —
+  a first attempt derived each face by taking the 5 vertices with the
+  highest dot product against a guessed face-normal direction (the
+  icosahedron-vertex directions, since dodecahedron/icosahedron are
+  duals). That produced non-planar, wrong-vertex "faces": dodecahedron
+  face vertices don't all rank contiguously by raw dot product against
+  their own face normal, so top-k selection silently grabbed a vertex
+  from a neighboring face instead. Fixed by computing the actual 3D
+  convex hull (`scipy.spatial.ConvexHull`) and merging its triangles by
+  shared plane equation — no geometric assumptions, just the real
+  topology. Verified: 20 vertices, 30 edges, 12 pentagonal faces, all
+  planar, all edges equal length, vertex degree 3 everywhere, Euler
+  V-E+F=2.
+- **`validateShape()` generalized** for n-gon faces (checks every
+  consecutive boundary edge of every face, not just a triangle's 3
+  sides) and its edge-count check now uses the handshake lemma
+  (sum of face sizes / 2 = edge count) instead of the triangle-only
+  `faceCount*3/2` formula — reduces to the same result for deltahedra,
+  generalizes correctly for mixed face sizes.
+- **`buildFaceGeometry` in `ShapeViewer.tsx` fixed** to fan-triangulate
+  each face via `triangulateFace()` instead of destructuring `[i,j,k]`
+  directly — the old code silently dropped vertices past the third for
+  any non-triangular face, which would have rendered broken geometry for
+  cube/dodecahedron without this fix.
+- **Verification widened, not just added**: `scripts/verify-attach.ts`
+  and `verify-twist.ts` now run across the *combined* `POLYHEDRA`
+  registry (890 and 1800 checks respectively, up from 488/1152) — the
+  attach/twist math only depends on vertex positions, never face shape,
+  so this is a real generalization check, not just more of the same.
+  `scripts/validate-platonic.ts` mirrors `validate-deltahedra.ts` for the
+  2 new shapes. `tests/e2e/render.spec.ts` gained a real-browser check
+  that a non-triangulated shape (cube) actually renders and its vertices
+  are hoverable — the one thing the pure-math scripts can't catch, since
+  they never touch `buildFaceGeometry`. Full suite (unit-level +
+  Playwright, 8/8) re-run and passing after the restructure.
+
+Still outstanding, in rough order: Archimedean solids (13), Johnson solids
+(92 — by far the largest remaining lift), face-to-face connections for
+shapes with matching face geometry (the "dual / face-snap mode" already
+sketched in `construction-kit-spec.md` — a face connector
+`{faceIndex, pos: centroid(face), normal: outwardNormal(face)}` derived from
+vertices+faces the same way vertex connectors derive from vertices+edges),
+and an inside/cutaway view toggle (similar in spirit to Rhombiverse's World
+View: Color/Translucent/Skeleton). An eventual introductory puzzle game
+(working name DELTIS) remains speculative — see vercel-deployment-plan.md
+and README.md.

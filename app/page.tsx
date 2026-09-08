@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { DELTAHEDRA, DELTAHEDRON_IDS } from './lib/deltahedra';
+import { POLYHEDRA, POLYHEDRON_IDS } from './lib/polyhedra';
 import type { NodeSelection, ShapeSelection, ShapeViewerHandle } from './components/ShapeViewer';
 
 const ShapeViewer = dynamic(() => import('./components/ShapeViewer'), {
@@ -59,7 +59,7 @@ export default function Home() {
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Deltahedraverse</h1>
           <p className="text-sm text-zinc-400">
-            Stage 8 — polish (capacity glow, cascade delete, closed-cage detection)
+            8 deltahedra + Platonic solids (cube, dodecahedron) — more families coming
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -83,7 +83,7 @@ export default function Home() {
 
       <nav className="flex flex-wrap items-center gap-2 px-6 pb-2">
         <span className="text-xs uppercase tracking-wide text-zinc-500">Start over with</span>
-        {DELTAHEDRON_IDS.map((id) => (
+        {POLYHEDRON_IDS.map((id) => (
           <button
             key={id}
             type="button"
@@ -92,7 +92,7 @@ export default function Home() {
           >
             {id}
             <span className="ml-1 text-xs opacity-70">
-              ({DELTAHEDRA[id].faceCount})
+              ({POLYHEDRA[id].faceCount})
             </span>
           </button>
         ))}
@@ -147,7 +147,7 @@ export default function Home() {
               Attach to {selection.specId} vertex {selection.vertexId} (capacity{' '}
               {selection.degree}):
             </span>
-            {DELTAHEDRON_IDS.map((id) => (
+            {POLYHEDRON_IDS.map((id) => (
               <button
                 key={id}
                 type="button"
@@ -174,7 +174,7 @@ export default function Home() {
 
       <main className="flex-1">
         <ShapeViewer
-          initialShapeId={DELTAHEDRON_IDS[0]}
+          initialShapeId={POLYHEDRON_IDS[0]}
           onSelectionChange={setSelection}
           onPendingChange={setPending}
           onNodeSelectionChange={setNodeSelection}

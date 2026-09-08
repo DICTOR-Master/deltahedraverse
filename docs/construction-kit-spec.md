@@ -43,9 +43,14 @@ connection to the user rather than silently guessing a placement.
 
 ## Adding new polyhedra (modularity)
 
-The registry format already generalizes past deltahedra — extending it is
-additive, per the original extensibility notes (Platonic/Archimedean solids,
-Johnson solids, dual/face-snap mode). Concretely:
+The registry now lives in `app/lib/polyhedra/` — `core.ts` (family-agnostic
+infrastructure: `PolyhedronSpec`, `makeSpec`, `buildConnectors`,
+`validateShape`, `triangulateFace`), one file per family
+(`deltahedra.ts`, `platonic.ts`, and eventually `archimedean.ts`,
+`johnson.ts`), and `index.ts` combining them into `POLYHEDRA`/
+`POLYHEDRON_IDS`. This is exactly the shape the original extensibility
+notes called for; the two schema limits noted below are done, not
+speculative anymore.
 
 **To add a shape**, provide reference vertices (any consistent scale —
 `makeSpec` measures the first edge, normalizes to 1, and centers at the
@@ -61,26 +66,44 @@ happens when a fact derivable from another field gets stored and asserted
 separately instead. Keep vertices + edges + faces as the only source of
 truth; derive the rest.
 
-**Two schema limits to widen before Platonic/Archimedean solids fit:**
-- `faces` is currently typed `[number, number, number][]` — triangles only.
-  A cube (square faces) or dodecahedron (pentagon faces) needs
-  `faces: number[][]`. Convex non-triangular faces can still fan-triangulate
-  for Three.js's `BufferGeometry` at render time without changing the stored
-  data.
-- Nothing else needs to change: vertex degree = incident-edge count =
+**For anything beyond a hand-checkable shape (a cube is fine by hand; a
+dodecahedron was not), verify computationally before trusting the data.**
+The dodecahedron's first attempt — take the 5 vertices with the highest
+dot product against a guessed face-normal direction — produced non-planar,
+wrong-vertex "faces," because dodecahedron face vertices don't all rank
+contiguously by raw dot product against their own face's normal. Fixed by
+computing the real 3D convex hull (`scipy.spatial.ConvexHull`) and merging
+its triangles by shared plane equation. Johnson solids (92 of them, ahead)
+will need this discipline far more than Platonic solids did — don't
+hand-derive face lists for anything non-trivial.
+
+**Schema widened for non-triangular faces (done):**
+- `PolyhedronSpec.faces` is `number[][]`, not triangle-only.
+  `triangulateFace()` (`core.ts`) fan-triangulates any convex n-gon for
+  Three.js's `BufferGeometry` at render time, without changing the stored
+  data. `ShapeViewer.tsx`'s `buildFaceGeometry` uses it — the earlier
+  triangle-only version silently dropped vertices past the third for any
+  non-triangular face, which would have rendered broken geometry.
+- Nothing else needed to change: vertex degree = incident-edge count =
   incident-face count for *any* convex polyhedron (edges and faces
   alternate once around a manifold vertex, not just a triangulated one) —
-  the connector/capacity system from Stage 3 already works unmodified.
+  the connector/capacity system from Stage 3 already worked unmodified.
+  `validateShape()`'s edge-count check now uses the handshake lemma (sum
+  of face sizes / 2 = edge count) instead of the triangle-only
+  `faceCount*3/2` formula — same result for deltahedra, correct for mixed
+  face sizes too.
 
-**Dual / face-snap mode** (a rhombiverse-style extension, noted for later —
-see vercel-deployment-plan.md's "Independent for now" decision before
-building this) needs one new *derived* concept, not a new stored field: a
-face connector is `{ faceIndex, pos: centroid(face), normal:
-outwardNormal(face) }`, computed from `vertices` + `faces` the same way
-vertex connectors are computed from `vertices` + `edges`. No change to
-`DeltahedronSpec` itself — just a second `buildFaceConnectors()` alongside
-the existing `buildConnectors()`.
+**Dual / face-snap mode is no longer speculative — it's the current ask**
+(user, 2026-09-08: shapes with matching face geometry should connect via
+shared faces, plus an inside/cutaway view toggle). The design already
+sketched here still holds: a face connector is `{ faceIndex, pos:
+centroid(face), normal: outwardNormal(face) }`, computed from `vertices` +
+`faces` the same way vertex connectors are computed from `vertices` +
+`edges` — one new *derived* concept, not a new stored field. No change to
+`PolyhedronSpec` itself needed — a second `buildFaceConnectors()` alongside
+the existing `buildConnectors()`. Not yet implemented.
 
 ## Where things stand
 
-See build-plan.md for the staged build order and current progress.
+See build-plan.md for the staged build order, current progress, and
+what's still outstanding beyond the original 8 stages.

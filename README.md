@@ -1,34 +1,44 @@
 # Deltahedraverse
 
-A browser-based construction kit for the 8 convex deltahedra — click a
-free vertex, snap on a new piece with a free rotational joint, twist it
-into place, confirm. Molecular-model-kit mechanics, not tiled building
-blocks: deltahedra don't tile space and their dihedral angles are
-incompatible across types, so every connection is a single-point
-ball joint, never face-gluing.
+A browser-based construction kit for convex polyhedra — click a free
+vertex, snap on a new piece with a free rotational joint, twist it into
+place, confirm. Molecular-model-kit mechanics, not tiled building blocks:
+started with the 8 convex deltahedra specifically because they don't tile
+space and their dihedral angles are incompatible across types, so every
+connection is a single-point ball joint, never face-gluing.
 
 The intention is for this to grow into a sibling of
 [Rhombiverse](https://github.com/DICTOR-Master/rhombiverse) — a general
-polyhedral space-editing suite eventually covering the Platonic and
-Archimedean solids and the Johnson solid family alongside the 8
-deltahedra already here, with its own introductory geometric-packing
-puzzle game in the spirit of Rhombiverse's RHOMBIS (working name:
-DELTIS). None of that is built yet — see `docs/build-plan.md`'s "Later"
-section for what's speculative versus what's actually shipped.
+polyhedral space-editing suite covering the Platonic and Archimedean
+solids and the Johnson solid family alongside the 8 deltahedra, with
+face-to-face connections for shapes whose faces geometrically match (not
+just vertex-to-vertex), an inside/cutaway view toggle, and its own
+introductory geometric-packing puzzle game in the spirit of Rhombiverse's
+RHOMBIS (working name: DELTIS). See `docs/build-plan.md`'s trailing
+sections for what's actually shipped versus what's still ahead.
 
 ## What's here now
 
-All 8 stages of the original build plan are done — see
-`docs/build-plan.md` for the full stage-by-stage account, including
-exactly how each one was verified:
+The original 8-stage build plan (all 8 deltahedra, pick/attach/twist/
+confirm, a real persisted assembly graph, the D10↔D12 rewrite rule,
+cascade delete) is done — see `docs/build-plan.md` for the full
+stage-by-stage account, including exactly how each stage was verified.
+Since then:
 
-- **Geometry core** (`app/lib/deltahedra.ts`) — vertices, edges, faces,
-  and per-vertex degree for all 8 convex deltahedra (D4 through D20,
-  named by face count), cross-checked against a convex-hull
-  computation. D12 (snub disphenoid) is the one shape with no
-  compass-and-straightedge construction — its coordinates come from the
-  positive real root of an irreducible cubic, hardcoded rather than
-  solved at runtime.
+- **Geometry core, restructured for multiple families**
+  (`app/lib/polyhedra/`) — `core.ts` holds family-agnostic infrastructure
+  (vertices+edges+faces as the only source of truth; everything else
+  derived), with one file per family. D12 (snub disphenoid) is the one
+  deltahedron with no compass-and-straightedge construction — its
+  coordinates come from the positive real root of an irreducible cubic,
+  hardcoded rather than solved at runtime.
+- **Platonic solids added** — cube and dodecahedron (tetrahedron,
+  octahedron, and icosahedron were already deltahedra D4/D8/D20).
+  Cross-checked against a true 3D convex-hull computation, not
+  hand-derived: an early attempt at the dodecahedron's face list, based
+  on a plausible-looking heuristic, produced silently wrong, non-planar
+  faces — see `docs/build-plan.md` for what that looked like and how it
+  was actually fixed.
 - **Pick, attach, twist, confirm/cancel** — hover a vertex to see its
   capacity, pick a shape to attach, drag to twist it around the one
   remaining rotational degree of freedom, then confirm or cancel.
@@ -50,18 +60,22 @@ exactly how each one was verified:
 deltahedraverse/
   app/
     lib/
-      deltahedra.ts      # geometry core: 8 shapes, verified against a convex hull
+      polyhedra/
+        core.ts          # family-agnostic infra: PolyhedronSpec, makeSpec, validateShape, triangulateFace
+        deltahedra.ts    # the 8 deltahedra, verified against a convex hull
+        platonic.ts      # cube + dodecahedron (the 2 Platonic solids not already deltahedra)
+        rewrite.ts       # D10<->D12 vertex-matching (pure function, no three.js)
+        index.ts         # combined POLYHEDRA / POLYHEDRON_IDS across every family
       assembly.ts        # the real {nodes, connections} graph + validation
-      rewrite.ts         # D10<->D12 vertex-matching (pure function, no three.js)
       graph.ts           # subtree/cycle graph logic (pure, no three.js)
     components/
       ShapeViewer.tsx    # the whole Three.js scene: render, pick, attach, twist, rewrite, delete
     api/assemblies/      # GET/POST persistence route (local JSON for now; see docs)
     page.tsx             # UI shell around ShapeViewer
-  scripts/               # validate-deltahedra, verify-attach/twist/rewrite/graph -- run outside the browser
+  scripts/               # validate-*, verify-attach/twist/rewrite/graph -- run outside the browser
   tests/e2e/             # permanent Playwright suite (npm run test:e2e)
   docs/
-    build-plan.md               # the 8-stage build plan, with how each stage was verified
+    build-plan.md               # the build plan, with how each stage was verified
     construction-kit-spec.md    # the vertex-snapping design law + extensibility notes
     vercel-deployment-plan.md   # planned repo/Vercel layout once this deploys
   playwright.config.ts
