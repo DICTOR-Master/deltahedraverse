@@ -851,6 +851,64 @@ shapes), `verify:face-attach` (279,530, 0 failures on the first run),
 including the new no-degree-3-vertex check), on both this machine and
 dicto-node.
 
-Still outstanding for Johnson solids: 73 remain (92 - 19) — augmented/
-diminished/gyrate composites next, then the ~15 with no closed form at
-all (genuine numerical optimization needed), saved for last.
+## Johnson solids — bicupolae and cupola-rotunda compounds (2026-09-08)
+
+8 more Johnson solids, bringing the family to 27/92: bicupolae (J27
+triangular-ortho, J28/J29 square-ortho/gyro, J30/J31 pentagonal-ortho/
+gyro), cupola-rotunda compounds (J32/J33 pentagonal-ortho/gyro), and a
+birotunda (J34 pentagonal-ortho). Each is two batch-1 pieces joined at
+their matching largest face (a 2n-gon, or a decagon for anything
+involving J6's rotunda), either aligned ("ortho") or twisted by the
+joined polygon's own half-sector before joining ("gyro").
+
+**The ortho/gyro offset (0 or pi/n) was verified empirically, not
+assumed** — a real, useful check that caught a genuine degeneracy: for
+n=3, the two offsets produce different point sets, but only offset=0 is
+a distinct Johnson solid. Offset=pi/n's pairwise-distance histogram (a
+rotation-invariant fingerprint — if two point sets have the exact same
+multiset of all pairwise distances, they're congruent) matches this
+registry's own `CUBOCTAHEDRON` exactly, confirming the well-known fact
+that "triangular gyrobicupola" isn't counted as a separate Johnson
+solid because it coincides with an Archimedean one already in this
+registry. That same offset formula was then trusted for n=4 and n=5,
+where both ortho and gyro genuinely are distinct, real Johnson solids —
+verified the same way (checking they're valid, uniform-edge convex
+hulls with matching V/E/F), not just assumed to work because n=3 did.
+
+**J6 needed re-orienting before it could compose with anything else**:
+its own raw vertex data has its decagon face at an arbitrary
+orientation (the equatorial cross-section plane of the icosidodecahedron
+it was sliced from in batch 1 — see that section above), so it was
+rotated (found via its own `faces` array, not assumed by coordinate
+position) so the decagon sits in the z=0 plane using the exact same
+angular convention `cupola()` already uses for its own base ring —
+confirmed to preserve J6's own V/E/F and edge uniformity before trusting
+it as a building block for J32/J33/J34.
+
+**A real solid was built, checked, and deliberately left out**: a
+"pentagonal gyrobirotunda" (two J6 copies joined at their decagon with a
+gyro twist) computes as a genuine, distinct, valid convex uniform-edge
+polyhedron (V=30 E=60 F=32, 20 triangles + 12 pentagons — confirmed via
+its own pairwise-distance histogram to be neither the ortho birotunda
+nor the icosidodecahedron already in this registry) — but there's no
+confident basis for whether that specific combinatorial gluing
+corresponds to a genuinely named entry in the standard 92 Johnson
+solids, the way "pentagonal orthobirotunda" (J34) does. Rather than
+assert an uncertain classification, it's left out of this batch
+entirely. Worth recording as a distinct case from this project's usual
+"verify before shipping" postmortems: not catching a wrong
+construction, but declining to claim a right one without confidence —
+the same standard applied in the other direction.
+
+Verified end to end: `validate-johnson.ts` (all 27 OK), lint/tsc clean,
+`verify:attach` (55,250), `verify:twist` (45,000), `verify:rewrite`,
+`verify:graph`, `verify:face-connectors` (3,200), `verify:face-attach`
+(409,554, 0 failures on the first run), `verify:face-twist` (4,770), and
+the full Playwright suite (16/16) on both this machine and dicto-node.
+
+Still outstanding for Johnson solids: 65 remain (92 - 27) — the
+remaining augmented/diminished/gyrate composites next (including
+resolving whether "pentagonal gyrobirotunda" above is real and just
+needs a name, or genuinely isn't part of the 92), then the ~15 with no
+closed form at all (genuine numerical optimization needed), saved for
+last.
