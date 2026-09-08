@@ -1,7 +1,7 @@
 # Remaining Johnson Solids — Alternative Construction Protocols
 
-21 of the 92 Johnson solids aren't in the registry: J64, J66–J71, J79
-(8 shapes with a specific, documented failure each — see
+Originally 21 of the 92 Johnson solids weren't in the registry: J64,
+J66–J71, J79 (8 shapes with a specific, documented failure each — see
 `docs/build-plan.md`'s batch 7-9 postmortems), and ~15 with no
 closed-form construction attempted at all yet. Confirmed via web
 research (not this project's own derivation) before writing this doc:
@@ -13,6 +13,10 @@ simplest-first, per direct user request: tackle the ones with the most
 concretely diagnosed root cause first, since fixes there may carry
 lessons (verification discipline, registration-checking habits) that
 make the harder groups easier too, rather than the reverse.
+
+**Status (2026-09-09): Group 1 (all 6 of J66-J71) and Group 2 (J64) are
+both done — see below. 14 remain (92 - 78): J79 (1) and ~13 with no
+closed form at all.**
 
 ## Group 1 (simplest — single root cause already diagnosed): J66–J71
 
@@ -53,6 +57,33 @@ Likely a single fix that unlocks all 6 shapes at once (same
 construction method, same registration-detail root cause), which is
 why this group is ranked simplest despite being 6 shapes, not 1.
 
+**Confirmed and fixed (2026-09-09, batch 10): all 6 -- J66, J67, J68,
+J69, J70, J71.** The hypothesis above was verified directly, not just
+applied: every possible registration was built and diagonal-checked
+for each affected face (8 for an octagon, 10 for a decagon), and the
+results split cleanly in half every time — exactly the odd-offset
+registrations produce a true, clean result (matching published face
+composition exactly, zero non-square quads); the even offsets
+(including batch 8's default) exactly reproduce the original
+rhombus-contamination bug. J67 (biaugmented, opposite octagon pair —
+confirmed externally, not assumed to be adjacent) needed each of its
+two caps' registrations verified independently before combining, since
+two different faces of the same solid could in principle need
+different-parity registrations (the same hazard class as the
+Catalan-solids face-vertex-0 bug) — there they happened to match. J69/
+J70 used the truncated dodecahedron's decagon pairs, confirmed to
+carry the SAME adjacent/meta/para classification already established
+for the plain dodecahedron in batch 7/9 (not assumed to transfer) —
+"para" (opposite) for J69, "meta" for J70, and J70 was directly
+confirmed NOT congruent to J69 via the batch-3 pairwise-distance-
+histogram check despite identical V/E/F. **J71 is where the
+hypothesized different-parity hazard actually happened, not just in
+theory**: its 3 target faces did NOT all need the same registration
+parity (1 odd, 2 even) — confirmed only because each was checked fully
+independently rather than assuming J67's "they happened to match"
+result would generalize. See `docs/build-plan.md`'s batch 10 section
+for the full record, including exact vertex/edge/face counts for each.
+
 ## Group 2 (single shape, root cause now understood): J64
 
 **What went wrong**: batch 7 tried augmenting one of J63's PENTAGON
@@ -83,6 +114,19 @@ registry, `R_3^2 + h^2 = 1`). Verify the result is NOT congruent to
 J62 via the same pairwise-distance-histogram check that caught the
 original mistake, as a direct confirmation this really is a different
 shape this time.
+
+**Confirmed and fixed (2026-09-09, batch 10).** J63's 5 triangles
+checked combinatorially against all 3 pentagons for a shared edge:
+exactly one, `[0,1,5]`, is adjacent to all 3 — confirming MathWorld's
+description precisely (and settling the "hexagons" wording as a
+copy-paste error, not a hint at some other face). Attaching `D4` (the
+tetrahedron, already in this registry) via the same face-attach
+transform machinery as every cupola batch produced a clean result
+immediately — no coplanar-merge ambiguity the way J66-J71 had, since a
+tetrahedron's other 2 faces don't land flush against anything.
+Directly confirmed NOT congruent to J62 (max pairwise-distance-
+histogram diff 0.618). V=10, E=18, F=10 (7 triangles + 3 pentagons),
+matching the externally published composition exactly.
 
 ## Group 3 (single shape, root cause NOT yet found — the bug's origin, not the construction choice): J79
 

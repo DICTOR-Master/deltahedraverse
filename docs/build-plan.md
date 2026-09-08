@@ -1394,3 +1394,99 @@ silently missing); the remaining shapes are the ~15-21 with no closed
 form at all, requiring genuine numerical optimization rather than the
 closed-form constructions used for every batch so far, saved for last
 as originally planned.
+
+## Batch 10 (2026-09-09) — correcting all 6 of batch 8's excluded J66-J71
+
+Before this batch, `docs/johnson-solids-remaining-spec.md` was written
+to scope alternative construction protocols for all 21 remaining
+Johnson solids, using external research (not guessed) to find concrete
+corrections rather than re-attempting the same failed constructions.
+For J66-J71, that research found the missing detail directly: the
+square/pentagonal cupola cap must land in the ONE discrete rotational
+registration where its own square lateral faces sit next to the
+truncated solid's TRIANGLES, not its own larger polygon faces —
+batch 8's attempt used `computeFaceAttach`'s default "no extra twist"
+registration, which is only correct for HALF of a face's possible
+registrations and happened to land on the wrong half.
+
+**Verified directly, not assumed**: rather than trust the research and
+retry once, every possible registration (8 for an octagon-capped face,
+10 for a decagon-capped one) was built and diagonal-checked
+independently. The result was a clean, total split: exactly half the
+registrations (the odd offsets under this project's own
+`faceRotationalSymmetry`/`computeFaceAttach` indexing) reproduce a
+true 12-triangle/5-square/5-octagon (or 25-triangle/5-square/1-pentagon
+/11-decagon) result with zero non-square quads; the other half
+reproduce batch 8's exact rhombus-contamination bug. This directly
+confirms the hypothesis rather than merely working around it — batch
+8's failure really was a wrong registration, not a deeper flaw in the
+construction method.
+
+**J66 (augmented truncated cube)** and **J68 (augmented truncated
+dodecahedron)**: single cupola cap each, corrected registration found
+by sweeping all candidates for that specific face. **J67 (biaugmented
+truncated cube)**: two square cupolas on the truncated cube's OPPOSITE
+octagon pair (confirmed externally, not guessed to be adjacent or
+opposite) — each cap's correct registration was verified in ISOLATION
+first (both happened to need the same parity, checked rather than
+assumed, since two different faces of the same solid could in
+principle need different registrations depending on that face's own
+vertex-0 phase — the same hazard class as the Catalan-solids
+face-vertex-0 bug) before combining into the final double-augmented
+shape.
+
+**J69/J70 (parabiaugmented/metabiaugmented truncated dodecahedron)**:
+two pentagonal cupolas each, on the "para" (opposite, dot≈-1) and
+"meta" (dot≈-0.4472) decagon pairs respectively — confirmed the
+truncated dodecahedron's 12 decagons carry EXACTLY the dodecahedron's
+own adjacent/meta/para face-angle classification from batch 7/9 (same
+3 angle classes, cos 0.4472/-0.4472/-1), not assumed to transfer.
+Directly confirmed J70 is NOT congruent to J69 via the same
+rotation-invariant pairwise-distance-histogram check from batch 3 (max
+diff 0.244, nowhere near what a true duplicate would show), despite
+both sharing identical V/E/F/face-composition. **J71 (triaugmented)**:
+three pentagonal cupolas on a mutually-meta triple (all 3 pairwise dot
+products ≈-0.4472, matching batch 7's "3-mutually-meta is the only
+configuration that works" precedent for the plain dodecahedron's own
+triaugmentation; 20 such triples exist by symmetry, any one works).
+**A real, previously-only-hypothesized wrinkle surfaced here**: J71's 3
+target faces did NOT all need the same registration parity — 1 needed
+odd k, the other 2 needed even k, confirmed by checking each face
+completely independently rather than assuming J67's "they happened to
+match" result would generalize. Exactly the hazard flagged in J67's
+own doc comment, now actually observed — a good reminder that
+"verify every face independently" is a real requirement, not excess
+caution.
+
+All 6 of batch 8's excluded shapes are now correctly built: J66-J71
+complete this Johnson-solids group entirely.
+
+**J64 also corrected in the same batch** (Group 2 of the spec doc,
+completing batch 7's own unfinished business): external research found
+batch 7's attempt used entirely the wrong operation — augmenting one
+of J63's PENTAGON faces with a pentagonal pyramid, when the actual
+construction attaches a regular TETRAHEDRON to the one specific
+TRIANGULAR face of J63 that's edge-adjacent to all 3 of its pentagons.
+That face was found combinatorially from J63's own registered data
+(checking each of its 5 triangles against all 3 pentagons for a shared
+edge — exactly one, `[0,1,5]`, qualifies), and attaching `D4` (the
+tetrahedron already in this registry) via the standard face-attach
+transform produced a clean result immediately, with no coplanar-merge
+ambiguity the way J66-J71 had. Directly confirmed NOT congruent to J62
+via the same pairwise-distance-histogram check that first caught batch
+7's mistake (max diff 0.618) — genuinely the different shape this
+time, not a coincidental near-miss.
+
+Verified end to end: `validate-johnson.ts` (all 78 OK), `tsc --noEmit`
+and lint clean, `verify:attach` (347,022), `verify:twist` (246,402),
+`verify:rewrite`, `verify:graph`, `verify:face-connectors` (8,646),
+`verify:face-attach` (2,810,143, 0 failures), `verify:face-twist`
+(22,326, 0 failures), and the full Playwright suite on dicto-node.
+
+Still outstanding for Johnson solids: 14 remain (92 - 78) — J79 stays
+genuinely unresolved (documented above and in
+`docs/johnson-solids-remaining-spec.md`'s Group 3); the remaining ~13
+shapes have no closed form at all, requiring genuine numerical
+optimization rather than the closed-form/registration-sweep
+constructions used for every batch so far, saved for last as
+originally planned.
