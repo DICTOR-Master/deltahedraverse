@@ -28,18 +28,20 @@ Two things worth knowing for future sessions:
   `get_deployment_build_logs`, etc.) may still work now that the
   project exists — only project *creation* was blocked — but that's
   unconfirmed; the CLI is the proven path.
-- **GitHub auto-deploy is NOT wired up yet.** Both the automatic
-  connect attempt during `vercel --prod` and an explicit
-  `vercel git connect` afterward failed with "Failed to connect
-  DICTOR-Master/polyhedraverse to project" — the repo itself is public
-  (confirmed via `gh repo view`), so this isn't a permissions issue on
-  GitHub's side; the Vercel GitHub App simply isn't installed/
-  authorized for the `DICTOR-Master` account yet. **One-time manual
-  fix**: in the Vercel dashboard, `polyhedraverse` project → Settings →
-  Git → Connect Git Repository, which prompts the GitHub App
-  install/authorization. Until that's done, every deploy needs a
-  manual `npx vercel --prod --yes` from the repo root — pushes to
-  `main` do not auto-deploy.
+- **GitHub auto-deploy is now wired up (fixed 2026-09-09, same
+  session).** The initial automatic connect during `vercel --prod` and
+  a follow-up `vercel git connect` both failed with "Failed to connect
+  DICTOR-Master/polyhedraverse to project" — the Vercel GitHub App
+  wasn't installed/authorized for the `DICTOR-Master` account yet (the
+  repo itself was already public, confirmed via `gh repo view`, so
+  this wasn't a GitHub-side permissions issue). Fixed by authorizing
+  the GitHub App from the Vercel dashboard (`polyhedraverse` project →
+  Settings → Git → Connect Git Repository); `vercel git connect`
+  afterward confirmed `DICTOR-Master/polyhedraverse is already
+  connected to your project`. This paragraph itself is the test case —
+  its removal is the change that should trigger the first
+  push-to-deploy build; check `npx vercel ls polyhedraverse` for a new
+  deployment shortly after this commit lands to confirm.
 
 ## Relationship to Rhombiverse
 
