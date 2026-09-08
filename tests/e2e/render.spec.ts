@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
   await page.waitForTimeout(500);
 });
 
-test('renders the canvas and every shape across all 4 wheel families (8 deltahedra + 2 Platonic + 13 Archimedean + 6 Johnson)', async ({ page }) => {
+test('renders the canvas and every shape across all 4 wheel families (8 deltahedra + 2 Platonic + 13 Archimedean + 19 Johnson)', async ({ page }) => {
   // Scoped to <main> -- CornerHudWheel mounts its own small canvas too.
   await expect(page.getByRole('main').locator('canvas')).toBeVisible();
 
@@ -103,4 +103,22 @@ test('a mixed-vertex-degree shape (square pyramid) renders and its apex is hover
     click: false,
   });
   expect(apexHit, 'expected to find the degree-4 apex vertex of the square pyramid').not.toBeNull();
+});
+
+test('a no-degree-3-vertex shape (gyroelongated square pyramid) renders both its vertex degrees', async ({ page }) => {
+  // Every prior shape in the registry has at least some degree-3
+  // vertices; J10's own connectors are only degree 4 (the antiprism
+  // ring) and degree 5 (the apex-adjacent square-pyramid ring) --
+  // confirms nothing in the render/hover path silently assumes a
+  // degree-3 vertex exists somewhere.
+  await resetTo(page, 'J10_GYROELONGATED_SQUARE_PYRAMID');
+  const { cx, cy } = await getCanvasCenter(page);
+  const degree4Hit = await findOnCanvas(page, cx, cy, (t) => /^vertex \d+ — capacity 4$/.test(t), {
+    click: false,
+  });
+  expect(degree4Hit, 'expected to find a degree-4 vertex').not.toBeNull();
+  const degree5Hit = await findOnCanvas(page, cx, cy, (t) => /^vertex \d+ — capacity 5$/.test(t), {
+    click: false,
+  });
+  expect(degree5Hit, 'expected to find a degree-5 vertex').not.toBeNull();
 });

@@ -741,8 +741,116 @@ Verified end to end: lint/tsc clean, full Playwright suite (14/14) on
 both this machine and dicto-node.
 
 Still outstanding: PolyhedralWheel's own deferred phases (augment/
-diminish actions, Spherical/X-Ray view modes, the corner HUD element),
-re-matching face connections on rewrite (the gap noted in the face-snap
-section above), and an eventual introductory puzzle game (working name
-DELTIS), which remains speculative — see vercel-deployment-plan.md and
-README.md.
+diminish actions, Spherical/X-Ray view modes), re-matching face
+connections on rewrite (the gap noted in the face-snap section above),
+and an eventual introductory puzzle game (working name DELTIS), which
+remains speculative — see vercel-deployment-plan.md and README.md. The
+corner HUD element above is done, not deferred, as of the very next
+section below.
+
+## CornerHudWheel, face-attach filtering, and a real pagination bug (2026-09-08)
+
+Direct follow-up requests after the wheel first shipped, all shipped
+same session: a small always-visible corner medallion
+(`app/components/CornerHudWheel.tsx`, top-right, matching Rhombiverse's
+own `hud-wheel-3d.js` — solid opaque silver-grey with black relief edge
+lines, rotates on drag only, no idle animation, clicking it opens the
+full wheel); `PolyhedralWheel`'s new `filterIds` prop, wired into the
+face-attach flow so picking a shape to attach via a selected free face
+only shows shapes with a matching face size (dropped from view entirely,
+not shown disabled) — replacing the old flat "Attach X via face"
+per-shape button row.
+
+**A real pagination bug, caught by a full-suite run, not inspection**:
+the wheel's "More" face was shown whenever a family's *total* id count
+overflowed a single page — on *every* page of that family, including the
+last one, where clicking it wrapped `(page + 1) % totalPages` back to
+page 0 instead of doing nothing. Combined with the click-ambiguity retry
+`clickWheelLabel` already has (a click that looks like it failed but
+actually worked), this could double-advance past a family's real last
+page and silently skip whatever shapes lived there — caught when
+`render.spec.ts`'s "renders every shape" test started intermittently
+failing to find `TRUNCATED_ICOSAHEDRON`, the Archimedean family's own
+13th shape, alone on its own second page. Reproduced twice before
+trusting it was real, not a flake. Fixed by computing `hasMore`
+per-page (`start + perPage < ids.length`) instead of reusing the
+once-computed `overflow` flag.
+
+Verified end to end: lint/tsc clean, full Playwright suite (15/15,
+including a direct check that `filterIds` actually excludes DODECAHEDRON
+from a 4-gon face-attach picker, not just fails to block CUBE) on both
+this machine and dicto-node.
+
+## Johnson solids — elongated/gyroelongated pyramids, cupolas, rotunda (2026-09-08)
+
+13 more Johnson solids, bringing the family to 19/92: elongated pyramids
+(J7-J9 — a matching prism inserted under the batch-1 pyramid cap),
+gyroelongated pyramids (J10-J11, n=4,5 only — an antiprism instead of a
+prism; n=3 doesn't exist as a distinct Johnson solid, since a triangular
+antiprism is just an octahedron), elongated cupolas/rotunda (J18-J21 — a
+prism inserted under the batch-1 cupola/rotunda's own larger face), and
+gyroelongated cupolas/rotunda (J22-J25 — an antiprism instead).
+
+Every shape is literal vertex construction on top of the already-
+verified batch-1 pieces, using the same closed-form height formulas as
+before — a uniform m-gon antiprism's height solves
+`h^2 = 1 - 2*R_m^2*(1 - cos(pi/m))` (the same law-of-cosines derivation
+family as the cupola height formula, just with equal top/bottom radii
+instead of R_n vs R_2n).
+
+**A real scale-mismatch bug, worth generalizing**: building J21/J25
+(elongated/gyroelongated pentagonal rotunda) means appending a new ring
+of points to J6's own vertex data — but J6's *raw, pre-`makeSpec`*
+Python-side vertices carry whatever scale they were originally derived
+at (half of `ICOSIDODECAHEDRON`'s own coordinates, edge length 1/φ ≈
+0.618, not 1) — `makeSpec()`'s unit-edge normalization only happens once
+the final literal arrays are loaded into the actual TypeScript registry;
+the intermediate Python generation data is never re-normalized. The
+first attempt at J21 produced a hull with two different edge lengths
+(0.618 for J6's own original edges, 1.0 for the newly-appended ring,
+which was built assuming unit length) — caught immediately by the same
+edge-length-uniformity check every shape in this project goes through.
+Fixed by explicitly measuring J6's actual raw edge length and rescaling
+its vertices to exactly 1 before using them as a base for anything else.
+**General rule this generalizes to**: never assume a previously-derived
+shape's intermediate (pre-`makeSpec`) coordinates are already unit-edge
+just because the final registry entry is — measure and rescale
+explicitly before building on them, every time.
+
+A second, smaller trap avoided (not hit, but worth recording): J6's
+decagon face isn't axis-aligned the way a freshly-parameterized
+cupola/pyramid's base ring would be — it's the equatorial cross-section
+of the icosidodecahedron it was sliced from, at whatever orientation
+that hull happened to produce. Identifying "the bottom decagon" via
+J6's own verified `faces` array (the one 10-sided face) and computing
+its real outward normal (confirmed by checking which side every other
+vertex falls on, not assumed) — rather than sorting vertices by a
+z-coordinate that has no reason to mean anything for this particular
+shape — is what made the ring-insertion and rotation-about-that-normal
+(via Rodrigues' rotation formula, for the gyroelongated case) come out
+correct on the first geometry attempt.
+
+`J10_GYROELONGATED_SQUARE_PYRAMID` is the first shape in the registry
+with no degree-3 vertex at all (only degree 4 and degree 5) — every
+prior shape had at least some. `tests/e2e/render.spec.ts` gained a
+real-browser check that both degrees render/hover correctly, confirming
+nothing in that path silently assumed a degree-3 vertex exists somewhere.
+
+All 13 shapes verified against a real convex hull (V/E/F derived from
+Euler's formula plus each shape's own known face composition, independently
+worked out per shape rather than recalled from memory alone, then
+cross-checked against the hull's actual output) and matched on the first
+attempt once the J6 rescale above was fixed.
+
+Verified end to end: `validate-johnson.ts` (all 19 OK), lint/tsc clean,
+`verify:attach` (39,522), `verify:twist` (31,752), `verify:rewrite`,
+`verify:graph`, `verify:face-connectors` (2,652 — new 4-gon/6-gon/8-gon/
+10-gon compatibility groups spanning the new elongated/gyroelongated
+shapes), `verify:face-attach` (279,530, 0 failures on the first run),
+`verify:face-twist` (3,394), and the full Playwright suite (16/16,
+including the new no-degree-3-vertex check), on both this machine and
+dicto-node.
+
+Still outstanding for Johnson solids: 73 remain (92 - 19) — augmented/
+diminished/gyrate composites next, then the ~15 with no closed form at
+all (genuine numerical optimization needed), saved for last.

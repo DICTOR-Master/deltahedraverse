@@ -44,7 +44,7 @@ This list is intentionally open-ended, describing the project's
 direction rather than a feature checklist — so the README doesn't need
 rewriting every time a new capability lands. **"What's here now" below
 is the ground truth for what's actually shipped today**; Johnson solids
-are in progress (6 of 92 so far), and lattice construction /
+are in progress (19 of 92 so far), and lattice construction /
 interpenetrating structures are still direction, not yet delivered.
 
 ## What's here now
@@ -82,16 +82,16 @@ Since then:
   script's tolerance without the shapes themselves being wrong — all
   worked examples in `docs/build-plan.md` of why every claim here gets a
   computational cross-check rather than trust.
-- **A first batch of 6 Johnson solids** — the two simple pyramids
-  (square, pentagonal), the three cupolas (triangular, square,
-  pentagonal), and the pentagonal rotunda (derived directly from this
-  registry's own icosidodecahedron — it's genuinely half of one). 92
-  Johnson solids exist in total; 5 are already deltahedra in this
-  registry (D6/D10/D12/D14/D16) and aren't re-derived, leaving 87 more —
-  this batch covers the 6 with clean closed-form coordinates, deferring
-  the composite (augmented/diminished/gyrate) and no-closed-form solids.
-  The first shape in this registry that isn't vertex-transitive: J1's
-  apex has degree 4 while its base vertices have degree 3.
+- **19 of 92 Johnson solids so far** — batch 1: the two simple pyramids,
+  the three cupolas, and the pentagonal rotunda (derived directly from
+  this registry's own icosidodecahedron — it's genuinely half of one).
+  Batch 2: their elongated (prism-inserted) and gyroelongated
+  (antiprism-inserted) forms. 5 of the 92 are already deltahedra in this
+  registry (D6/D10/D12/D14/D16) and aren't re-derived. The composite
+  (augmented/diminished/gyrate) and ~15 no-closed-form solids are still
+  ahead. First shape in this registry that isn't vertex-transitive: J1's
+  apex has degree 4 while its base vertices have degree 3. First with no
+  degree-3 vertex at all: J10 (only degree 4 and 5).
 - **Pick, attach, twist, confirm/cancel** — hover a vertex to see its
   capacity, pick a shape to attach, drag to twist it around the one
   remaining rotational degree of freedom, then confirm or cancel.
@@ -120,13 +120,16 @@ Since then:
   through a structure once pieces start nesting — applies to every
   placed shape at once.
 - **PolyhedralWheel** — a dodecahedron-shaped 3D radial menu (`Tab` /
-  `Space` to open) replacing the flat shape-picker button row, which
-  doesn't scale to 100+ shapes. Family-grouped (deltahedra/Platonic/
-  Archimedean/Johnson), ported from Rhombiverse's Rhombic Wheel with its
-  own metallic-silver/green color identity rather than a straight
-  reskin. Actions (augment/diminish), Spherical/X-Ray view modes, and a
-  small always-visible corner HUD element are deliberately deferred —
-  see `docs/build-plan.md`'s own section for the full design record.
+  `Space`, or the always-visible corner medallion, to open) replacing the
+  flat shape-picker button row, which doesn't scale to 100+ shapes.
+  Family-grouped (deltahedra/Platonic/Archimedean/Johnson), ported from
+  Rhombiverse's Rhombic Wheel with its own green color identity rather
+  than a straight reskin (a small silver corner medallion,
+  `CornerHudWheel`, is the one piece that stays silver, matching
+  Rhombiverse's own equivalent). Also filters to compatible shapes when
+  picking a face-attach target. Actions (augment/diminish) and
+  Spherical/X-Ray view modes are still deferred — see
+  `docs/build-plan.md`'s own sections for the full design record.
 
 ## Structure
 
