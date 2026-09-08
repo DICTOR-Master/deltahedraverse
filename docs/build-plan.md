@@ -1320,10 +1320,77 @@ and lint clean, `verify:attach` (147,408), `verify:twist` (124,002),
 `verify:face-twist` (15,385, 0 failures after removing J66-J71), and
 the full Playwright suite on dicto-node.
 
-Still outstanding for Johnson solids: 32 remain (92 - 60) — J66-J71 and
-J64 all stay genuinely unresolved (documented above and in the prior
-section, not silently missing); the augmented truncated cube/
-dodecahedron rhombus problem is worth a dedicated investigation before
-the next attempt, rather than retrying the same construction. Gyrate/
-diminished rhombicosidodecahedra (J72-J83) are next in priority order
-regardless, then the ~15 with no closed form at all, saved for last.
+Still outstanding for Johnson solids at this point: 32 remain (92 - 60)
+— J66-J71 and J64 all stay genuinely unresolved (documented above and
+in the prior section, not silently missing); the augmented truncated
+cube/dodecahedron rhombus problem is worth a dedicated investigation
+before the next attempt, rather than retrying the same construction.
+Gyrate/diminished rhombicosidodecahedra (J72-J83) are next in priority
+order regardless, then the ~15 with no closed form at all, saved for
+last.
+
+## Johnson solids — gyrate/diminished rhombicosidodecahedra (2026-09-08)
+
+11 more Johnson solids, bringing the family to 71/92: gyrate (J72),
+parabigyrate (J73), metabigyrate (J74), trigyrate (J75), diminished
+(J76), paragyrate diminished (J77), metagyrate diminished (J78),
+parabidiminished (J80), metabidiminished (J81), gyrate bidiminished
+(J82), and tridiminished (J83) rhombicosidodecahedron.
+
+**Structural insight, verified rather than assumed**: the
+rhombicosidodecahedron (RD) decomposes into 12 local "pentagonal
+cupola" regions — one per pentagon face, each surrounded by 5 triangles
+alternating with 5 squares, matching J5's own band structure exactly —
+extracted directly from RD's own registered face/edge data (which
+vertices form each pentagon's 10-vertex "waist" ring), not assumed from
+the shape's name or general description. Two operations, applied to
+one or more regions independently while everything else in RD stays
+completely fixed:
+- **gyrate**: rotate one region's pentagon cap by one waist-ring step
+  (36°) relative to its own decagon waist — the gyrated position is
+  simply the other 5 of the waist decagon's 10 edge-midpoints, the same
+  "cap sits at the angular midpoint of alternating base edges"
+  principle every cupola construction has used since batch 1.
+- **diminish**: remove one region's 5 pentagon-cap vertices entirely,
+  exposing its waist decagon as a real face once the convex hull
+  recomputes without the cap.
+
+Which regions can be combined, and what the combination is named, reuse
+the exact same face-centroid-angle classification (adjacent/meta/para)
+already proven correct for the dodecahedron in batch 7 — RD's 12
+pentagons correspond directly to the dodecahedron's 12 faces, confirmed
+to have the identical angle classes (63.4°/116.6°/180°) before reusing
+that classification rather than assuming it transfers.
+
+**Batch 8's lesson was applied proactively this time, not after the
+fact**: every quad face of every candidate was checked by diagonal
+measurement (a true square has equal diagonals of sqrt(2); a rhombus
+with the same unit edges does not) from the start, alongside the usual
+edge-length/Euler checks. All 11 accepted shapes passed with zero
+non-square quads — the discipline learned in batch 8 held up under a
+much larger, more combinatorially complex family on the first attempt.
+
+**J79 (bigyrate diminished) was attempted and left out.** Gyrating both
+regions of a para pair (reproducing J73's own already-verified
+construction) and then diminishing a third region failed with a large,
+consistent edge-length error — tried against all 10 possible
+third-region choices (every region other than the two already
+gyrated), all failing identically with the same error magnitude. Since
+every choice fails the same way, this isn't a matter of picking the
+wrong region; something about combining two simultaneous gyrations with
+a further diminish isn't understood well enough yet to construct with
+confidence. Left out rather than forced, the same standard as batch 3's
+gyrobirotunda, batch 7's J64, and batch 8's J66-J71.
+
+Verified end to end: `validate-johnson.ts` (all 71 OK), `tsc --noEmit`
+and lint clean, `verify:attach` (223,344), `verify:twist` (159,048),
+`verify:rewrite`, `verify:graph`, `verify:face-connectors` (7,165),
+`verify:face-attach` (1,977,613, 0 failures), `verify:face-twist`
+(19,153, 0 failures), and the full Playwright suite on dicto-node.
+
+Still outstanding for Johnson solids: 21 remain (92 - 71) — J64, J66-
+J71, and J79 all stay genuinely unresolved (documented above, not
+silently missing); the remaining shapes are the ~15-21 with no closed
+form at all, requiring genuine numerical optimization rather than the
+closed-form constructions used for every batch so far, saved for last
+as originally planned.
