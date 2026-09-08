@@ -40,15 +40,19 @@ Since then:
   on a plausible-looking heuristic, produced silently wrong, non-planar
   faces — see `docs/build-plan.md` for what that looked like and how it
   was actually fixed.
-- **A first batch of 3 Archimedean solids** — cuboctahedron, truncated
-  tetrahedron, truncated octahedron (10 more exist; the rest need
-  golden-ratio coordinates or a numerically-solved chiral root, deferred
-  rather than rushed). Caught two real transcription bugs building these
-  — one where independently-generated vertex and edge/face data silently
-  disagreed on ordering, one where an edge list was hand-guessed instead
-  of derived from the already-verified faces — both are in
-  `docs/build-plan.md` as worked examples of exactly the failure mode
-  `validateShape()` exists to catch.
+- **All 13 Archimedean solids** — cuboctahedron and the two truncated
+  simple-integer solids first (low transcription risk), then the
+  remaining 10 (golden-ratio coordinates, a truncated icosahedron derived
+  by 1/3-edge-truncating this project's own icosahedron, and two chiral
+  snub solids needing a numerically-solved root). Caught real
+  transcription bugs building these, at more than one level — mismatched
+  independently-generated vertex/edge orderings, a hand-guessed edge list,
+  a mis-transcribed defining cubic for the snub cube's chiral constant
+  (caught because it produced two different edge lengths instead of one),
+  and a precision-rounding bug that broke a downstream verification
+  script's tolerance without the shapes themselves being wrong — all
+  worked examples in `docs/build-plan.md` of why every claim here gets a
+  computational cross-check rather than trust.
 - **Pick, attach, twist, confirm/cancel** — hover a vertex to see its
   capacity, pick a shape to attach, drag to twist it around the one
   remaining rotational degree of freedom, then confirm or cancel.
@@ -87,7 +91,7 @@ deltahedraverse/
         core.ts          # family-agnostic infra: PolyhedronSpec, makeSpec, validateShape, triangulateFace, buildFaceConnectors
         deltahedra.ts    # the 8 deltahedra, verified against a convex hull
         platonic.ts      # cube + dodecahedron (the 2 Platonic solids not already deltahedra)
-        archimedean.ts   # cuboctahedron, truncated tetrahedron, truncated octahedron (first batch of 13)
+        archimedean.ts   # all 13 Archimedean solids
         rewrite.ts       # D10<->D12 vertex-matching (pure function, no three.js)
         index.ts         # combined POLYHEDRA / POLYHEDRON_IDS across every family
       assembly.ts        # the real {nodes, connections} graph + validation (vertex- and face-kind)
@@ -134,3 +138,10 @@ and the `verify:*` scripts (`npm run verify:attach`, etc.) all run
 without a browser; `npm run test:e2e` needs Chromium
 (`npx playwright install --with-deps chromium`) on whatever machine
 runs it.
+
+The primary dev machine is a Raspberry Pi (arm64) — fine for everything
+above, but Playwright's Chromium download is slow and occasionally
+stalls there. Where a second machine is available (`dicto-node` on the
+LAN, reachable over SSH with Chromium already installed), it's worth
+using for `npm run test:e2e` and other browser-dependent runs rather
+than waiting on the Pi.

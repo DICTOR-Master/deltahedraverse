@@ -485,8 +485,100 @@ in a real browser before (CUBE only exercised n=4, DODECAHEDRON n=5).
 Full suite: 12/12 Playwright tests, lint/tsc clean, all 10 verification
 scripts passing, on both this machine and dicto-node.
 
-Still outstanding, in rough order: the remaining 10 Archimedean solids,
-Johnson solids (92 — by far the largest remaining lift), re-matching face
-connections on rewrite (the gap noted in the face-snap section above),
-and an eventual introductory puzzle game (working name DELTIS), which
-remains speculative — see vercel-deployment-plan.md and README.md.
+## Archimedean solids — the remaining 10 (batch 2, 2026-09-08)
+
+All 13 Archimedean solids now exist. The user's ask was explicit: continue
+past the first-batch-of-3 deferral and finish the family. Same method as
+before (convex-hull cross-check, `validateShape()`, never hand-transcribe
+what can be derived), applied to genuinely harder coordinates this time.
+
+**Sourcing the raw coordinates.** 9 of the 10 came from each shape's own
+Wikipedia "Cartesian coordinates" section (fetched, not recalled from
+memory — recalling irrational-coordinate formulas by heart is exactly the
+kind of unverified claim this project's own "derive, don't duplicate"
+ethos rules out). The 10th,
+the truncated icosahedron, has no such section on its Wikipedia page at
+all — it's derived instead by 1/3-edge truncation of D20 (this project's
+own icosahedron), the same relationship truncated_tetrahedron's own
+header comment already describes for the tetrahedron. This is exact, not
+approximate, for a real geometric reason: truncating any
+all-equilateral-triangle-faced solid at parameter *t* along every edge
+produces new-polygon edges of length *t·L* regardless of vertex degree
+(law of cosines on the triangle's 60° corner — the two cut points and the
+shared vertex form a triangle with two sides of length *t·L* meeting at
+60°, so the third side is also *t·L*), and the leftover original-edge
+segment has length `(1 - 2t)·L`; setting those equal gives *t* = 1/3
+universally, independent of the triangle-faced solid's vertex degree.
+
+**A real transcription bug, caught by the same kind of cross-check this
+project has hit twice before.** The first fetch of the snub cube's
+Wikipedia page summarized its defining cubic (for the tribonacci-like
+constant `t` in its `(±1, ±1/t, ±t)` chiral vertex construction) as
+`t³ = t² + 1`. Trusting that root and building the hull produced a solid
+with **two different edge lengths** (0.965 and 1.712) instead of one
+uniform length — an immediate, loud, unmissable signal, not a subtle one.
+The actual tribonacci constant satisfies `t³ = t² + t + 1` (t ≈ 1.83929);
+using the correct root collapsed both hull edge lengths to one exact
+value. This is the same failure class as the dodecahedron's non-planar
+"top-k by dot product" faces and the truncated tetrahedron's hand-guessed
+edge list — a claim taken on trust instead of verified computationally —
+just one level upstream this time: in the *source coordinates*, not the
+transcription of already-correct coordinates into TypeScript. The fix
+generalizes the lesson: verify the number before it ever reaches code, not
+just the code once the number is in it.
+
+**The snub dodecahedron has no permutation-style formula at all** — unlike
+every other shape here, Wikipedia gives it as a single seed point `p` plus
+two 3×3 rotation matrices `M1` (claimed order 5) and `M2` (claimed order
+3), whose combined orbit under repeated multiplication is the 60 vertices.
+Both matrices were verified to actually satisfy that claim — orthogonal,
+determinant 1, `M1^5 = I`, `M2^3 = I` — before being trusted, rather than
+transcribed and assumed correct; had the fetched entries been wrong, the
+resulting point orbit almost certainly wouldn't have closed at exactly 60
+points; it did, exactly.
+
+**A second, subtler precision bug, caught by `verify-face-attach.ts` (not
+`validateShape()`).** The first version of every batch-2 vertex array was
+printed with raw coordinates rounded to 9 decimal places — but
+`verify-face-attach.ts`'s face-coincidence check uses a `1e-9` absolute
+tolerance, so that rounding put transcription noise right at the edge of
+what the check considers a match. Result: 59,440 of 105,016 face-attach
+placements "failed" — not a geometry bug, a self-inflicted precision
+budget too tight for its own tolerance. Worse for the snub dodecahedron
+specifically: its BFS vertex-orbit generator was rounding coordinates to
+9 decimals **at the point they were stored**, not just for the
+membership-dedup key, baking the same noise into the source data itself.
+Both fixed the same way: keep the dedup key coarse (9dp is plenty to
+detect "already visited this vertex") but store and print the *full*
+float64 value (Python's `repr()`, the shortest string that round-trips to
+the identical double) rather than a rounded one. Re-ran clean: 0/105,016
+failures. Recorded here because it's a real, non-obvious failure mode
+specific to literal-array-of-irrational-coordinates data — precision loss
+during transcription can silently violate a downstream script's tolerance
+even when the shape itself validates fine, and the fix is to never round
+below what the tightest consumer downstream actually needs.
+
+**Registry/UI**: no shape-picker code changes needed — `page.tsx` and
+`ShapeViewer.tsx` were already generic over `POLYHEDRON_IDS`/`POLYHEDRA`
+from batch 1. `tests/e2e/render.spec.ts` grew from 13 to all 23 shape IDs
+in its button-visibility check, plus a new decagon-face (n=10) hover
+check on the truncated dodecahedron — the largest face-size in the
+registry, never exercised in a real browser before (batch 1 topped out at
+n=6).
+
+Verified end to end: `validate-archimedean.ts` (all 13 OK), lint/tsc
+clean, `verify:attach` (14,881), `verify:twist` (9,522), `verify:rewrite`,
+`verify:graph`, `verify:face-connectors` (1,703 — new compatibility
+groups spanning every new shape's face sizes), `verify:face-attach`
+(105,016, 0 failures after the precision fix above), `verify:face-twist`
+(840), and the full Playwright suite (13/13, including a new decagon-face
+n=10 render/hover check, this registry's largest face size), all run on
+both this machine and dicto-node (the Pi's local Playwright/Chromium
+install is slow and stalls occasionally — see README.md's "Running
+locally" section for the dicto-node fallback).
+
+Still outstanding, in rough order: Johnson solids (92 — by far the
+largest remaining lift), re-matching face connections on rewrite (the gap
+noted in the face-snap section above), and an eventual introductory
+puzzle game (working name DELTIS), which remains speculative — see
+vercel-deployment-plan.md and README.md.
