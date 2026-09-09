@@ -982,6 +982,97 @@ export default function ShapeViewer({
       label.style.display = 'none';
     };
 
+    // Positions the hover/status label relative to the pointer. On touch,
+    // the lower-right offset that reads fine next to a mouse cursor puts
+    // the label directly under the finger that's currently touching --
+    // real user report ("text... is hidden under finger, should appear
+    // above touch point"). Shifted up (and slightly left, so it doesn't
+    // run as far off narrow phone screens) instead. Takes a plain
+    // MouseEvent (PointerEvent extends it, so both onPointerMove's real
+    // PointerEvent and onClick's native MouseEvent work here) --
+    // pointerType only exists on the former, checked structurally since
+    // a bare click MouseEvent won't have it.
+    const positionLabel = (event: MouseEvent, rect: DOMRect) => {
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const isTouch = 'pointerType' in event && (event as PointerEvent).pointerType === 'touch';
+      if (isTouch) {
+        label.style.left = `${x - 60}px`;
+        label.style.top = `${y - 44}px`;
+      } else {
+        label.style.left = `${x + 14}px`;
+        label.style.top = `${y + 14}px`;
+      }
+    };
+
+    // The actual vertex/node-body raycast, shared by onPointerMove (real
+    // hover, mouse/pen) AND onClick (called fresh at click time) -- touch
+    // devices don't fire a pointermove before the FIRST pointerdown of a
+    // fresh tap (nothing to move through before contact begins), so
+    // onClick reading only whatever hoveredRef/hoveredNodeRef happened to
+    // be set by a prior pointermove left touch taps seeing stale/null
+    // hover state and never resolving to anything -- real user report
+    // ("haven't been able to attach anything... no support for phone
+    // tablet"). Re-raycasting at the exact click/tap position, right
+    // before onClick reads the hover refs, makes both paths correct
+    // regardless of whether a real hover preceded this interaction.
+    const updateHover = (event: MouseEvent, rect: DOMRect) => {
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+
+      const hit = raycaster.intersectObjects(allVertexSpheres())[0]?.object as THREE.Mesh | undefined;
+
+      if (hit !== hoveredRef.current) {
+        clearHover();
+        if (hit) {
+          hoveredRef.current = hit;
+          if (hit !== selectedRef.current) paintVertex(hit, { hovered: true });
+        }
+      }
+
+      if (hit) {
+        hoveredNodeRef.current = null;
+        hoveredFaceIndexRef.current = null;
+        const { vertexId, degree, occupied } = hit.userData as VertexUserData;
+        label.textContent = occupied
+          ? `vertex ${vertexId} — capacity ${degree} (occupied)`
+          : `vertex ${vertexId} — capacity ${degree}`;
+        positionLabel(event, rect);
+        label.style.display = 'block';
+        return;
+      }
+
+      // No vertex under the cursor — check for any node body (select for
+      // delete, rewrite when D10/D12, or face-attach on the specific
+      // triangle's own polygon face).
+      const faceHits = raycaster.intersectObjects(allFaceMeshes());
+      const faceHit = faceHits[0];
+      const node = faceHit ? placedRef.current.find((p) => p.mesh === faceHit.object) : undefined;
+
+      if (node && faceHit) {
+        hoveredNodeRef.current = node;
+        const faceIndex = typeof faceHit.faceIndex === 'number' ? node.triangleToFaceIndex[faceHit.faceIndex] : null;
+        hoveredFaceIndexRef.current = faceIndex;
+
+        const { specId } = node.object.userData as ShapeObjectUserData;
+        const rewriteTarget = REWRITE_TARGET[specId];
+        const actions = ['delete'];
+        if (rewriteTarget) actions.push(`transform → ${rewriteTarget}`);
+        if (faceIndex !== null && !node.faceOccupied[faceIndex]) {
+          const faceSize = POLYHEDRA[specId].faces[faceIndex].length;
+          actions.push(`attach via this ${faceSize}-gon face`);
+        }
+        label.textContent = `click to select ${specId} node (${actions.join(', ')})`;
+        positionLabel(event, rect);
+        label.style.display = 'block';
+      } else {
+        hoveredNodeRef.current = null;
+        hoveredFaceIndexRef.current = null;
+        label.style.display = 'none';
+      }
+    };
+
     const onPointerMove = (event: PointerEvent) => {
       const pending = pendingRef.current;
       const rect = container.getBoundingClientRect();
@@ -1011,69 +1102,13 @@ export default function ShapeViewer({
 
             label.textContent = `registration ${pending.registration + 1}/${pending.registrationCount}`;
           }
-          label.style.left = `${event.clientX - rect.left + 14}px`;
-          label.style.top = `${event.clientY - rect.top + 14}px`;
+          positionLabel(event, rect);
           label.style.display = 'block';
         }
         return; // selection/hover raycasting is locked while a piece is pending
       }
 
-      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-
-      const hit = raycaster.intersectObjects(allVertexSpheres())[0]?.object as THREE.Mesh | undefined;
-
-      if (hit !== hoveredRef.current) {
-        clearHover();
-        if (hit) {
-          hoveredRef.current = hit;
-          if (hit !== selectedRef.current) paintVertex(hit, { hovered: true });
-        }
-      }
-
-      if (hit) {
-        hoveredNodeRef.current = null;
-        hoveredFaceIndexRef.current = null;
-        const { vertexId, degree, occupied } = hit.userData as VertexUserData;
-        label.textContent = occupied
-          ? `vertex ${vertexId} — capacity ${degree} (occupied)`
-          : `vertex ${vertexId} — capacity ${degree}`;
-        label.style.left = `${event.clientX - rect.left + 14}px`;
-        label.style.top = `${event.clientY - rect.top + 14}px`;
-        label.style.display = 'block';
-        return;
-      }
-
-      // No vertex under the cursor — check for any node body (select for
-      // delete, rewrite when D10/D12, or face-attach on the specific
-      // triangle's own polygon face).
-      const faceHits = raycaster.intersectObjects(allFaceMeshes());
-      const faceHit = faceHits[0];
-      const node = faceHit ? placedRef.current.find((p) => p.mesh === faceHit.object) : undefined;
-
-      if (node && faceHit) {
-        hoveredNodeRef.current = node;
-        const faceIndex = typeof faceHit.faceIndex === 'number' ? node.triangleToFaceIndex[faceHit.faceIndex] : null;
-        hoveredFaceIndexRef.current = faceIndex;
-
-        const { specId } = node.object.userData as ShapeObjectUserData;
-        const rewriteTarget = REWRITE_TARGET[specId];
-        const actions = ['delete'];
-        if (rewriteTarget) actions.push(`transform → ${rewriteTarget}`);
-        if (faceIndex !== null && !node.faceOccupied[faceIndex]) {
-          const faceSize = POLYHEDRA[specId].faces[faceIndex].length;
-          actions.push(`attach via this ${faceSize}-gon face`);
-        }
-        label.textContent = `click to select ${specId} node (${actions.join(', ')})`;
-        label.style.left = `${event.clientX - rect.left + 14}px`;
-        label.style.top = `${event.clientY - rect.top + 14}px`;
-        label.style.display = 'block';
-      } else {
-        hoveredNodeRef.current = null;
-        hoveredFaceIndexRef.current = null;
-        label.style.display = 'none';
-      }
+      updateHover(event, rect);
     };
 
     const onPointerDown = (event: PointerEvent) => {
@@ -1092,8 +1127,15 @@ export default function ShapeViewer({
       }
     };
 
-    const onClick = () => {
+    const onClick = (event: MouseEvent) => {
       if (pendingRef.current) return; // confirm/cancel drive pending state, not clicks
+
+      // Re-raycast at the click's own position before trusting the hover
+      // refs below -- see updateHover's own comment for why: touch never
+      // fires a pointermove before a fresh tap's pointerdown, so without
+      // this, hoveredRef/hoveredNodeRef could be stale or still null on
+      // mobile, and a tap would silently select/attach nothing at all.
+      updateHover(event, container.getBoundingClientRect());
 
       const hit = hoveredRef.current;
       if (hit) {
@@ -1227,7 +1269,23 @@ export default function ShapeViewer({
   }, []);
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden">
+    <div
+      ref={containerRef}
+      className="relative h-full w-full overflow-hidden"
+      // Real user report on iPad: a long touch on the scene triggers the
+      // OS's native text-selection/magnifier "highlight" UI instead of
+      // reaching this component's own pointer handlers -- nothing here
+      // told the browser this canvas isn't selectable text/content.
+      // touchAction:none also stops the browser from treating a drag as
+      // a page-scroll/pinch-zoom attempt, which competes with the
+      // custom vertex-select/rotate gestures the same way.
+      style={{
+        touchAction: 'none',
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+        WebkitTouchCallout: 'none',
+      }}
+    >
       <div
         ref={labelRef}
         className="pointer-events-none absolute z-10 hidden rounded bg-black/80 px-2 py-1 text-xs text-white"

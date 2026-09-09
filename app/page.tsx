@@ -132,10 +132,16 @@ export default function Home() {
 
   return (
     <div className="flex h-screen w-full flex-col bg-black">
-      <header className="flex items-start justify-between px-6 py-4 text-zinc-50">
+      <header className="flex items-start justify-between px-6 py-4">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Polyhedraverse</h1>
-          <p className="text-sm text-zinc-400">
+          {/* Same green-split treatment as WelcomeOverlay's <h1> --
+              "Polyhedra" pale, "verse" the brand green -- rather than
+              plain zinc-50, matching the identity established there and
+              in the wheel/browser instead of a leftover generic default. */}
+          <h1 className="text-lg font-semibold tracking-tight" style={{ color: '#a9f795' }}>
+            Polyhedra<span style={{ color: '#47cc24' }}>verse</span>
+          </h1>
+          <p className="text-sm" style={{ color: '#5ee233', opacity: 0.8 }}>
             137 shapes across 7 families — vertex ball-joints and face-to-face connections
           </p>
         </div>
@@ -150,7 +156,8 @@ export default function Home() {
           <button
             type="button"
             onClick={cycleViewMode}
-            className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
+            className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
+            style={{ background: '#0e1209', border: '1px solid rgba(71,204,36,.3)', color: '#5ee233' }}
           >
             View: {VIEW_MODE_LABELS[viewMode]}
           </button>
@@ -158,7 +165,8 @@ export default function Home() {
             type="button"
             onClick={handleSave}
             disabled={saveStatus === 'saving' || pending !== null}
-            className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700 disabled:opacity-50"
+            className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+            style={{ background: '#0e1209', border: '1px solid rgba(71,204,36,.3)', color: '#5ee233' }}
           >
             {saveStatus === 'saving' ? 'Saving…' : 'Save'}
           </button>
@@ -169,7 +177,8 @@ export default function Home() {
         <button
           type="button"
           onClick={() => openPicker('reset')}
-          className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
+          className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
+          style={{ background: '#0e1209', border: '1px solid rgba(71,204,36,.3)', color: '#5ee233' }}
         >
           Start over with… <span className="ml-1 text-xs opacity-70">(Tab / Space)</span>
         </button>
@@ -245,13 +254,7 @@ export default function Home() {
               </button>
             ))}
           </>
-        ) : (
-          <span className="text-xs text-zinc-600">
-            Click a highlighted, free vertex to attach a shape, or click a node&apos;s body to
-            select it — a free face offers face-to-face attach for shapes with a matching face
-            size (glowing nodes still have room to build from).
-          </span>
-        )}
+        ) : null}
       </nav>
 
       {rewriteNote && (
@@ -292,6 +295,39 @@ export default function Home() {
           else handleRef.current?.reset(id);
         }}
       />
+      {/* Default instructional text, moved off the top nav to a fixed
+          bottom-center pill sitting below/over the shape itself --
+          matches Rhombiverse's own RHOMBIS puzzle's #rhombis-hud exactly
+          (position: fixed, centered, pill-shaped, translucent dark
+          background), which shows this same kind of "what to do right
+          now" status text in the same spot regardless of game state.
+          Only shown in the true default state -- an active
+          pending/nodeSelection/selection already has its own action
+          buttons in the top nav, so this would be redundant there. */}
+      {!pending && !nodeSelection && !selection && (
+        <div
+          style={{
+            position: 'fixed',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            bottom: 'calc(1.5rem + env(safe-area-inset-bottom))',
+            zIndex: 10,
+            background: 'rgba(5,5,10,.6)',
+            border: '1px solid rgba(71,204,36,.2)',
+            borderRadius: 999,
+            padding: '0.5rem 1rem',
+            maxWidth: 'calc(100vw - 2rem)',
+            textAlign: 'center',
+            color: '#5ee233',
+            fontSize: 13,
+            pointerEvents: 'none',
+          }}
+        >
+          Click a highlighted, free vertex to attach a shape, or click a node&apos;s body to
+          select it — a free face offers face-to-face attach for shapes with a matching face
+          size (glowing nodes still have room to build from).
+        </div>
+      )}
       <WelcomeOverlay open={welcomeOpen} onClose={closeWelcome} />
       {!welcomeOpen && (
         <CornerHudWheel

@@ -270,7 +270,14 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
-    camera.position.set(0, 0, 4.2);
+    // Distance matches Rhombiverse's own rhombic-wheel-3d.js exactly
+    // (same FOV=45, camera.position.set(0,0,9)) -- 4.2 (barely half of
+    // that) was the actual reason this read as too large on narrow
+    // screens, same root cause as the corner HUD's own "too tightly
+    // boxed" reports just fixed the same way. minDistance/maxDistance
+    // below (OrbitControls) are user-facing zoom bounds, unrelated to
+    // this starting framing.
+    camera.position.set(0, 0, 9);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -283,7 +290,12 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
     controls.enableDamping = true;
     controls.enablePan = false;
     controls.minDistance = 2.5;
-    controls.maxDistance = 8;
+    // Raised from 8 -- the new starting distance (9, matching
+    // Rhombiverse) would otherwise get immediately clamped back down to
+    // the old 8 on the first controls.update(), silently undoing the
+    // pull-back fix above. 12 gives some real zoom-out headroom past the
+    // new default too, not just enough to avoid clamping it exactly.
+    controls.maxDistance = 12;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.8));
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
@@ -509,7 +521,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
     // wherever the camera happens to be." Not exposed in the UI itself --
     // real interaction always goes through the relative step()/drag.
     const goToCamera = (azimuthIndex: number, polarIndex: number) => {
-      const r = camera.position.length() || 4.2;
+      const r = camera.position.length() || 9;
       const azimuth = azimuthIndex * (Math.PI / 4);
       const polar = THREE.MathUtils.clamp(Math.PI / 2 + polarIndex * (Math.PI / 6), 0.35, Math.PI - 0.35);
       camera.position.set(r * Math.sin(polar) * Math.sin(azimuth), r * Math.cos(polar), r * Math.sin(polar) * Math.cos(azimuth));

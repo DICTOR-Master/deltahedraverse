@@ -51,7 +51,12 @@ import { LANG_ORDER } from '../lib/i18n';
 
 const HUD_SILVER_HEX = 0xc7ccd1;
 const RELIEF_LINE_COLOR = 0x0a0a0c;
-const SIZE = 72;
+// Matches Rhombiverse's own hud-wheel-3d.js exactly (size=144, margin=12
+// defaults) -- shrinking this to 72 earlier was the actual mistake behind
+// repeated "too tightly boxed"/"not all visible" reports, not a camera-
+// framing problem to keep tuning around. Verified against that file's own
+// createHudWheel3D() signature directly, not guessed a second time.
+const SIZE = 144;
 
 interface ActionSlot {
   faceIndex: number;
@@ -106,8 +111,11 @@ export default function CornerHudWheel({
     const faceConnectors = buildFaceConnectors(spec);
 
     const scene = new THREE.Scene();
+    // FOV and distance both match Rhombiverse's hud-wheel-3d.js exactly
+    // (PerspectiveCamera(35, ...), camera.position.set(0,0,7)) rather
+    // than a tuned-by-eye guess.
     const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 20);
-    camera.position.set(0, 0, 3.4);
+    camera.position.set(0, 0, 7);
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const key = new THREE.DirectionalLight(0xffffff, 1.1);
     key.position.set(3, 4, 5);
