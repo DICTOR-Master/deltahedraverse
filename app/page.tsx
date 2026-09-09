@@ -143,6 +143,24 @@ export default function Home() {
     setTimeout(() => setRewriteNote(null), 4000);
   };
 
+  const handleExport = () => {
+    const assembly = handleRef.current?.getAssembly();
+    if (!assembly) return;
+    // Client-side only -- no server round-trip, unlike Save (which
+    // persists to /api/assemblies for reload-on-return). Same Assembly
+    // JSON shape either way, just handed to the browser's own download
+    // flow instead of POSTed.
+    const blob = new Blob([JSON.stringify(assembly, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `polyhedraverse-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const cycleViewMode = () => {
     const next = VIEW_MODES[(VIEW_MODES.indexOf(viewMode) + 1) % VIEW_MODES.length];
     setViewModeState(next);
@@ -206,6 +224,15 @@ export default function Home() {
             style={{ background: '#0e1209', border: '1px solid rgba(71,204,36,.3)', color: '#5ee233' }}
           >
             {saveStatus === 'saving' ? 'Saving…' : 'Save'}
+          </button>
+          <button
+            type="button"
+            onClick={handleExport}
+            title="Download the current assembly as a JSON file"
+            className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
+            style={{ background: '#0e1209', border: '1px solid rgba(71,204,36,.3)', color: '#5ee233' }}
+          >
+            Export JSON
           </button>
         </div>
       </header>

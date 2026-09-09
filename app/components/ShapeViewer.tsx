@@ -123,6 +123,8 @@ export interface ShapeViewerHandle {
    * is what re-arms it.
    */
   undo(): DeleteResult | null;
+  /** The current assembly graph, exactly as saved -- for client-side export (JSON download), not persistence. */
+  getAssembly(): Assembly;
   /** Sets the render mode (opaque / translucent / skeleton-ish) for every placed shape. */
   setViewMode(mode: ViewMode): void;
 }
@@ -1064,6 +1066,13 @@ export default function ShapeViewer({
       return result;
     };
 
+    // graphRef.current is the SAME object saveAssembly below POSTs to the
+    // server -- returned directly (not cloned) since this is read
+    // synchronously by the caller (JSON.stringify right after the call),
+    // well before anything else in this single-threaded flow could
+    // mutate it.
+    const getAssembly = (): Assembly => graphRef.current;
+
     const saveAssembly = async (): Promise<boolean> => {
       try {
         const res = await fetch('/api/assemblies', {
@@ -1093,6 +1102,7 @@ export default function ShapeViewer({
       rewriteSelectedNode,
       deleteSelectedNode,
       undo,
+      getAssembly,
       setViewMode,
     });
 

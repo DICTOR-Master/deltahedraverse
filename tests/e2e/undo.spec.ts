@@ -24,6 +24,16 @@ test('Undo removes the single most recently confirmed attach and frees its targe
   await expect(page.locator('text=/Placing D6/')).toHaveCount(0);
 
   await expect(undoBtn).toBeEnabled();
+  // /api/assemblies returns whatever was last SAVED, not live client
+  // state -- confirming an attach only updates the browser's own graph,
+  // never auto-saves. Real bug caught here: this check used to read
+  // /api/assemblies without saving first, silently passing only because
+  // whichever test happened to run immediately before it had coincidentally
+  // left 2 nodes saved -- broke for real once a sibling spec (export.spec.ts)
+  // started explicitly saving a clean 1-node state first. Save before
+  // checking, same as the post-undo check below already correctly does.
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('text=Saved')).toBeVisible();
   let assembly = await page.evaluate(() => fetch('/api/assemblies').then((r) => r.json()));
   expect(assembly.nodes, 'expected two nodes after the confirmed attach').toHaveLength(2);
 
