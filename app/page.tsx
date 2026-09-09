@@ -7,6 +7,8 @@ import type { NodeSelection, ShapeSelection, ShapeViewerHandle, ViewMode } from 
 import PolyhedralWheel from './components/PolyhedralWheel';
 import CornerHudWheel from './components/CornerHudWheel';
 import ShapeBrowser from './components/browser/ShapeBrowser';
+import WelcomeOverlay from './components/WelcomeOverlay';
+import { usePrefs } from './lib/prefs';
 
 const ShapeViewer = dynamic(() => import('./components/ShapeViewer'), {
   ssr: false,
@@ -52,6 +54,24 @@ export default function Home() {
   // [the general app state]"). Shared by both the wheel and the browser.
   const [wheelMode, setWheelMode] = useState<'reset' | 'faceAttach'>('reset');
 
+  // First-visit welcome overlay -- shown once (persisted via usePrefs'
+  // welcomeSeen, only if the "don't show again" checkbox was checked),
+  // reopenable anytime via the "ℹ" button next to the corner HUD.
+  // Plain derived state, no effect needed: welcomeOpen is true if either
+  // explicitly force-reopened (the ℹ button) OR it's a fresh visit that
+  // hasn't been dismissed yet THIS session -- dismissedThisSession is
+  // separate from the persisted welcomeSeen so closing it without
+  // checking the box still hides it for the rest of the current visit,
+  // without permanently marking it seen.
+  const { welcomeSeen } = usePrefs();
+  const [welcomeForceOpen, setWelcomeForceOpen] = useState(false);
+  const [welcomeDismissedThisSession, setWelcomeDismissedThisSession] = useState(false);
+  const welcomeOpen = welcomeForceOpen || (!welcomeDismissedThisSession && !welcomeSeen);
+  const closeWelcome = () => {
+    setWelcomeForceOpen(false);
+    setWelcomeDismissedThisSession(true);
+  };
+
   const openPicker = (mode: 'reset' | 'faceAttach') => {
     setWheelMode(mode);
     setBrowserOpen(true);
@@ -63,7 +83,7 @@ export default function Home() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (wheelOpen || browserOpen) return;
+      if (wheelOpen || browserOpen || welcomeOpen) return;
       const target = e.target as HTMLElement | null;
       if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
       if (e.key === 'Tab' || e.key === ' ') {
@@ -73,7 +93,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [wheelOpen, browserOpen]);
+  }, [wheelOpen, browserOpen, welcomeOpen]);
 
   const handleSave = async () => {
     setSaveStatus('saving');
@@ -116,7 +136,7 @@ export default function Home() {
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Polyhedraverse</h1>
           <p className="text-sm text-zinc-400">
-            Deltahedra, Platonic & Archimedean solids — vertex ball-joints and face-to-face connections
+            137 shapes across 7 families — vertex ball-joints and face-to-face connections
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -272,7 +292,40 @@ export default function Home() {
           else handleRef.current?.reset(id);
         }}
       />
-      {!wheelOpen && !browserOpen && <CornerHudWheel onOpen={openWheelDirectly} />}
+      <WelcomeOverlay open={welcomeOpen} onClose={closeWelcome} />
+      {!wheelOpen && !browserOpen && !welcomeOpen && (
+        <>
+          <CornerHudWheel onOpen={openWheelDirectly} />
+          <button
+            type="button"
+            onClick={() => setWelcomeForceOpen(true)}
+            title="About Polyhedraverse"
+            aria-label="About Polyhedraverse"
+            style={{
+              position: 'fixed',
+              // Same row as CornerHudWheel (top:96, right:16, 110px wide),
+              // offset left of it -- matches the spacing already proposed
+              // for a future Phase 2 ThemeButton in this same row (see
+              // app/components/browser/*'s own plan doc), kept consistent
+              // rather than picking a new offset ad hoc.
+              top: 96,
+              right: 16 + 110 + 12,
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              background: '#0e1209',
+              border: '1px solid rgba(71,204,36,.3)',
+              color: '#5ee233',
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: 'pointer',
+              zIndex: 80,
+            }}
+          >
+            ℹ
+          </button>
+        </>
+      )}
     </div>
   );
 }

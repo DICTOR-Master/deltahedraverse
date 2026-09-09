@@ -40,9 +40,10 @@ export interface Prefs {
   recents: string[];
   language: LangCode;
   theme: ThemeState;
+  welcomeSeen: boolean;
 }
 
-const DEFAULT_PREFS: Prefs = { favorites: [], recents: [], language: 'en', theme: DEFAULT_THEME };
+const DEFAULT_PREFS: Prefs = { favorites: [], recents: [], language: 'en', theme: DEFAULT_THEME, welcomeSeen: false };
 
 function isThemeColors(v: unknown): v is ThemeColors {
   if (typeof v !== 'object' || v === null) return false;
@@ -62,7 +63,16 @@ function isStringArray(v: unknown): v is string[] {
 
 const VALID_LANGS: LangCode[] = ['en', 'ja', 'es', 'fr'];
 
-/** Structural validation for untrusted input (localStorage can hold anything, or be tampered with). */
+/**
+ * Structural validation for untrusted input (localStorage can hold anything,
+ * or be tampered with). `welcomeSeen` is checked as optional-if-present
+ * (not required) -- it's a field added after this store already shipped, so
+ * anyone's already-stored blob predating it legitimately won't have it;
+ * loadPrefs() below fills in the default rather than treating that absence
+ * as invalid, so an old stored blob doesn't get rejected wholesale (which
+ * would silently wipe someone's real favorites/recents/language/theme, not
+ * just re-show them the welcome screen).
+ */
 function isPrefs(v: unknown): v is Prefs {
   if (typeof v !== 'object' || v === null) return false;
   const p = v as Record<string, unknown>;
@@ -71,7 +81,8 @@ function isPrefs(v: unknown): v is Prefs {
     isStringArray(p.recents) &&
     typeof p.language === 'string' &&
     VALID_LANGS.includes(p.language as LangCode) &&
-    isThemeState(p.theme)
+    isThemeState(p.theme) &&
+    (p.welcomeSeen === undefined || typeof p.welcomeSeen === 'boolean')
   );
 }
 
@@ -81,7 +92,7 @@ function loadPrefs(): Prefs {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_PREFS;
     const parsed: unknown = JSON.parse(raw);
-    return isPrefs(parsed) ? parsed : DEFAULT_PREFS;
+    return isPrefs(parsed) ? { ...DEFAULT_PREFS, ...parsed } : DEFAULT_PREFS;
   } catch {
     return DEFAULT_PREFS; // corrupt JSON, storage disabled, private-mode quota, etc.
   }
@@ -147,14 +158,20 @@ export function usePrefs() {
     commit({ ...cached, theme });
   }, []);
 
+  const setWelcomeSeen = useCallback((welcomeSeen: boolean) => {
+    commit({ ...cached, welcomeSeen });
+  }, []);
+
   return {
     favorites: prefs.favorites,
     recents: prefs.recents,
     language: prefs.language,
+    welcomeSeen: prefs.welcomeSeen,
     theme: prefs.theme,
     toggleFavorite,
     recordViewed,
     setLanguage,
     setTheme,
+    setWelcomeSeen,
   };
 }
