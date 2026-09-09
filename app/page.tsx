@@ -316,7 +316,12 @@ export default function Home() {
             border: '1px solid rgba(71,204,36,.2)',
             borderRadius: 999,
             padding: '0.5rem 1rem',
-            maxWidth: 'calc(100vw - 2rem)',
+            // Leaves clearance for CornerHudWheel, now also bottom-right
+            // (160px + margin) -- this pill has pointerEvents:'none' so
+            // it can never actually block a click either way, but a
+            // narrower cap avoids a purely visual overlap in the common
+            // case where both are showing at once.
+            maxWidth: 'calc(100vw - 220px)',
             textAlign: 'center',
             color: '#5ee233',
             fontSize: 13,

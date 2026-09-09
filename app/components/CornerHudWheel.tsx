@@ -222,6 +222,7 @@ export default function CornerHudWheel({
       dragDistance = 0;
       lastX = e.clientX;
       lastY = e.clientY;
+      resumeAnimating();
     };
     const onPointerMove = (e: PointerEvent) => {
       if (!dragging) return;
@@ -254,8 +255,25 @@ export default function CornerHudWheel({
     const worldPos = new THREE.Vector3();
     const labelOpacities = new Array(ACTION_FACE_COUNT).fill(0);
 
-    let frameId: number;
+    // Render-on-demand, not an unconditional 60fps loop forever: this is
+    // a small, mostly-static medallion, not something that needs
+    // continuous rendering when nothing is actually changing (no drag in
+    // progress, every label's opacity already settled at its target).
+    // Real user report: interaction froze/stuttered specifically once a
+    // second shape was attached -- the main scene's own render loop
+    // already runs every frame regardless, so this component's own
+    // identical unconditional loop was a second full WebGL render every
+    // frame, permanently, stacking with however much more the main
+    // scene has to draw as an assembly grows. Verified the underlying
+    // attach/drag logic itself has no bug (stress-tested a full 2-shape
+    // attach sequence, including a large-jump simulated drag, with zero
+    // errors/hangs) before treating this as a render-cost problem rather
+    // than a logic one. Loop restarts itself from onPointerDown (drag
+    // start) below; nothing else needs it, since only rotation (via
+    // drag) ever changes what any of this needs to recompute.
+    let frameId: number | null = null;
     const animate = () => {
+      let stillAnimating = dragging;
       const slots = buildSlots();
       slots.forEach((slot, i) => {
         const fc = faceConnectors[slot.faceIndex];
@@ -268,7 +286,9 @@ export default function CornerHudWheel({
         const facing = worldNormal.dot(dirToCamera);
         let targetOpacity = THREE.MathUtils.clamp((facing - 0.05) / 0.5, 0, 1);
         if (facing < -0.3) targetOpacity = 0;
+        const prevOpacity = labelOpacities[i];
         labelOpacities[i] = THREE.MathUtils.lerp(labelOpacities[i], targetOpacity, 0.25);
+        if (Math.abs(labelOpacities[i] - prevOpacity) > 0.002) stillAnimating = true;
 
         worldPos.addScaledVector(worldNormal, 0.06);
         worldPos.project(camera);
@@ -283,9 +303,16 @@ export default function CornerHudWheel({
       });
 
       renderer.render(scene, camera);
-      frameId = requestAnimationFrame(animate);
+      frameId = stillAnimating ? requestAnimationFrame(animate) : null;
     };
     animate();
+
+    // Kicks the loop back on if a drag starts after it settled/stopped.
+    const resumeAnimating = () => {
+      if (frameId === null) {
+        frameId = requestAnimationFrame(animate);
+      }
+    };
 
     // Testability hook, same pattern as PolyhedralWheel's own __pwGoTo:
     // triggers an action by its fixed slot index (0=Wheel, 1=Browser,
@@ -305,7 +332,7 @@ export default function CornerHudWheel({
     const interval = window.setInterval(refreshSlots, 250);
 
     return () => {
-      cancelAnimationFrame(frameId);
+      if (frameId !== null) cancelAnimationFrame(frameId);
       window.clearInterval(interval);
       container.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
@@ -341,7 +368,17 @@ export default function CornerHudWheel({
         style={{
           position: 'fixed',
           right: 16,
-          top: 96,
+          // Bottom, not top -- real bug found live: this component's
+          // always-visible, high-zIndex box at top:96 could sit directly
+          // over the pending-attach "Confirm"/"Cancel" nav (page.tsx's
+          // second <nav>, top-anchored, in-flow), silently swallowing
+          // taps meant for Confirm instead of passing them through --
+          // exactly what looked like "freezing" once a second shape was
+          // being attached. Bottom placement removes the conflict
+          // structurally rather than patching it with more z-index
+          // precedence: nothing else in this app is anchored to the
+          // bottom-right corner.
+          bottom: 16,
           width: SIZE,
           height: SIZE,
           cursor: 'pointer',
