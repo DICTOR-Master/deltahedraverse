@@ -35,6 +35,7 @@ export default function Home() {
   const [nodeSelection, setNodeSelection] = useState<NodeSelection | null>(null);
   const [rewriteNote, setRewriteNote] = useState<string | null>(null);
   const [cageClosed, setCageClosed] = useState(false);
+  const [canUndo, setCanUndo] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [viewMode, setViewModeState] = useState<ViewMode>('normal');
   // wheelOpen now drives ONLY the literal 3D PolyhedralWheel, opened
@@ -131,6 +132,17 @@ export default function Home() {
     setTimeout(() => setRewriteNote(null), 4000);
   };
 
+  const handleUndo = () => {
+    const result = handleRef.current?.undo();
+    if (!result) return;
+    setRewriteNote(
+      result.deletedCount > 1
+        ? `Undid last attach (and ${result.deletedCount - 1} piece(s) built on top of it)`
+        : 'Undid last attach',
+    );
+    setTimeout(() => setRewriteNote(null), 4000);
+  };
+
   const cycleViewMode = () => {
     const next = VIEW_MODES[(VIEW_MODES.indexOf(viewMode) + 1) % VIEW_MODES.length];
     setViewModeState(next);
@@ -175,6 +187,16 @@ export default function Home() {
             style={{ background: '#0e1209', border: '1px solid rgba(71,204,36,.3)', color: '#5ee233' }}
           >
             View: {VIEW_MODE_LABELS[viewMode]}
+          </button>
+          <button
+            type="button"
+            onClick={handleUndo}
+            disabled={!canUndo || pending !== null}
+            title="Undo the last confirmed attach (single-level -- undoing again does nothing until you attach something new)"
+            className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+            style={{ background: '#0e1209', border: '1px solid rgba(71,204,36,.3)', color: '#5ee233' }}
+          >
+            Undo
           </button>
           <button
             type="button"
@@ -297,6 +319,7 @@ export default function Home() {
           onPendingChange={setPending}
           onNodeSelectionChange={setNodeSelection}
           onCageClosedChange={setCageClosed}
+          onCanUndoChange={setCanUndo}
           onReady={(handle) => {
             handleRef.current = handle;
           }}

@@ -113,6 +113,16 @@ export interface ShapeViewerHandle {
   rewriteSelectedNode(): RewriteResult | null;
   /** Removes the currently selected node and its whole subtree. Null if nothing is selected. */
   deleteSelectedNode(): DeleteResult | null;
+  /**
+   * Removes the single most recently CONFIRMED attach (vertex or face),
+   * and whatever's been built on top of it since, if anything. Null if
+   * there's nothing to undo (nothing confirmed yet this session, or the
+   * last one was already undone/deleted/reset past). Single-level only
+   * -- calling it again immediately after a successful undo returns null,
+   * not a second step back; a fresh confirmAttach/beginFaceAttach cycle
+   * is what re-arms it.
+   */
+  undo(): DeleteResult | null;
   /** Sets the render mode (opaque / translucent / skeleton-ish) for every placed shape. */
   setViewMode(mode: ViewMode): void;
 }
@@ -328,6 +338,7 @@ export default function ShapeViewer({
   onPendingChange,
   onNodeSelectionChange,
   onCageClosedChange,
+  onCanUndoChange,
   onReady,
 }: {
   initialShapeId: string;
@@ -335,6 +346,7 @@ export default function ShapeViewer({
   onPendingChange?: (pending: { specId: string } | null) => void;
   onNodeSelectionChange?: (selection: NodeSelection | null) => void;
   onCageClosedChange?: (closed: boolean) => void;
+  onCanUndoChange?: (canUndo: boolean) => void;
   onReady?: (handle: ShapeViewerHandle) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -350,10 +362,17 @@ export default function ShapeViewer({
   const selectedFaceIndexRef = useRef<number | null>(null);
   const pendingRef = useRef<PendingAttach | null>(null);
   const viewModeRef = useRef<ViewMode>('normal');
+  // The single most recently CONFIRMED attach's node id -- see undo()'s
+  // own doc comment on ShapeViewerHandle for the exact single-level
+  // semantics. Cleared on reset, on undo itself, and whenever that
+  // specific node gets removed some other way (an explicit delete
+  // covering it).
+  const lastAddedNodeIdRef = useRef<string | null>(null);
   const onSelectionChangeRef = useRef(onSelectionChange);
   const onPendingChangeRef = useRef(onPendingChange);
   const onNodeSelectionChangeRef = useRef(onNodeSelectionChange);
   const onCageClosedChangeRef = useRef(onCageClosedChange);
+  const onCanUndoChangeRef = useRef(onCanUndoChange);
   const onReadyRef = useRef(onReady);
 
   useEffect(() => {
@@ -371,6 +390,10 @@ export default function ShapeViewer({
   useEffect(() => {
     onCageClosedChangeRef.current = onCageClosedChange;
   }, [onCageClosedChange]);
+
+  useEffect(() => {
+    onCanUndoChangeRef.current = onCanUndoChange;
+  }, [onCanUndoChange]);
 
   useEffect(() => {
     onReadyRef.current = onReady;
@@ -522,6 +545,10 @@ export default function ShapeViewer({
       hoveredFaceIndexRef.current = null;
       selectedFaceIndexRef.current = null;
       label.style.display = 'none';
+      if (lastAddedNodeIdRef.current !== null) {
+        lastAddedNodeIdRef.current = null;
+        onCanUndoChangeRef.current?.(false);
+      }
     };
 
     const placeRoot = (specId: string) => {
@@ -826,6 +853,9 @@ export default function ShapeViewer({
         });
       }
 
+      lastAddedNodeIdRef.current = pending.nodeId;
+      onCanUndoChangeRef.current?.(true);
+
       pendingRef.current = null;
       controls.enabled = true;
       label.style.display = 'none';
@@ -941,15 +971,16 @@ export default function ShapeViewer({
     };
 
     /**
-     * Stage 8: remove the selected node and cascade to its whole subtree
-     * (every node reachable by following nodeA -> nodeB edges from it — see
-     * collectSubtree in app/lib/graph.ts). The parent's own vertex or face,
-     * if any, is freed again so something new can attach there.
+     * Removes `nodeId` and cascades to its whole subtree (every node
+     * reachable by following nodeA -> nodeB edges from it — see
+     * collectSubtree in app/lib/graph.ts). The parent's own vertex or
+     * face, if any, is freed again so something new can attach there.
+     * Shared by deleteSelectedNode (Stage 8) and undo below — the same
+     * real removal logic either way, just a different way of arriving
+     * at which nodeId to remove.
      */
-    const deleteSelectedNode = (): DeleteResult | null => {
-      const node = selectedNodeRef.current;
-      if (!node) return null;
-      const { nodeId } = node.object.userData as ShapeObjectUserData;
+    const deleteNodeById = (nodeId: string): DeleteResult | null => {
+      if (!graphRef.current.nodes.some((n) => n.id === nodeId)) return null;
 
       const subtreeIds = collectSubtree(graphRef.current.connections, nodeId);
       const parentConn = findParentConnection(graphRef.current.connections, nodeId);
@@ -988,10 +1019,49 @@ export default function ShapeViewer({
         if (parentPlaced) applyNodeAppearance(parentPlaced, parentPlaced === selectedNodeRef.current);
       }
 
+      // If the node being removed (or anything in its subtree) was the
+      // tracked "most recently added" node, there's nothing left for
+      // undo to target.
+      if (lastAddedNodeIdRef.current !== null && subtreeIds.has(lastAddedNodeIdRef.current)) {
+        lastAddedNodeIdRef.current = null;
+        onCanUndoChangeRef.current?.(false);
+      }
+
       clearNodeSelection();
       label.style.display = 'none';
       reportCageStatus();
       return { deletedCount: subtreeIds.size };
+    };
+
+    /** Stage 8: remove the currently selected node (and its subtree). */
+    const deleteSelectedNode = (): DeleteResult | null => {
+      const node = selectedNodeRef.current;
+      if (!node) return null;
+      const { nodeId } = node.object.userData as ShapeObjectUserData;
+      return deleteNodeById(nodeId);
+    };
+
+    /**
+     * Removes the single most recently confirmed attach (and whatever's
+     * been built on top of it since) -- see undo()'s own doc comment on
+     * ShapeViewerHandle for the exact semantics. Single-level: clears
+     * the tracked node id either way, so calling this again immediately
+     * is a no-op until a fresh confirmAttach/beginFaceAttach re-arms it.
+     */
+    const undo = (): DeleteResult | null => {
+      const nodeId = lastAddedNodeIdRef.current;
+      if (!nodeId) return null;
+      const result = deleteNodeById(nodeId);
+      // deleteNodeById already clears lastAddedNodeIdRef + fires the
+      // callback when it finds the target node in the subtree it
+      // removed -- but guard here too in case the node had somehow
+      // already gone stale (deleted some other way without going
+      // through deleteNodeById), so undo is never callable twice.
+      if (lastAddedNodeIdRef.current === nodeId) {
+        lastAddedNodeIdRef.current = null;
+        onCanUndoChangeRef.current?.(false);
+      }
+      return result;
     };
 
     const saveAssembly = async (): Promise<boolean> => {
@@ -1022,6 +1092,7 @@ export default function ShapeViewer({
       save: saveAssembly,
       rewriteSelectedNode,
       deleteSelectedNode,
+      undo,
       setViewMode,
     });
 
