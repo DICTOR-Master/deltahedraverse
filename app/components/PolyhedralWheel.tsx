@@ -27,9 +27,10 @@
  * per explicit user direction to build that before folding in actions
  * (augment/diminish), view modes (Spherical/X-Ray), or the corner HUD
  * element above. 7 families fit comfortably within the dodecahedron's 12
- * faces at the family-selection level (one family per face, 5 spare) --
- * see `resolveSlots`'s `level.kind === 'families'` branch, which maps
- * `FAMILIES` 1:1 onto face slots with no change needed as families are
+ * faces at the family-selection level -- all 12 filled, no spares, via
+ * antipodal clones/dual-pairings (see `resolveSlots`'s `level.kind ===
+ * 'families'` branch and its own comment for the exact face layout).
+ * `FAMILIES` still maps to face slots with no change needed as families are
  * added.
  *
  * Geometry: reuses this registry's own POLYHEDRA.DODECAHEDRON spec
@@ -151,15 +152,19 @@ function resolveSlots(
     // earlier loosely-worded note) on {1,4}, and Prisms/Antiprisms (not
     // strict duals of each other -- a prism's dual is a bipyramid, an
     // antiprism's is a trapezohedron -- but the one other naturally
-    // paired construction family here) on {2,6}. Deltahedra/Platonic/
-    // Johnson don't have a natural partner among the remaining families,
-    // so each gets a plain clone of itself on its own antipodal face
-    // instead: Deltahedra {0,10}, Platonic {3,7}, Johnson {5,9}. That
-    // leaves exactly one pair, {8,11}, still genuinely spare -- nothing
-    // real left to place there without tripling something up.
+    // paired construction family here) on {2,6}. Deltahedra/Johnson
+    // don't have a natural partner among the remaining families, so each
+    // gets a plain clone of itself on its own antipodal face instead:
+    // Deltahedra {0,10}, Johnson {5,9}. Platonic takes the last pair,
+    // {8,11}, ON TOP of its own {3,7} pair (three total faces, not
+    // two) -- per direct request to fill every remaining slot rather
+    // than leave {8,11} spare, and Platonic is the natural family to
+    // triple up: its own symbol is now a pentagon specifically because
+    // there are five Platonic solids, so it's already the family this
+    // wheel treats as the flagship/count-mnemonic one.
     const FAMILY_FACE_SLOTS: Record<FamilyKey, number[]> = {
       DELTAHEDRA: [0, 10],
-      PLATONIC: [3, 7],
+      PLATONIC: [3, 7, 8, 11],
       ARCHIMEDEAN: [1],
       JOHNSON: [5, 9],
       CATALAN: [4],
