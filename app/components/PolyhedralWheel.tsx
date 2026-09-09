@@ -116,39 +116,99 @@ const SYMBOL_FONT_PX = 36; // must match .pw-label-symbol's font-size below
 // "measurement" fictional.
 const SYMBOL_FONT = `${SYMBOL_FONT_PX}px Arial, Helvetica, sans-serif`;
 let measureCtx: CanvasRenderingContext2D | null | undefined;
-const glyphScaleCache = new Map<string, number>();
+
+interface GlyphAdjust {
+  scale: number;
+  dx: number;
+  dy: number;
+}
+const glyphAdjustCache = new Map<string, GlyphAdjust>();
 let referenceGlyphSize: number | null = null;
 
-function measureGlyphSize(symbol: string): number {
+function getMeasureCtx(): CanvasRenderingContext2D | null {
   if (measureCtx === undefined) {
     measureCtx = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
   }
-  if (!measureCtx) return 1; // no canvas (shouldn't happen client-side) -- no-op scale
-  measureCtx.font = SYMBOL_FONT;
-  const m = measureCtx.measureText(symbol);
+  return measureCtx;
+}
+
+function measureGlyphSize(ctx: CanvasRenderingContext2D, symbol: string): number {
+  const m = ctx.measureText(symbol);
   const width = (m.actualBoundingBoxLeft ?? 0) + (m.actualBoundingBoxRight ?? m.width);
   const height = (m.actualBoundingBoxAscent ?? SYMBOL_FONT_PX * 0.35) + (m.actualBoundingBoxDescent ?? 0);
   return Math.max(width, height, 1);
 }
 
 /**
- * Scale factor to apply to a single glyph so it reads as roughly the
- * same visual size as every other one. Reference is a capital "M" --
- * representative of the individual per-shape symbols (almost always an
- * uppercase ASCII letter), so those need the least correction and the
- * family-level geometric glyphs (which vary far more from each other)
- * scale toward matching them. Clamped so a degenerate measurement (a
- * stray combining mark, an unexpectedly tiny/huge glyph) can never
- * scale to an absurd extreme -- normalizing real disparity, not chasing
- * pixel-perfect equality.
+ * Per-symbol scale + pixel offset so every glyph reads as the same size
+ * AND sits centered in its circular badge. Two separate, real disparities
+ * found live, in order:
+ *
+ * 1. SIZE: different glyphs -- the geometric family symbols, and
+ *    individual shapes' own single-letter symbols (id.slice(0,1)) --
+ *    occupy very different actual ink area at an identical font-size (a
+ *    thin "I" vs a wide "M", a small ★ vs a filled ⬢). `scale` (below)
+ *    corrects this, toward a capital "M"'s own measured size as a
+ *    reference (representative of the per-shape letter symbols, which
+ *    need the least correction).
+ *
+ * 2. CENTERING: fixing (1) alone still left the pentagon/diamond/hexagon
+ *    family symbols visibly off-center within their badge -- a *.pw-
+ *    label-glyph is centered by its PARENT's flexbox, which centers the
+ *    glyph's own CSS LAYOUT box (line-height:1 -> the FONT's generic
+ *    ascent+descent, IDENTICAL for every character), not that specific
+ *    glyph's actual rendered ink. A geometric shape glyph's ink commonly
+ *    sits at a different vertical offset within its em-box than a plain
+ *    uppercase letter's does, so the same box-centering leaves the INK
+ *    itself looking uncentered. `dx`/`dy` correct for exactly that gap
+ *    -- computed once, geometrically, from the SAME Canvas2D measurement
+ *    already needed for (1) (`fontBoundingBoxAscent/Descent`, the
+ *    generic per-font metrics driving line-height:1 layout, vs
+ *    `actualBoundingBoxAscent/Descent`, THIS glyph's real ink extent),
+ *    not eyeballed per-symbol.
+ *
+ * Applied together as `transform: translate(dx,dy) scale(k)` -- CSS
+ * composes transform-list functions in listed order (the LAST one
+ * transforms the point first), so scale happens first (about the
+ * glyph's own center, growing/shrinking it in place) and translate then
+ * shifts the result by a FIXED dx/dy in real pixels, unaffected by k.
  */
-function glyphScale(symbol: string): number {
-  const cached = glyphScaleCache.get(symbol);
-  if (cached !== undefined) return cached;
-  if (referenceGlyphSize === null) referenceGlyphSize = measureGlyphSize('M');
-  const scale = THREE.MathUtils.clamp(referenceGlyphSize / measureGlyphSize(symbol), 0.55, 1.85);
-  glyphScaleCache.set(symbol, scale);
-  return scale;
+function glyphAdjust(symbol: string): GlyphAdjust {
+  const cached = glyphAdjustCache.get(symbol);
+  if (cached) return cached;
+  const ctx = getMeasureCtx();
+  if (!ctx) return { scale: 1, dx: 0, dy: 0 }; // no canvas (shouldn't happen client-side) -- no-op
+  ctx.font = SYMBOL_FONT;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  if (referenceGlyphSize === null) referenceGlyphSize = measureGlyphSize(ctx, 'M');
+  const scale = THREE.MathUtils.clamp(referenceGlyphSize / measureGlyphSize(ctx, symbol), 0.55, 1.85);
+
+  const m = ctx.measureText(symbol);
+  const left = m.actualBoundingBoxLeft ?? 0;
+  const right = m.actualBoundingBoxRight ?? m.width;
+  const inkAscent = m.actualBoundingBoxAscent ?? SYMBOL_FONT_PX * 0.35;
+  const inkDescent = m.actualBoundingBoxDescent ?? 0;
+  // Generic per-font metrics (same for every symbol) -- what a
+  // `line-height: 1` inline box's own height/baseline position actually
+  // derive from, not this glyph's specific ink.
+  const fontAscent = m.fontBoundingBoxAscent ?? SYMBOL_FONT_PX * 0.8;
+  const fontDescent = m.fontBoundingBoxDescent ?? SYMBOL_FONT_PX * 0.2;
+
+  // Horizontal: the flex-centered box's own width is the text's ADVANCE
+  // width (m.width), not its tight ink width (left+right) -- shift so
+  // the ink's own center (not the advance box's center) lands in the
+  // middle.
+  const dx = (m.width - right + left) / 2;
+  // Vertical: shift so the ink's center-relative-to-baseline lands where
+  // the generic line-box's center-relative-to-baseline currently sits
+  // (full derivation in the header comment above).
+  const dy = (fontDescent - fontAscent) / 2 + (inkAscent - inkDescent) / 2;
+
+  const result: GlyphAdjust = { scale, dx, dy };
+  glyphAdjustCache.set(symbol, result);
+  return result;
 }
 
 // Family list, order, labels/symbols, and per-family shape ordering are
@@ -166,11 +226,17 @@ const FAMILIES: Family[] = FAMILY_ORDER.map((key) => ({
 }));
 
 // 12 faces available; family level always fits (7 populated + 5 spare).
-// A family's shape level reserves face 11 for "More" paging once its
-// own id list overflows 11 content slots (today only Archimedean does,
-// at 13 -- Johnson will too once later batches grow past 11).
-const CONTENT_FACES_PER_PAGE = 11;
+// A family's shape level reserves face 11 for "More"/next-page paging
+// once its own id list overflows a single page, and face 0 for
+// "Previous"/prior-page paging once past page 0 -- real user request:
+// "More" only ever wrapped forward, so getting back to an earlier page
+// of a large family (Johnson's 92) meant clicking through the whole
+// cycle again. 10 content slots per page (not 11) once overflow, to
+// leave both nav faces free; a non-overflowing family still uses all 12
+// for content since neither nav face is ever needed there.
+const CONTENT_FACES_PER_PAGE = 10;
 const MORE_FACE_INDEX = 11;
+const PREV_FACE_INDEX = 0;
 
 type WheelLevel = { kind: 'families' } | { kind: 'family'; familyIndex: number; page: number };
 
@@ -186,6 +252,7 @@ function resolveSlots(
   onFamily: (i: number) => void,
   onSelectShape: (id: string) => void,
   onMore: () => void,
+  onPrev: () => void,
   filterIds?: string[],
 ): FaceSlot[] {
   const slots: FaceSlot[] = Array.from({ length: 12 }, () => ({ label: '', symbol: '', spare: true, onSelect: null }));
@@ -226,6 +293,18 @@ function resolveSlots(
       ANTIPRISMS: [6],
     };
     FAMILIES.forEach((f, i) => {
+      // Real user report, confirmed by directly checking every RD
+      // (rhombic dodecahedron) face against the full registry: when
+      // filterIds is active (face-attach mode), a family can genuinely
+      // have ZERO compatible shapes -- RD's rhombic face matches nothing
+      // outside Catalan, not even a single Platonic/Archimedean/Johnson
+      // shape -- yet every family used to stay clickable regardless, so
+      // Platonic (duplicated onto 2 faces, a big target) was ALWAYS a
+      // guaranteed dead end for an RD attach, over and over. Leaving a
+      // family's face(s) genuinely spare (not clickable) here when it
+      // has no compatible shape under the current filter stops that
+      // dead end from ever being offered in the first place.
+      if (filterIds && !f.ids.some((id) => filterIds.includes(id))) return;
       for (const faceIndex of FAMILY_FACE_SLOTS[f.key]) {
         slots[faceIndex] = { label: f.label, symbol: f.symbol, spare: false, onSelect: () => onFamily(i) };
       }
@@ -234,14 +313,26 @@ function resolveSlots(
   }
 
   const family = FAMILIES[level.familyIndex];
-  // When filtering (e.g. picking a shape to face-attach: only shapes
-  // with a matching face size are real options), incompatible shapes
-  // are dropped from view entirely rather than shown disabled -- fewer,
-  // relevant faces to browse, and it reuses the exact same
-  // pagination/slotting logic below unchanged.
-  const ids = filterIds ? family.ids.filter((id) => filterIds.includes(id)) : family.ids;
+  // Real user feedback ("they should nevertheless show full family
+  // members"): pre-filtering incompatible shapes out of view entirely
+  // (the old behavior) made a family look incomplete or wrong -- Catalan
+  // in particular could look like it had far fewer members than its
+  // real 13 depending on what was being face-attached. Every family now
+  // always lists its FULL roster, in its normal catalog order/paging,
+  // regardless of filterIds -- compatibility only decides which
+  // individual entries are selectable (spare + no onSelect, same
+  // dim/non-clickable treatment an empty wheel face already gets), never
+  // which ones exist at all. (The 'families' level above still skips a
+  // family ENTIRELY when it has zero compatible members at all -- e.g.
+  // Platonic for an RD attach -- that's a different, still-real dead end
+  // this doesn't reverse.)
+  const ids = family.ids;
   const overflow = ids.length > CONTENT_FACES_PER_PAGE;
   const perPage = overflow ? CONTENT_FACES_PER_PAGE : 12;
+  // Content starts at face 1 (not 0) once paging exists at all, leaving
+  // face 0 free for "Previous" -- fixed position regardless of how many
+  // items land on this particular page, so it's always in the same spot.
+  const contentStart = overflow ? 1 : 0;
   const start = level.page * perPage;
   const pageIds = ids.slice(start, start + perPage);
   // "More" only when items remain AFTER this page's slice -- `overflow`
@@ -253,6 +344,7 @@ function resolveSlots(
   // looking click followed by a same-orientation retry that actually
   // lands), silently skipping whatever shapes lived on that final page.
   const hasMore = start + perPage < ids.length;
+  const hasPrev = overflow && level.page > 0;
 
   pageIds.forEach((id, i) => {
     // Catalog number reflects position in the family's own face-type-
@@ -262,16 +354,20 @@ function resolveSlots(
     // their id, so this is slightly redundant there, but consistency
     // across families was worth that small overlap).
     const catalogNumber = start + i + 1;
-    slots[i] = {
+    const compatible = !filterIds || filterIds.includes(id);
+    slots[contentStart + i] = {
       label: `[${catalogNumber}] ${id.replaceAll('_', ' ')}`,
       symbol: id.slice(0, 1),
-      spare: false,
-      onSelect: () => onSelectShape(id),
+      spare: !compatible,
+      onSelect: compatible ? () => onSelectShape(id) : null,
     };
   });
 
   if (hasMore) {
     slots[MORE_FACE_INDEX] = { label: 'More', symbol: '→', spare: false, onSelect: onMore };
+  }
+  if (hasPrev) {
+    slots[PREV_FACE_INDEX] = { label: 'Previous', symbol: '←', spare: false, onSelect: onPrev };
   }
 
   return slots;
@@ -284,9 +380,12 @@ export interface PolyhedralWheelProps {
   /**
    * When set, only these shape ids are selectable within any family
    * (e.g. face-attach: only shapes with a matching face size are real
-   * options) -- incompatible shapes are dropped from view entirely, not
-   * shown disabled. Omit for the unrestricted "start over with any
-   * shape" case.
+   * options). A family with at least one compatible member still lists
+   * its FULL roster (incompatible entries shown dim/non-clickable, not
+   * removed) -- a family with ZERO compatible members anywhere is
+   * skipped entirely at the family-selection level instead of ever
+   * being offered as a guaranteed dead end. Omit for the unrestricted
+   * "start over with any shape" case.
    */
   filterIds?: string[];
 }
@@ -474,7 +573,8 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
         labelEls[i].classList.toggle('spare', slot.spare);
         const glyphEl = labelEls[i].querySelector('.pw-label-glyph') as HTMLElement;
         glyphEl.textContent = slot.symbol;
-        glyphEl.style.transform = `scale(${glyphScale(slot.symbol)})`;
+        const adjust = glyphAdjust(slot.symbol);
+        glyphEl.style.transform = `translate(${adjust.dx}px, ${adjust.dy}px) scale(${adjust.scale})`;
         labelTextEls[i].textContent = slot.label;
       });
     };
@@ -610,7 +710,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
       frameId = requestAnimationFrame(animate);
     };
     animate();
-    applySlots(resolveSlots(level, () => {}, () => {}, () => {}, filterIdsRef.current));
+    applySlots(resolveSlots(level, () => {}, () => {}, () => {}, () => {}, filterIdsRef.current));
 
     const onResize = () => {
       const { clientWidth, clientHeight } = container;
@@ -689,11 +789,18 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
       () => {
         setLevel((l) => {
           if (l.kind !== 'family') return l;
+          // Full roster always (see resolveSlots' own comment) -- paging
+          // no longer depends on filterIds at all.
           const family = FAMILIES[l.familyIndex];
-          const ids = filterIds ? family.ids.filter((id) => filterIds.includes(id)) : family.ids;
-          const pages = Math.ceil(ids.length / CONTENT_FACES_PER_PAGE);
+          const pages = Math.ceil(family.ids.length / CONTENT_FACES_PER_PAGE);
           return { ...l, page: (l.page + 1) % pages };
         });
+      },
+      () => {
+        // No modulo/wrap here -- resolveSlots only ever shows "Previous"
+        // when level.page > 0 (hasPrev), so this is always a valid
+        // in-range decrement, never called from page 0.
+        setLevel((l) => (l.kind === 'family' ? { ...l, page: l.page - 1 } : l));
       },
       filterIds,
     );

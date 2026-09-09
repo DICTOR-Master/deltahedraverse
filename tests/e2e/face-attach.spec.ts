@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { getCanvasCenter, resetTo, readTooltipAt, clickWheelLabel, openBrowserWheel } from './utils';
+import { getCanvasCenter, resetTo, readTooltipAt, clickWheelLabel, openBrowserWheel, exactLabel } from './utils';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -75,4 +75,49 @@ test('cancelling a face-attach frees the target face again', async ({ page }) =>
   const textAfter = await readTooltipAt(page, cx, cy);
   expect(textAfter).toContain('CUBE');
   expect(textAfter).toMatch(/attach via this 4-gon face/);
+});
+
+test('face-attaching a RHOMBIC_DODECAHEDRON face only offers Catalan, never a dead-end family', async ({ page }) => {
+  // Real user report: repeatedly hitting "Platonic" as an offered family
+  // when face-attaching onto an RD (rhombic dodecahedron) face, every
+  // time a guaranteed dead end (Platonic has zero shapes with a face
+  // congruent to RD's rhombus -- confirmed directly against the whole
+  // registry, not assumed) that had to be manually backed out of. Root
+  // cause: the wheel's family-selection screen never applied filterIds
+  // itself, only the shape-level screen one level in did, so every
+  // family stayed clickable regardless of whether it had any real match.
+  await resetTo(page, 'RHOMBIC_DODECAHEDRON');
+  const { cx, cy } = await getCanvasCenter(page);
+
+  await page.mouse.click(cx, cy);
+  await page.getByRole('button', { name: 'Attach via face…' }).click();
+  await openBrowserWheel(page);
+
+  // Platonic (and every other non-Catalan family) must not be offered at
+  // all -- not merely "offered but empty once you click in", genuinely
+  // absent as a clickable face.
+  await expect(page.locator('.pw-label-text', { hasText: exactLabel('Platonic') })).toHaveCount(0);
+  await expect(page.locator('.pw-label-text', { hasText: exactLabel('Archimedean') })).toHaveCount(0);
+  await expect(page.locator('.pw-label-text', { hasText: exactLabel('Johnson') })).toHaveCount(0);
+  await expect(page.locator('.pw-label-text', { hasText: exactLabel('Prisms') })).toHaveCount(0);
+  await expect(page.locator('.pw-label-text', { hasText: exactLabel('Antiprisms') })).toHaveCount(0);
+  await expect(page.locator('.pw-label-text', { hasText: exactLabel('Deltahedra') })).toHaveCount(0);
+
+  // Catalan IS offered, and drilling into it shows its FULL 13-member
+  // roster (a second real complaint: dropping incompatible shapes out
+  // of view entirely made the family look incomplete) -- but only RD
+  // itself (the one shape in the registry with a face congruent to RD's
+  // own rhombus) is actually clickable; everything else in the family
+  // is visible yet marked spare/non-selectable, not hidden.
+  await clickWheelLabel(page, exactLabel('Catalan'));
+
+  const rdEntry = page.locator('.pw-label', { has: page.locator('.pw-label-text', { hasText: /RHOMBIC DODECAHEDRON/ }) });
+  await expect(rdEntry).toBeVisible();
+  await expect(rdEntry).not.toHaveClass(/spare/);
+
+  const triakisTetEntry = page.locator('.pw-label', {
+    has: page.locator('.pw-label-text', { hasText: /TRIAKIS TETRAHEDRON/ }),
+  });
+  await expect(triakisTetEntry).toBeVisible();
+  await expect(triakisTetEntry).toHaveClass(/spare/);
 });

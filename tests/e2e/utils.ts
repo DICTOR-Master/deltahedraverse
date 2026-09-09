@@ -130,7 +130,7 @@ export async function clickWheelLabel(page: Page, text: string | RegExp): Promis
   throw new Error(`clickWheelLabel: could not find/click a face labelled "${text}" at any orientation`);
 }
 
-export const CONTENT_FACES_PER_PAGE = 11; // must match PolyhedralWheel.tsx's own constant
+export const CONTENT_FACES_PER_PAGE = 10; // must match PolyhedralWheel.tsx's own constant (10 once "Previous" reserved face 0 too)
 
 /**
  * Like clickWheelLabel, but also pages forward (clicking "More") when a
