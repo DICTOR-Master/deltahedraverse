@@ -182,7 +182,31 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen w-full flex-col bg-black">
+    <div
+      className="flex h-screen w-full flex-col"
+      // Real user request: "can i have a starry background." A pure-CSS
+      // tiled dot field (no image asset, no extra render cost) rather than
+      // a DOM/canvas starfield here -- ShapeViewer's own 3D scene (which
+      // fills most of the screen most of the time) gets a REAL 3D
+      // starfield of its own (see its own scene setup) since this CSS
+      // layer only shows through in the header strip and anywhere the
+      // 3D canvas or an opaque modal backdrop doesn't cover it.
+      style={{
+        backgroundColor: '#000',
+        backgroundImage: [
+          'radial-gradient(1px 1px at 20px 30px, rgba(255,255,255,0.9), transparent)',
+          'radial-gradient(1px 1px at 90px 60px, rgba(255,255,255,0.7), transparent)',
+          'radial-gradient(1.5px 1.5px at 140px 20px, rgba(255,255,255,0.8), transparent)',
+          'radial-gradient(1px 1px at 170px 90px, rgba(255,255,255,0.6), transparent)',
+          'radial-gradient(1px 1px at 40px 110px, rgba(255,255,255,0.5), transparent)',
+          'radial-gradient(1.5px 1.5px at 110px 140px, rgba(255,255,255,0.7), transparent)',
+          'radial-gradient(1px 1px at 180px 150px, rgba(71,204,36,0.45), transparent)',
+          'radial-gradient(1px 1px at 60px 170px, rgba(255,255,255,0.55), transparent)',
+        ].join(', '),
+        backgroundSize: '200px 200px',
+        backgroundRepeat: 'repeat',
+      }}
+    >
       <header className="flex items-start justify-between px-6 py-4">
         <div>
           {/* Same green-split treatment as WelcomeOverlay's <h1> --

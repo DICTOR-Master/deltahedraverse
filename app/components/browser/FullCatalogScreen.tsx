@@ -18,6 +18,7 @@
  */
 
 import { FAMILY_ORDER, FAMILY_META, familyIds } from '../../lib/polyhedra/families';
+import { STAR_POLYHEDRON_IDS } from '../../lib/polyhedra/starPolyhedra';
 import { t, type LangCode } from '../../lib/i18n';
 import ShapePreviewCard from './ShapePreviewCard';
 
@@ -76,6 +77,35 @@ export default function FullCatalogScreen({
           </div>
         );
       })}
+      {/* Star polyhedra (Kepler-Poinsot solids) -- reference only, never
+          buildable (see starPolyhedra.ts's own header), so this section is
+          skipped entirely whenever Full Catalog is opened as an attach-flow
+          picker (filterIds set): none of these 4 could ever be a valid
+          attach target, and there's no "Add to Scene" for them anyway. */}
+      {!filterIds && STAR_POLYHEDRON_IDS.length > 0 && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 18, color: '#47cc24' }}>★</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#a9f795', letterSpacing: '.02em' }}>Star Polyhedra — reference only</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#3a9e1f' }}>{STAR_POLYHEDRON_IDS.length}</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
+            {STAR_POLYHEDRON_IDS.map((id) => (
+              <ShapePreviewCard
+                key={`star:${id}`}
+                specId={id}
+                lang={lang}
+                activeFamilies={[]}
+                isFavorite={isFavorite(id)}
+                inCompare={isInCompare(id)}
+                onOpen={onOpenShape}
+                onToggleFavorite={onToggleFavorite}
+                onToggleCompare={onToggleCompare}
+              />
+            ))}
+          </div>
+        </div>
+      )}
       {filterIds && FAMILY_ORDER.every((fam) => familyIds(fam).filter((id) => filterIds.includes(id)).length === 0) && (
         <div style={{ color: '#3a9e1f', fontSize: 12, textAlign: 'center', padding: '48px 0' }}>
           {t('search.noResults', lang)}

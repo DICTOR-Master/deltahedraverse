@@ -407,8 +407,36 @@ export default function ShapeViewer({
     if (!container || !label) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111111);
+    scene.background = new THREE.Color(0x0a0a10);
     sceneRef.current = scene;
+
+    // Starry background: a static field of small points scattered on a
+    // large sphere shell well outside any shape (shapes stay within a
+    // handful of units of the origin; the camera's own far plane is 100).
+    // Purely decorative, zero per-frame cost -- one static BufferGeometry
+    // added once at scene setup, not touched by the render loop.
+    const STAR_COUNT = 800;
+    const starPositions = new Float32Array(STAR_COUNT * 3);
+    for (let i = 0; i < STAR_COUNT; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 40 + Math.random() * 20;
+      starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      starPositions[i * 3 + 2] = r * Math.cos(phi);
+    }
+    const starGeometry = new THREE.BufferGeometry();
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starMaterial = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.16,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+    });
+    const starfield = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starfield);
 
     // Face-hover highlight: a single shared overlay mesh showing exactly
     // which triangle is currently targeted, distinct from
@@ -1447,6 +1475,8 @@ export default function ShapeViewer({
       resetScene();
       faceHighlightMesh.geometry.dispose();
       faceHighlightMaterial.dispose();
+      starGeometry.dispose();
+      starMaterial.dispose();
       controls.dispose();
       container.removeChild(renderer.domElement);
       renderer.dispose();

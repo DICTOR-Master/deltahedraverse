@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { POLYHEDRA } from '../../lib/polyhedra';
+import { getAnySpec } from '../../lib/polyhedra/lookup';
 
 // Matches PolyhedralWheel's existing green identity (HUD_METAL_HEX /
 // SCRIPT_COLOR in PolyhedralWheel.tsx) so previews read as part of the same
@@ -81,7 +81,7 @@ export default function ShapePreview({ specId, size, spin = false }: ShapePrevie
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const spec = POLYHEDRA[specId];
+    const spec = getAnySpec(specId);
     if (!canvas || !spec) return;
 
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;

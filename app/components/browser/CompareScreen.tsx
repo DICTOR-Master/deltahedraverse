@@ -1,6 +1,6 @@
 'use client';
 
-import { POLYHEDRA } from '../../lib/polyhedra';
+import { getAnySpec } from '../../lib/polyhedra/lookup';
 import { t, type LangCode } from '../../lib/i18n';
 import ShapePreview from './ShapePreview';
 import ShapeStatsBlock from './ShapeStatsBlock';
@@ -29,7 +29,7 @@ export default function CompareScreen({ lang, ids, onRemove, onClose }: CompareS
       </div>
       <div style={{ flex: 1, overflow: 'auto', display: 'grid', gridTemplateColumns: `repeat(${Math.max(ids.length, 1)}, minmax(200px, 1fr))`, gap: 12, padding: 16 }}>
         {ids.map((id) => {
-          const spec = POLYHEDRA[id];
+          const spec = getAnySpec(id);
           if (!spec) return null;
           return (
             <div key={id} style={{ background: '#0e1209', border: '1px solid rgba(71,204,36,.16)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>

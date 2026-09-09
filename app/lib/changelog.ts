@@ -17,6 +17,12 @@ export const CHANGELOG: ChangelogDay[] = [
   {
     date: '2026-09-09',
     entries: [
+      'Added the 4 Kepler-Poinsot star polyhedra (great dodecahedron, small stellated dodecahedron, great icosahedron, great stellated dodecahedron) as a browsable-only reference family in Full Catalog, with real geometry — every construction verified against the published Schläfli/vertex/edge/face/density table, not eyeballed — plus a real drag-to-rotate 3D wireframe viewer in the shape detail drawer.',
+      'Full Catalog is now a real scrollable page grouped into family sections, not another layer of wheel pagination — selecting it from the wheel exits the wheel immediately.',
+      'Added a one-level Undo button for the scene.',
+      'Added an "Export JSON" button to download the current assembly.',
+      'Added a dismiss (✕) button to the bottom instruction pill.',
+      'Added a "Previous" wheel face (mirroring "More") so paging backward through a large family no longer means cycling through the whole rest of it.',
       'Wheel: fixed a real iPad bug — long-pressing a wheel label triggered the browser’s native copy/select menu instead of selecting the face.',
       'Wheel: every family/shape symbol now sits inside a consistent circular badge, so faces read as a uniform size regardless of which glyph is inside.',
       'Wheel: Platonic now uses a pentagon symbol (a direct count mnemonic — there are five Platonic solids); Johnson took over the diamond it displaced.',

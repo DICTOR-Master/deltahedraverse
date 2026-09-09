@@ -59,6 +59,7 @@ const en: Dict = {
   'wheel.spin': 'Spin the Wheel',
   'lang.button': 'Language',
   'alsoIn': 'Also in: {list}',
+  'star.referenceOnly': 'Reference only — not buildable (self-intersecting star faces)',
 };
 
 const ja: Dict = {
@@ -101,6 +102,7 @@ const ja: Dict = {
   'wheel.spin': 'ホイールを回す',
   'lang.button': '言語',
   'alsoIn': '他の所属: {list}',
+  'star.referenceOnly': '参照専用 — 組み立て不可（自己交差する星形の面）',
 };
 
 const es: Dict = {
@@ -143,6 +145,7 @@ const es: Dict = {
   'wheel.spin': 'Girar la Rueda',
   'lang.button': 'Idioma',
   'alsoIn': 'También en: {list}',
+  'star.referenceOnly': 'Solo referencia — no se puede construir (caras estelares autointersecantes)',
 };
 
 const fr: Dict = {
@@ -185,6 +188,7 @@ const fr: Dict = {
   'wheel.spin': 'Faire Tourner la Roue',
   'lang.button': 'Langue',
   'alsoIn': 'Également dans : {list}',
+  'star.referenceOnly': 'Référence uniquement — non assemblable (faces étoilées auto-intersectantes)',
 };
 
 const I18N: Record<LangCode, Dict> = { en, ja, es, fr };

@@ -1,6 +1,6 @@
 'use client';
 
-import { POLYHEDRA } from '../../lib/polyhedra';
+import { getAnySpec } from '../../lib/polyhedra/lookup';
 import { FAMILY_META, familiesFor, catalogByFamily, type FamilyKey } from '../../lib/polyhedra/families';
 import { t, type LangCode } from '../../lib/i18n';
 import ShapePreview from './ShapePreview';
@@ -9,8 +9,10 @@ const CARD_PREVIEW_SIZE = 88;
 
 /** Family to show as the card's badge when a shape has more than one --
  * prefer whichever family the user is currently browsing by, otherwise
- * the shape's first (canonical FAMILY_ORDER) family. */
-function primaryFamilyFor(specId: string, activeFamilies: FamilyKey[]): FamilyKey {
+ * the shape's first (canonical FAMILY_ORDER) family. Star polyhedra
+ * belong to no FamilyKey at all (deliberately, see starPolyhedra.ts's own
+ * header) -- undefined here means "show no family badge," not a bug. */
+function primaryFamilyFor(specId: string, activeFamilies: FamilyKey[]): FamilyKey | undefined {
   const families = familiesFor(specId);
   const hit = families.find((f) => activeFamilies.includes(f));
   return hit ?? families[0];
@@ -37,11 +39,11 @@ export default function ShapePreviewCard({
   onToggleFavorite,
   onToggleCompare,
 }: ShapePreviewCardProps) {
-  const spec = POLYHEDRA[specId];
+  const spec = getAnySpec(specId);
   if (!spec) return null;
   const families = familiesFor(specId);
   const fam = primaryFamilyFor(specId, activeFamilies);
-  const catalogNumber = catalogByFamily(fam)[specId];
+  const catalogNumber = fam ? catalogByFamily(fam)[specId] : undefined;
   const displayName = spec.name.replaceAll('_', ' ');
 
   return (
@@ -67,9 +69,9 @@ export default function ShapePreviewCard({
     >
       <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontSize: 11, color: '#47cc24' }}>
         <span title={families.length > 1 ? t('alsoIn', lang, { list: families.filter((f) => f !== fam).map((f) => FAMILY_META[f].label).join(', ') }) : undefined}>
-          {FAMILY_META[fam].symbol}
+          {fam ? FAMILY_META[fam].symbol : '★'}
         </span>
-        <span style={{ fontFamily: 'monospace', opacity: 0.7 }}>[{catalogNumber}]</span>
+        {catalogNumber !== undefined && <span style={{ fontFamily: 'monospace', opacity: 0.7 }}>[{catalogNumber}]</span>}
       </div>
       <ShapePreview specId={specId} size={CARD_PREVIEW_SIZE} />
       <div style={{ fontSize: 11, textAlign: 'center', color: '#a9f795', lineHeight: 1.25 }}>{displayName}</div>
