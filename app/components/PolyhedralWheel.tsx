@@ -49,7 +49,7 @@ import {
   buildFaceConnectors,
   type Vec3,
 } from '../lib/polyhedra';
-import { FAMILY_ORDER, FAMILY_META, familyIds, faceTypeSortKey, type FamilyKey } from '../lib/polyhedra/families';
+import { FAMILY_ORDER, FAMILY_META, familyIds, type FamilyKey } from '../lib/polyhedra/families';
 import { usePrefs } from '../lib/prefs';
 import { t } from '../lib/i18n';
 
@@ -224,23 +224,15 @@ const FAMILIES: Family[] = FAMILY_ORDER.map((key) => ({
   ids: familyIds(key),
 }));
 
-// "Full Catalog" -- all 137 distinct shapes (POLYHEDRA's own keys ARE
-// exactly that de-duped set already -- see render.spec.ts's own count
-// in its test title), face-type sorted the same way every per-family
-// list is. Re-added per direct request after being pulled once already
-// ("we've lost simplicity") -- the real complaint behind that pull
-// turned out to be a DIFFERENT, genuinely amorphous flat 137-button
-// list (vertex-attach's old pre-wheel UI, fixed separately), not this
-// wheel entry itself, so it's back. Deliberately outside families.ts/
-// FAMILY_ORDER -- it's not a real family, just a full-registry view.
-const ALL_IDS: string[] = Object.keys(POLYHEDRA).sort((a, b) => {
-  const ka = faceTypeSortKey(a);
-  const kb = faceTypeSortKey(b);
-  for (let i = 0; i < ka.length; i++) {
-    if (ka[i] !== kb[i]) return ka[i] - kb[i];
-  }
-  return 0;
-});
+// "Full Catalog" -- the wheel face itself (star symbol, {8,11}) stays,
+// but selecting it no longer drills into the wheel's own pagination.
+// Real user feedback: browsing all 137 shapes one wheel-face at a time
+// read as "just go round the wheel itself almost anonymously" -- what
+// was actually expected was a full scrollable page with real family
+// SECTIONS (FullCatalogScreen.tsx, in the ShapeBrowser). Selecting this
+// face now fires onSelectAll (below) and closes the wheel immediately,
+// same as picking a real shape does, just routed to that screen instead
+// of onSelect(id).
 const ALL_CATALOG_LABEL = 'Full Catalog';
 
 // 12 faces available; family level always fits (7 populated + 5 spare).
@@ -256,10 +248,7 @@ const CONTENT_FACES_PER_PAGE = 10;
 const MORE_FACE_INDEX = 11;
 const PREV_FACE_INDEX = 0;
 
-type WheelLevel =
-  | { kind: 'families' }
-  | { kind: 'family'; familyIndex: number; page: number }
-  | { kind: 'all'; page: number };
+type WheelLevel = { kind: 'families' } | { kind: 'family'; familyIndex: number; page: number };
 
 interface FaceSlot {
   label: string;
@@ -328,33 +317,30 @@ function resolveSlots(
         slots[faceIndex] = { label: f.label, symbol: f.symbol, spare: false, onSelect: () => onFamily(i) };
       }
     });
-    // Full Catalog is the union of every family, so it always has at
-    // least one compatible shape whenever filterIds does (filterIds is
-    // itself a subset of ALL_IDS) -- never a dead end the way a single
-    // family can be, so it's never hidden here.
+    // Full Catalog is a plain external trigger now (onAll), not a level
+    // this wheel navigates to itself -- always clickable regardless of
+    // filterIds (FullCatalogScreen handles per-section compatibility on
+    // its own end).
     for (const faceIndex of [8, 11]) {
       slots[faceIndex] = { label: ALL_CATALOG_LABEL, symbol: '★', spare: false, onSelect: onAll };
     }
     return slots;
   }
 
-  // 'family' and 'all' (Full Catalog) share every bit of paging/slotting
-  // logic below -- only the source id list differs.
-  //
   // Real user feedback ("they should nevertheless show full family
   // members"): pre-filtering incompatible shapes out of view entirely
   // (the old behavior) made a family look incomplete or wrong -- Catalan
   // in particular could look like it had far fewer members than its
-  // real 13 depending on what was being face-attached. Every family (and
-  // Full Catalog) now always lists its FULL roster, in its normal
-  // catalog order/paging, regardless of filterIds -- compatibility only
-  // decides which individual entries are selectable (spare + no
-  // onSelect, same dim/non-clickable treatment an empty wheel face
-  // already gets), never which ones exist at all. (The 'families' level
-  // above still skips a family ENTIRELY when it has zero compatible
-  // members at all -- e.g. Platonic for an RD attach -- that's a
-  // different, still-real dead end this doesn't reverse.)
-  const ids = level.kind === 'all' ? ALL_IDS : FAMILIES[level.familyIndex].ids;
+  // real 13 depending on what was being face-attached. Every family now
+  // always lists its FULL roster, in its normal catalog order/paging,
+  // regardless of filterIds -- compatibility only decides which
+  // individual entries are selectable (spare + no onSelect, same
+  // dim/non-clickable treatment an empty wheel face already gets), never
+  // which ones exist at all. (The 'families' level above still skips a
+  // family ENTIRELY when it has zero compatible members at all -- e.g.
+  // Platonic for an RD attach -- that's a different, still-real dead end
+  // this doesn't reverse.)
+  const ids = FAMILIES[level.familyIndex].ids;
   const overflow = ids.length > CONTENT_FACES_PER_PAGE;
   const perPage = overflow ? CONTENT_FACES_PER_PAGE : 12;
   // Content starts at face 1 (not 0) once paging exists at all, leaving
@@ -406,6 +392,14 @@ export interface PolyhedralWheelProps {
   onClose: () => void;
   onSelect: (shapeId: string) => void;
   /**
+   * Fired when the "Full Catalog" face is picked -- the wheel closes
+   * itself immediately (same as a real shape pick), the caller is
+   * responsible for showing FullCatalogScreen (app/components/browser/
+   * FullCatalogScreen.tsx). Optional only for type-safety in odd
+   * embeddings; every real usage of this wheel wires it.
+   */
+  onSelectAll?: () => void;
+  /**
    * When set, only these shape ids are selectable within any family
    * (e.g. face-attach: only shapes with a matching face size are real
    * options). A family with at least one compatible member still lists
@@ -418,7 +412,7 @@ export interface PolyhedralWheelProps {
   filterIds?: string[];
 }
 
-export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: PolyhedralWheelProps) {
+export default function PolyhedralWheel({ open, onClose, onSelect, onSelectAll, filterIds }: PolyhedralWheelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelsRef = useRef<HTMLDivElement | null>(null);
   const [level, setLevel] = useState<WheelLevel>({ kind: 'families' });
@@ -810,7 +804,13 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
     const slots = resolveSlots(
       level,
       (familyIndex) => setLevel({ kind: 'family', familyIndex, page: 0 }),
-      () => setLevel({ kind: 'all', page: 0 }),
+      () => {
+        // Full Catalog exits the wheel immediately, same as picking a
+        // real shape does -- no internal level change here at all
+        // anymore (see ALL_CATALOG_LABEL's own comment for why).
+        onSelectAll?.();
+        onClose();
+      },
       (id) => {
         onSelect(id);
         onClose();
@@ -818,10 +818,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
       () => {
         setLevel((l) => {
           if (l.kind === 'families') return l;
-          // Full roster always (see resolveSlots' own comment) -- paging
-          // no longer depends on filterIds at all.
-          const ids = l.kind === 'all' ? ALL_IDS : FAMILIES[l.familyIndex].ids;
-          const pages = Math.ceil(ids.length / CONTENT_FACES_PER_PAGE);
+          const pages = Math.ceil(FAMILIES[l.familyIndex].ids.length / CONTENT_FACES_PER_PAGE);
           return { ...l, page: (l.page + 1) % pages };
         });
       },
@@ -834,7 +831,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
       filterIds,
     );
     container.__pwApplySlots(slots);
-  }, [level, onSelect, onClose, filterIds]);
+  }, [level, onSelect, onClose, onSelectAll, filterIds]);
 
   const step = (axis: 'azimuth' | 'polar', delta: number) => {
     const container = containerRef.current as unknown as { __pwStep?: (axis: 'azimuth' | 'polar', delta: number) => void } | null;
@@ -961,9 +958,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
         <span>
           {level.kind === 'families'
             ? t('wheel.head', language)
-            : t('wheel.drag', language, {
-                family: level.kind === 'all' ? ALL_CATALOG_LABEL : FAMILIES[level.familyIndex].label,
-              })}
+            : t('wheel.drag', language, { family: FAMILIES[level.familyIndex].label })}
         </span>
         {level.kind !== 'families' && (
           <button

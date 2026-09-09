@@ -42,42 +42,60 @@ test('a "Previous" face steps back a page without wrapping through the whole fam
 });
 
 /**
- * Full Catalog (all 137 shapes, one browsable list): re-added after
- * being pulled once ("we've lost simplicity") -- the real complaint
- * behind that pull turned out to be a different, genuinely amorphous
- * flat 137-button list (vertex-attach's old pre-wheel UI), not this
- * wheel entry, so it's back on the wheel's last spare pair {8,11},
- * using the star symbol retired from every real family.
+ * Full Catalog (all 137 shapes, grouped into real family sections):
+ * re-added after being pulled once ("we've lost simplicity"), then
+ * redesigned again per direct feedback -- browsing it one wheel face at
+ * a time read as "just go round the wheel itself almost anonymously,"
+ * not the "full page of all images in sections" that was actually
+ * expected. Selecting the wheel's star-symbol face now exits the wheel
+ * immediately (same as picking a real shape) and opens
+ * FullCatalogScreen -- a single scrollable page, not more wheel
+ * pagination. See app/components/browser/FullCatalogScreen.tsx.
  */
-test('Full Catalog lists all 137 shapes, paginated the same way an overflowing family is', async ({ page }) => {
+test('Full Catalog opens a real scrollable page, grouped into family sections, not more wheel pagination', async ({ page }) => {
   await page.getByRole('button', { name: /^Start over with/ }).click();
   await openBrowserWheel(page);
   await clickWheelLabel(page, exactLabel('Full Catalog'));
 
-  const realContent = (labels: string[]) => labels.filter((t) => t !== '' && t !== 'More' && t !== 'Previous');
+  // The wheel itself is gone -- this is a real screen, not another wheel level.
+  await expect(page.locator('[data-testid="polyhedral-wheel-scene"]')).toHaveCount(0);
 
-  const page1Labels = await page.locator('.pw-label-text').allTextContents();
-  expect(page1Labels).toContain('More');
-  expect(page1Labels).not.toContain('Previous');
-  expect(realContent(page1Labels)).toHaveLength(10);
+  // Real family section headers, each followed by that family's own
+  // full member count -- not a flat, ungrouped 137-item list.
+  await expect(page.locator('text=Deltahedra').first()).toBeVisible();
+  await expect(page.locator('text=Platonic').first()).toBeVisible();
 
-  // A shape from a totally different family (RHOMBIC_DODECAHEDRON,
-  // Catalan) should eventually turn up somewhere in the full catalog --
-  // page forward until it does, or fail after a sane number of pages
-  // (137 shapes / 10 per page = 14 pages max).
-  let found = false;
-  for (let i = 0; i < 14 && !found; i++) {
-    const labels = await page.locator('.pw-label-text').allTextContents();
-    if (labels.some((t) => t.includes('RHOMBIC DODECAHEDRON'))) { found = true; break; }
-    if (!labels.includes('More')) break;
-    await clickWheelLabel(page, 'More');
-  }
-  expect(found, 'expected RHOMBIC_DODECAHEDRON to appear somewhere in Full Catalog').toBe(true);
+  // A real shape card from deep in the catalog (Catalan) is reachable
+  // by scrolling, not by paging through wheel faces.
+  const rdCard = page.locator('text=/rhombic dodecahedron/i').first();
+  await rdCard.scrollIntoViewIfNeeded();
+  await expect(rdCard).toBeVisible();
 
-  // Selecting it should actually reset to that shape, same as picking
-  // any shape from a real family would. Full Catalog's own catalog
-  // NUMBER for RD differs from its Catalan-only position (a separate,
-  // global face-type-sorted order over all 137) -- match by name only.
-  await clickWheelLabel(page, /RHOMBIC DODECAHEDRON/);
+  // Selecting it actually resets to that shape, same as any other pick
+  // -- ShapeDetailDrawer's own real "Add to Scene" button, not a guess.
+  await rdCard.click();
+  await page.getByRole('button', { name: 'Add to Scene' }).click();
   await expect(page.locator('text=/Click a highlighted/')).toBeVisible();
+});
+
+test('Full Catalog is also reachable from the direct corner-HUD wheel, not just the browser', async ({ page }) => {
+  // CornerHudWheel's medallion opens PolyhedralWheel directly (bypassing
+  // ShapeBrowser entirely) -- Full Catalog from THAT wheel has to reach
+  // FullCatalogScreen through a different path (page.tsx's own
+  // fullCatalogRequestId prop into ShapeBrowser, not the embedded
+  // wheel's local state), so this is real, separate coverage, not a
+  // duplicate of the test above. Opens the direct wheel via the HUD's
+  // own real __hudTriggerAction test hook (0=Wheel, same convention
+  // corner-hud.spec.ts already establishes) rather than driving the
+  // corner HUD's own continuously-repositioning labels directly.
+  await page.evaluate(() => {
+    (document.querySelector('[data-testid="corner-hud-wheel"]') as unknown as { __hudTriggerAction: (i: number) => void })
+      .__hudTriggerAction(0);
+  });
+  await expect(page.locator('[role="dialog"][aria-label="Shape picker wheel"]')).toBeVisible();
+
+  await clickWheelLabel(page, exactLabel('Full Catalog'));
+
+  await expect(page.locator('[role="dialog"][aria-label="Shape picker wheel"]')).toHaveCount(0);
+  await expect(page.locator('text=Deltahedra').first()).toBeVisible();
 });

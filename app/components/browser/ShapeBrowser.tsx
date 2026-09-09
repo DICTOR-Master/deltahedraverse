@@ -28,6 +28,7 @@ import FavoritesScreen from './FavoritesScreen';
 import SceneScreen from './SceneScreen';
 import ShapeDetailDrawer from './ShapeDetailDrawer';
 import CompareScreen from './CompareScreen';
+import FullCatalogScreen from './FullCatalogScreen';
 import type { AssemblySummary } from './types';
 
 export type BrowserTab = 'home' | 'search' | 'scene' | 'favorites';
@@ -44,6 +45,19 @@ export interface ShapeBrowserProps {
   /** Phase 2: live scene summary. Undefined in Phase 1 (Scene tab shows
    *  an empty-state placeholder). */
   assemblySummary?: AssemblySummary;
+  /**
+   * Bumped (any change in value, e.g. an incrementing counter) by a
+   * PARENT-level PolyhedralWheel's own onSelectAll (page.tsx's direct
+   * corner-HUD wheel, not this component's own embedded one) to request
+   * FullCatalogScreen open externally. This component stays mounted
+   * with `open` toggling false/true rather than unmounting, so a plain
+   * initial-state seed wouldn't fire on a later request -- compared
+   * against a state-tracked previous value during render instead (see
+   * this component's own body). Omit when there's no such external
+   * wheel (this component's own embedded wheel needs no round-trip, it
+   * just flips local state directly).
+   */
+  fullCatalogRequestId?: number;
 }
 
 const TABS: BrowserTab[] = ['home', 'search', 'scene', 'favorites'];
@@ -54,7 +68,14 @@ const TAB_LABEL_KEY: Record<BrowserTab, string> = {
   favorites: 'tab.favorites',
 };
 
-export default function ShapeBrowser({ open, onClose, filterIds, onSelect, assemblySummary }: ShapeBrowserProps) {
+export default function ShapeBrowser({
+  open,
+  onClose,
+  filterIds,
+  onSelect,
+  assemblySummary,
+  fullCatalogRequestId,
+}: ShapeBrowserProps) {
   const { favorites, recents, language, toggleFavorite, recordViewed, setLanguage } = usePrefs();
   const [tab, setTab] = useState<BrowserTab>('home');
   const [searchSeed, setSearchSeed] = useState<Partial<Filters> | undefined>(undefined);
@@ -62,7 +83,23 @@ export default function ShapeBrowser({ open, onClose, filterIds, onSelect, assem
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [showCompare, setShowCompare] = useState(false);
   const [showWheel, setShowWheel] = useState(false);
+  const [showFullCatalog, setShowFullCatalog] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
+
+  // External request from a PARENT-level wheel (see fullCatalogRequestId's
+  // own doc comment) -- this component's own embedded wheel below just
+  // sets showFullCatalog directly, no round-trip needed. Adjusted during
+  // RENDER against a state-tracked previous prop value (React's own
+  // recommended "derive state from a prop change" pattern), not inside
+  // a useEffect -- a ref read/write during render isn't safe under
+  // concurrent rendering, and setState directly in an effect body
+  // triggers an extra, avoidable cascading render for no benefit here
+  // (same pattern PolyhedralWheel.tsx's own `prevOpen` comparison uses).
+  const [prevFullCatalogRequestId, setPrevFullCatalogRequestId] = useState(fullCatalogRequestId);
+  if (fullCatalogRequestId !== prevFullCatalogRequestId) {
+    setPrevFullCatalogRequestId(fullCatalogRequestId);
+    if (fullCatalogRequestId) setShowFullCatalog(true);
+  }
 
   if (!open) return null;
   const lang: LangCode = language;
@@ -148,47 +185,72 @@ export default function ShapeBrowser({ open, onClose, filterIds, onSelect, assem
       </div>
 
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {tab === 'home' && (
-          <HomeScreen
-            lang={lang}
-            recents={recents}
-            favorites={favorites}
-            onSelectFamily={selectFamily}
-            onOpenShape={openShape}
-            onSeeAllRecent={() => {
-              setSearchSeed(undefined);
-              setTab('search');
-            }}
-            onSeeAllFavorites={() => setTab('favorites')}
-            isFavorite={isFavorite}
-            isInCompare={isInCompare}
-            onToggleFavorite={toggleFavorite}
-            onToggleCompare={toggleCompare}
-          />
-        )}
-        {tab === 'search' && (
-          <SearchScreen
-            key={JSON.stringify(searchSeed)}
-            lang={lang}
-            filterIds={filterIds}
-            initialFilters={searchSeed}
-            isFavorite={isFavorite}
-            isInCompare={isInCompare}
-            onOpenShape={openShape}
-            onToggleFavorite={toggleFavorite}
-            onToggleCompare={toggleCompare}
-          />
-        )}
-        {tab === 'scene' && <SceneScreen lang={lang} assemblySummary={assemblySummary} />}
-        {tab === 'favorites' && (
-          <FavoritesScreen
-            lang={lang}
-            favorites={favorites}
-            isInCompare={isInCompare}
-            onOpenShape={openShape}
-            onToggleFavorite={toggleFavorite}
-            onToggleCompare={toggleCompare}
-          />
+        {showFullCatalog ? (
+          <>
+            <div style={{ padding: '10px 18px', borderBottom: '1px solid rgba(71,204,36,.16)' }}>
+              <button
+                type="button"
+                onClick={() => setShowFullCatalog(false)}
+                style={{ background: 'none', border: '1px solid rgba(71,204,36,.3)', color: '#5ee233', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}
+              >
+                {t('action.back', lang)}
+              </button>
+            </div>
+            <FullCatalogScreen
+              lang={lang}
+              filterIds={filterIds}
+              isFavorite={isFavorite}
+              isInCompare={isInCompare}
+              onOpenShape={openShape}
+              onToggleFavorite={toggleFavorite}
+              onToggleCompare={toggleCompare}
+            />
+          </>
+        ) : (
+          <>
+            {tab === 'home' && (
+              <HomeScreen
+                lang={lang}
+                recents={recents}
+                favorites={favorites}
+                onSelectFamily={selectFamily}
+                onOpenShape={openShape}
+                onSeeAllRecent={() => {
+                  setSearchSeed(undefined);
+                  setTab('search');
+                }}
+                onSeeAllFavorites={() => setTab('favorites')}
+                isFavorite={isFavorite}
+                isInCompare={isInCompare}
+                onToggleFavorite={toggleFavorite}
+                onToggleCompare={toggleCompare}
+              />
+            )}
+            {tab === 'search' && (
+              <SearchScreen
+                key={JSON.stringify(searchSeed)}
+                lang={lang}
+                filterIds={filterIds}
+                initialFilters={searchSeed}
+                isFavorite={isFavorite}
+                isInCompare={isInCompare}
+                onOpenShape={openShape}
+                onToggleFavorite={toggleFavorite}
+                onToggleCompare={toggleCompare}
+              />
+            )}
+            {tab === 'scene' && <SceneScreen lang={lang} assemblySummary={assemblySummary} />}
+            {tab === 'favorites' && (
+              <FavoritesScreen
+                lang={lang}
+                favorites={favorites}
+                isInCompare={isInCompare}
+                onOpenShape={openShape}
+                onToggleFavorite={toggleFavorite}
+                onToggleCompare={toggleCompare}
+              />
+            )}
+          </>
         )}
 
         {selectedShapeId && (
@@ -238,7 +300,10 @@ export default function ShapeBrowser({ open, onClose, filterIds, onSelect, assem
           <button
             key={tb}
             type="button"
-            onClick={() => setTab(tb)}
+            onClick={() => {
+              setShowFullCatalog(false);
+              setTab(tb);
+            }}
             style={{
               flex: 1,
               background: 'none',
@@ -262,6 +327,10 @@ export default function ShapeBrowser({ open, onClose, filterIds, onSelect, assem
         onSelect={(id) => {
           setShowWheel(false);
           commitSelection(id);
+        }}
+        onSelectAll={() => {
+          setShowWheel(false);
+          setShowFullCatalog(true);
         }}
       />
     </div>

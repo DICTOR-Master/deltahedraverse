@@ -36,6 +36,13 @@ export default function Home() {
   const [rewriteNote, setRewriteNote] = useState<string | null>(null);
   const [cageClosed, setCageClosed] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
+  // Bumped whenever the DIRECT wheel (below, opened via CornerHudWheel's
+  // medallion) picks "Full Catalog" -- see ShapeBrowser's own
+  // fullCatalogRequestId doc comment for why a plain boolean/counter
+  // seed wouldn't fire on a second request once ShapeBrowser is already
+  // mounted. The embedded wheel INSIDE ShapeBrowser needs no such
+  // round-trip, it flips its own local state directly.
+  const [fullCatalogRequestId, setFullCatalogRequestId] = useState(0);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [viewMode, setViewModeState] = useState<ViewMode>('normal');
   // wheelOpen now drives ONLY the literal 3D PolyhedralWheel, opened
@@ -362,11 +369,17 @@ export default function Home() {
           else if (wheelMode === 'vertexAttach') handleRef.current?.beginAttach(id);
           else handleRef.current?.reset(id);
         }}
+        onSelectAll={() => {
+          setWheelOpen(false);
+          setFullCatalogRequestId((n) => n + 1);
+          setBrowserOpen(true);
+        }}
       />
       <ShapeBrowser
         open={browserOpen}
         onClose={() => setBrowserOpen(false)}
         filterIds={wheelMode === 'faceAttach' ? nodeSelection?.faceAttachOptions : undefined}
+        fullCatalogRequestId={fullCatalogRequestId}
         onSelect={(id) => {
           setBrowserOpen(false);
           if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
