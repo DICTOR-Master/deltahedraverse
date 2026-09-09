@@ -51,12 +51,14 @@ import { LANG_ORDER } from '../lib/i18n';
 
 const HUD_SILVER_HEX = 0xc7ccd1;
 const RELIEF_LINE_COLOR = 0x0a0a0c;
-// Matches Rhombiverse's own hud-wheel-3d.js exactly (size=144, margin=12
-// defaults) -- shrinking this to 72 earlier was the actual mistake behind
-// repeated "too tightly boxed"/"not all visible" reports, not a camera-
-// framing problem to keep tuning around. Verified against that file's own
-// createHudWheel3D() signature directly, not guessed a second time.
-const SIZE = 144;
+// Started from Rhombiverse's own hud-wheel-3d.js default (size=144),
+// then bumped further per direct "still too small" feedback after that
+// -- DODECAHEDRON's own circumradius (~1.40) is genuinely larger than
+// Rhombiverse's RD (1.0 exactly, verified from rdRawVerts), so matching
+// distance/FOV alone doesn't reproduce an equivalent apparent size 1:1;
+// rather than keep re-deriving the theoretical ratio, sized directly
+// against the actual reported result.
+const SIZE = 160;
 
 interface ActionSlot {
   faceIndex: number;
@@ -115,7 +117,7 @@ export default function CornerHudWheel({
     // (PerspectiveCamera(35, ...), camera.position.set(0,0,7)) rather
     // than a tuned-by-eye guess.
     const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 20);
-    camera.position.set(0, 0, 7);
+    camera.position.set(0, 0, 6);
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const key = new THREE.DirectionalLight(0xffffff, 1.1);
     key.position.set(3, 4, 5);

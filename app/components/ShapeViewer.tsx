@@ -967,6 +967,11 @@ export default function ShapeViewer({
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let isDragging = false;
+    // Tracks the most recent real PointerEvent's pointerType -- see
+    // positionLabel's own comment for why this is needed (onClick's
+    // native 'click' MouseEvent never carries pointerType itself, even
+    // for a touch-originated tap).
+    let lastPointerType = 'mouse';
 
     const allVertexSpheres = () => placedRef.current.flatMap((p) => p.vertexGroup.children);
     const allFaceMeshes = () => placedRef.current.map((p) => p.mesh);
@@ -987,18 +992,25 @@ export default function ShapeViewer({
     // the label directly under the finger that's currently touching --
     // real user report ("text... is hidden under finger, should appear
     // above touch point"). Shifted up (and slightly left, so it doesn't
-    // run as far off narrow phone screens) instead. Takes a plain
-    // MouseEvent (PointerEvent extends it, so both onPointerMove's real
-    // PointerEvent and onClick's native MouseEvent work here) --
-    // pointerType only exists on the former, checked structurally since
-    // a bare click MouseEvent won't have it.
+    // run as far off narrow phone screens) instead.
+    //
+    // isTouch can't just check event.pointerType here: onClick's own
+    // event is a native 'click' MouseEvent, which -- even for a
+    // touch-originated tap -- never carries pointerType at all (that's
+    // PointerEvent-only), so a plain-tap gesture (pointerdown+pointerup
+    // with no real intervening pointermove, the common case) would only
+    // ever reach updateHover via onClick and silently fall through to
+    // the mouse-style offset regardless of device. lastPointerTypeRef
+    // (set from the real PointerEvents onPointerDown/onPointerMove do
+    // receive) is the fallback for exactly that gap.
     const positionLabel = (event: MouseEvent, rect: DOMRect) => {
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
-      const isTouch = 'pointerType' in event && (event as PointerEvent).pointerType === 'touch';
+      const eventPointerType = 'pointerType' in event ? (event as PointerEvent).pointerType : undefined;
+      const isTouch = (eventPointerType ?? lastPointerType) === 'touch';
       if (isTouch) {
         label.style.left = `${x - 60}px`;
-        label.style.top = `${y - 44}px`;
+        label.style.top = `${y - 70}px`;
       } else {
         label.style.left = `${x + 14}px`;
         label.style.top = `${y + 14}px`;
@@ -1074,20 +1086,23 @@ export default function ShapeViewer({
     };
 
     const onPointerMove = (event: PointerEvent) => {
+      lastPointerType = event.pointerType;
       const pending = pendingRef.current;
       const rect = container.getBoundingClientRect();
 
       if (pending) {
         if (isDragging) {
+          const dragDeltaX = event.clientX - lastDragX;
+          lastDragX = event.clientX;
           if (pending.kind === 'vertex') {
-            pending.twistAngle += event.movementX * TWIST_SENSITIVITY;
+            pending.twistAngle += dragDeltaX * TWIST_SENSITIVITY;
             const twistQuat = new THREE.Quaternion().setFromAxisAngle(pending.attachLocalDir, pending.twistAngle);
             pending.placed.object.quaternion.copy(pending.baseQuaternion).multiply(twistQuat);
 
             const degrees = THREE.MathUtils.radToDeg(pending.twistAngle) % 360;
             label.textContent = `twist ${degrees.toFixed(0)}°`;
           } else {
-            pending.dragAccumPx += event.movementX;
+            pending.dragAccumPx += dragDeltaX;
             while (pending.dragAccumPx >= FACE_REGISTRATION_DRAG_PX) {
               pending.dragAccumPx -= FACE_REGISTRATION_DRAG_PX;
               pending.registration = (pending.registration + 1) % pending.registrationCount;
@@ -1111,9 +1126,18 @@ export default function ShapeViewer({
       updateHover(event, rect);
     };
 
+    // Manually-tracked position delta, not event.movementX/movementY --
+    // Safari's support for movementX/Y on touch-originated PointerEvents
+    // is real but historically unreliable (frequently 0 regardless of
+    // actual finger movement), which would make the whole twist-drag
+    // gesture below silently do nothing on iOS touch even though the
+    // exact same code drives a real mouse drag correctly. clientX/Y
+    // deltas computed by hand here have no such platform gap.
+    let lastDragX = 0;
     const onPointerDown = (event: PointerEvent) => {
       if (!pendingRef.current) return;
       isDragging = true;
+      lastDragX = event.clientX;
       container.setPointerCapture(event.pointerId);
     };
 

@@ -404,10 +404,20 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
 
     const raycaster = new THREE.Raycaster();
     let dragDistance = 0;
-    const onContainerPointerDown = () => {
+    const onContainerPointerDown = (down: PointerEvent) => {
       dragDistance = 0;
+      // Manually-tracked clientX/Y delta, not event.movementX/Y --
+      // Safari's support for movementX/Y on touch-originated
+      // PointerEvents is unreliable (often 0 regardless of real finger
+      // movement), which would leave dragDistance permanently under the
+      // click-suppress threshold on touch and make every drag get
+      // misread as a click. See ShapeViewer.tsx's own identical fix.
+      let lastX = down.clientX;
+      let lastY = down.clientY;
       const move = (ev: PointerEvent) => {
-        dragDistance += Math.hypot(ev.movementX, ev.movementY);
+        dragDistance += Math.hypot(ev.clientX - lastX, ev.clientY - lastY);
+        lastX = ev.clientX;
+        lastY = ev.clientY;
       };
       const up = () => {
         window.removeEventListener('pointermove', move);
