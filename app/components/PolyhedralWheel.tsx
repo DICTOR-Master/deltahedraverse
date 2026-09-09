@@ -27,9 +27,11 @@
  * per explicit user direction to build that before folding in actions
  * (augment/diminish), view modes (Spherical/X-Ray), or the corner HUD
  * element above. 7 families fit comfortably within the dodecahedron's 12
- * faces at the family-selection level -- all 12 filled, no spares, via
- * antipodal clones/dual-pairings (see `resolveSlots`'s `level.kind ===
- * 'families'` branch and its own comment for the exact face layout).
+ * faces at the family-selection level (one family per face, plus
+ * antipodal clones/dual-pairings filling most of the rest -- see
+ * `resolveSlots`'s `level.kind === 'families'` branch and its own
+ * comment for the exact face layout and the one pair left honestly
+ * spare).
  * `FAMILIES` still maps to face slots with no change needed as families are
  * added.
  *
@@ -48,7 +50,7 @@ import {
   buildFaceConnectors,
   type Vec3,
 } from '../lib/polyhedra';
-import { FAMILY_ORDER, FAMILY_META, familyIds, faceTypeSortKey, type FamilyKey } from '../lib/polyhedra/families';
+import { FAMILY_ORDER, FAMILY_META, familyIds, type FamilyKey } from '../lib/polyhedra/families';
 import { usePrefs } from '../lib/prefs';
 import { t } from '../lib/i18n';
 
@@ -110,22 +112,6 @@ const FAMILIES: Family[] = FAMILY_ORDER.map((key) => ({
   ids: familyIds(key),
 }));
 
-// The full registry, all 137 distinct shapes (POLYHEDRA's own keys ARE
-// exactly that de-duped set already -- see render.spec.ts's own count in
-// its test title), face-type sorted the same way every per-family list
-// is. Backs the wheel's "Full Catalog" entry -- not a real family, so it
-// deliberately lives outside families.ts/FAMILY_ORDER rather than being
-// invented as an 8th FamilyKey there.
-const ALL_IDS: string[] = Object.keys(POLYHEDRA).sort((a, b) => {
-  const ka = faceTypeSortKey(a);
-  const kb = faceTypeSortKey(b);
-  for (let i = 0; i < ka.length; i++) {
-    if (ka[i] !== kb[i]) return ka[i] - kb[i];
-  }
-  return 0;
-});
-const ALL_CATALOG_LABEL = 'Full Catalog';
-
 // 12 faces available; family level always fits (7 populated + 5 spare).
 // A family's shape level reserves face 11 for "More" paging once its
 // own id list overflows 11 content slots (today only Archimedean does,
@@ -133,10 +119,7 @@ const ALL_CATALOG_LABEL = 'Full Catalog';
 const CONTENT_FACES_PER_PAGE = 11;
 const MORE_FACE_INDEX = 11;
 
-type WheelLevel =
-  | { kind: 'families' }
-  | { kind: 'family'; familyIndex: number; page: number }
-  | { kind: 'all'; page: number };
+type WheelLevel = { kind: 'families' } | { kind: 'family'; familyIndex: number; page: number };
 
 interface FaceSlot {
   label: string;
@@ -148,7 +131,6 @@ interface FaceSlot {
 function resolveSlots(
   level: WheelLevel,
   onFamily: (i: number) => void,
-  onAll: () => void,
   onSelectShape: (id: string) => void,
   onMore: () => void,
   filterIds?: string[],
@@ -176,12 +158,11 @@ function resolveSlots(
     // Johnson don't have a natural partner among the remaining families,
     // so each gets a plain clone of itself on its own antipodal face
     // instead: Deltahedra {0,10}, Platonic {3,7}, Johnson {5,9}. That
-    // leaves exactly one pair, {8,11} -- given to "Full Catalog" (all
-    // 137 shapes at once, not filtered by family), using the ★ symbol
-    // retired from every real family (see FAMILY_META's own comment):
-    // a fitting, non-arbitrary use for it as a "this isn't a real
-    // family, it's everything" marker, rather than leaving the pair
-    // genuinely spare.
+    // leaves exactly one pair, {8,11}, genuinely spare -- a "Full
+    // Catalog" entry lived there briefly but was pulled per direct
+    // feedback ("we've lost simplicity"): a plain 7-family wheel with
+    // one honestly-empty pair reads more simply than a pseudo-family
+    // invented just to fill it.
     const FAMILY_FACE_SLOTS: Record<FamilyKey, number[]> = {
       DELTAHEDRA: [0, 10],
       PLATONIC: [3, 7],
@@ -196,21 +177,16 @@ function resolveSlots(
         slots[faceIndex] = { label: f.label, symbol: f.symbol, spare: false, onSelect: () => onFamily(i) };
       }
     });
-    for (const faceIndex of [8, 11]) {
-      slots[faceIndex] = { label: ALL_CATALOG_LABEL, symbol: '★', spare: false, onSelect: onAll };
-    }
     return slots;
   }
 
-  // 'family' and 'all' share every bit of paging/slotting logic below --
-  // only the source id list differs.
-  const idsSource = level.kind === 'all' ? ALL_IDS : FAMILIES[level.familyIndex].ids;
+  const family = FAMILIES[level.familyIndex];
   // When filtering (e.g. picking a shape to face-attach: only shapes
   // with a matching face size are real options), incompatible shapes
   // are dropped from view entirely rather than shown disabled -- fewer,
   // relevant faces to browse, and it reuses the exact same
   // pagination/slotting logic below unchanged.
-  const ids = filterIds ? idsSource.filter((id) => filterIds.includes(id)) : idsSource;
+  const ids = filterIds ? family.ids.filter((id) => filterIds.includes(id)) : family.ids;
   const overflow = ids.length > CONTENT_FACES_PER_PAGE;
   const perPage = overflow ? CONTENT_FACES_PER_PAGE : 12;
   const start = level.page * perPage;
@@ -288,7 +264,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
   }
 
   const goBack = useCallback(() => {
-    setLevel((l) => (l.kind !== 'families' ? { kind: 'families' } : l));
+    setLevel((l) => (l.kind === 'family' ? { kind: 'families' } : l));
   }, []);
 
   // Read from the scene-setup effect below (which only depends on
@@ -304,7 +280,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        if (level.kind !== 'families') goBack();
+        if (level.kind === 'family') goBack();
         else onClose();
       }
     };
@@ -572,7 +548,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
       frameId = requestAnimationFrame(animate);
     };
     animate();
-    applySlots(resolveSlots(level, () => {}, () => {}, () => {}, () => {}, filterIdsRef.current));
+    applySlots(resolveSlots(level, () => {}, () => {}, () => {}, filterIdsRef.current));
 
     const onResize = () => {
       const { clientWidth, clientHeight } = container;
@@ -644,16 +620,15 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
     const slots = resolveSlots(
       level,
       (familyIndex) => setLevel({ kind: 'family', familyIndex, page: 0 }),
-      () => setLevel({ kind: 'all', page: 0 }),
       (id) => {
         onSelect(id);
         onClose();
       },
       () => {
         setLevel((l) => {
-          if (l.kind === 'families') return l;
-          const idsSource = l.kind === 'all' ? ALL_IDS : FAMILIES[l.familyIndex].ids;
-          const ids = filterIds ? idsSource.filter((id) => filterIds.includes(id)) : idsSource;
+          if (l.kind !== 'family') return l;
+          const family = FAMILIES[l.familyIndex];
+          const ids = filterIds ? family.ids.filter((id) => filterIds.includes(id)) : family.ids;
           const pages = Math.ceil(ids.length / CONTENT_FACES_PER_PAGE);
           return { ...l, page: (l.page + 1) % pages };
         });
@@ -677,25 +652,56 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
       aria-label="Shape picker wheel"
     >
       <style>{`
-        /* NOT display:flex -- a flex column's own box (symbol + gap + text)
-           is what would get centered by translate(-50%,-50%) below, so a
-           hidden-but-still-laid-out text child (opacity alone doesn't
-           remove it from flow) would pull that centering point up off the
-           symbol itself, visibly off-center from the real face anchor.
-           Same bug, same fix, as Rhombiverse's own rhombic-wheel-3d.js
-           .has-icon rule (its own comment there explains this in detail).
-           The symbol is the only thing establishing .pw-label's box now;
-           the text is taken out of flow entirely (position:absolute) and
-           anchored above the symbol's own top edge, so it can never
-           affect centering, revealed or not. */
+        /* NOT display:flex on .pw-label itself -- a flex column's own box
+           (symbol + gap + text) is what would get centered by
+           translate(-50%,-50%) below, so a hidden-but-still-laid-out text
+           child (opacity alone doesn't remove it from flow) would pull
+           that centering point up off the symbol itself, visibly
+           off-center from the real face anchor. Same bug, same fix, as
+           Rhombiverse's own rhombic-wheel-3d.js .has-icon rule (its own
+           comment there explains this in detail). The symbol is the only
+           thing establishing .pw-label's box now; the text is taken out
+           of flow entirely (position:absolute) and anchored above the
+           symbol's own top edge, so it can never affect centering,
+           revealed or not.
+           .pw-label-symbol itself IS a fixed-size flex box (not just a
+           block at a fixed font-size) -- real inconsistency
+           found live: different glyphs (the geometric family symbols
+           △⬠⬡⬢▭▬★◇, and individual shapes' own single-letter symbols,
+           e.g. "T"/"J"/"I"/"W") occupy very different actual ink area at
+           an identical font-size, so faces read as noticeably different
+           sizes even though nothing was numerically different. Giving
+           every symbol the same fixed circular badge -- diameter fixed,
+           glyph centered inside via flex -- makes the WHEEL FACE ITSELF
+           a consistent size regardless of which glyph happens to be
+           inside it, which is what actually reads as "consistent size"
+           at a glance (a thin ring, not a pentagon: a circle doesn't
+           visually compete with any of the family symbols' own polygon
+           shapes the way another polygon frame would). */
         .pw-label {
           position: absolute; transform: translate(-50%, -50%);
           cursor: pointer; opacity: 0; transition: opacity 0.1s ease;
           text-align: center;
+          /* Real iPad bug found live: once a revealed label's
+             pointerEvents flips to 'auto' below (for click-accuracy --
+             see the comment on that toggle), a long-press directly on
+             its letter/symbol text hit the browser's own native text
+             selection/"Copy" callout instead of this component's click
+             handler, since nothing here had ever suppressed it -- the
+             touch-action/user-select fix applied to the canvas container
+             elsewhere in this file never covered these separate
+             DOM-overlay label elements. */
+          touch-action: manipulation;
+          -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
         }
         .pw-label.spare { cursor: default; }
         .pw-label-symbol {
-          display: block; font-size: 56px; line-height: 1; color: ${SCRIPT_COLOR};
+          display: flex; align-items: center; justify-content: center;
+          box-sizing: border-box;
+          width: 68px; height: 68px; border-radius: 50%;
+          border: 1.5px solid ${PANEL_BORDER};
+          background: ${PANEL_BG};
+          font-size: 36px; line-height: 1; color: ${SCRIPT_COLOR};
           text-shadow: ${LABEL_STYLE.textShadow};
         }
         .pw-label-text {
@@ -754,11 +760,9 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
         <span>
           {level.kind === 'families'
             ? t('wheel.head', language)
-            : t('wheel.drag', language, {
-                family: level.kind === 'all' ? ALL_CATALOG_LABEL : FAMILIES[level.familyIndex].label,
-              })}
+            : t('wheel.drag', language, { family: FAMILIES[level.familyIndex].label })}
         </span>
-        {level.kind !== 'families' && (
+        {level.kind === 'family' && (
           <button
             type="button"
             onClick={goBack}

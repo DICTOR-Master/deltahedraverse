@@ -8,6 +8,7 @@ import PolyhedralWheel from './components/PolyhedralWheel';
 import CornerHudWheel from './components/CornerHudWheel';
 import ShapeBrowser from './components/browser/ShapeBrowser';
 import WelcomeOverlay from './components/WelcomeOverlay';
+import ChangelogOverlay from './components/ChangelogOverlay';
 import { usePrefs } from './lib/prefs';
 
 const ShapeViewer = dynamic(() => import('./components/ShapeViewer'), {
@@ -53,6 +54,7 @@ export default function Home() {
   // time the picker opens from anywhere else ("unless returning back to
   // [the general app state]"). Shared by both the wheel and the browser.
   const [wheelMode, setWheelMode] = useState<'reset' | 'faceAttach'>('reset');
+  const [changelogOpen, setChangelogOpen] = useState(false);
 
   // First-visit welcome overlay -- shown once (persisted via usePrefs'
   // welcomeSeen, only if the "don't show again" checkbox was checked),
@@ -153,6 +155,14 @@ export default function Home() {
           )}
           {saveStatus === 'saved' && <span className="text-xs text-emerald-400">Saved</span>}
           {saveStatus === 'error' && <span className="text-xs text-red-400">Save failed</span>}
+          <button
+            type="button"
+            onClick={() => setChangelogOpen(true)}
+            className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
+            style={{ background: '#0e1209', border: '1px solid rgba(71,204,36,.3)', color: '#5ee233' }}
+          >
+            What&apos;s New
+          </button>
           <button
             type="button"
             onClick={cycleViewMode}
@@ -339,6 +349,7 @@ export default function Home() {
         </div>
       )}
       <WelcomeOverlay open={welcomeOpen} onClose={closeWelcome} />
+      <ChangelogOverlay open={changelogOpen} onClose={() => setChangelogOpen(false)} />
       {!welcomeOpen && (
         <CornerHudWheel
           wheelOpen={wheelOpen}
