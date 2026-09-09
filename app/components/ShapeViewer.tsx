@@ -194,7 +194,11 @@ function buildPlacedShape(spec: PolyhedronSpec, nodeId: string): PlacedShape {
   const { geometry, triangleToFaceIndex } = buildFaceGeometry(spec);
   const mesh = new THREE.Mesh(
     geometry,
-    new THREE.MeshStandardMaterial({ color: 0x4f8cff, flatShading: true, side: THREE.DoubleSide }),
+    // side: FrontSide here matches 'normal' mode's own value (applyViewMode
+    // is always called immediately after buildPlacedShape and would
+    // overwrite this regardless -- see its own comment for why side is
+    // mode-dependent, not a fixed DoubleSide).
+    new THREE.MeshStandardMaterial({ color: 0x4f8cff, flatShading: true, side: THREE.FrontSide }),
   );
   object.add(mesh);
 
@@ -283,12 +287,34 @@ function applyNodeAppearance(placed: PlacedShape, selected: boolean) {
  * visible (opacity near zero) rather than setting `.visible = false` —
  * Three.js's Raycaster skips invisible objects, which would silently break
  * node/face selection while in skeleton mode.
+ *
+ * side is mode-dependent, not a fixed DoubleSide: real bug found live
+ * ("a triangle not quite covering a triangle") -- face-attach glues two
+ * faces together facing exactly opposite directions (deliberately, so
+ * pieces meet back-to-back rather than overlapping -- see
+ * beginFaceAttach's own comment), and once joined those two coincident
+ * triangles are now both genuinely INTERNAL to the assembly, never meant
+ * to be independently visible from outside. With DoubleSide, both still
+ * rendered anyway -- two exactly-coincident, oppositely-wound triangles
+ * both competing for the same pixels is a textbook z-fighting setup,
+ * confirmed NOT a data/position bug first (a chained multi-attach
+ * simulation, including a snub disphenoid specifically, measured
+ * coincidence error at machine-epsilon/~1e-16 in every case tried).
+ * FrontSide for normal/Solid view fixes this by construction (the
+ * internal, away-facing triangle of each piece is simply never
+ * rasterized at all, not just less likely to conflict) and is also the
+ * geometrically correct choice for an opaque solid regardless. Kept
+ * DoubleSide for Translucent/Inside view, where seeing the far/interior
+ * surface through the near one is the whole point of those modes, not
+ * an oversight to also fix.
  */
 function applyViewMode(placed: PlacedShape, mode: ViewMode) {
   const material = placed.mesh.material as THREE.MeshStandardMaterial;
   material.transparent = mode !== 'normal';
   material.depthWrite = mode === 'normal';
   material.opacity = mode === 'normal' ? 1 : mode === 'translucent' ? 0.35 : 0.04;
+  material.side = mode === 'normal' ? THREE.FrontSide : THREE.DoubleSide;
+  material.needsUpdate = true;
 }
 
 export default function ShapeViewer({
