@@ -198,7 +198,12 @@ function buildPlacedShape(spec: PolyhedronSpec, nodeId: string): PlacedShape {
     // is always called immediately after buildPlacedShape and would
     // overwrite this regardless -- see its own comment for why side is
     // mode-dependent, not a fixed DoubleSide).
-    new THREE.MeshStandardMaterial({ color: 0x4f8cff, flatShading: true, side: THREE.FrontSide }),
+    // Matches the brand green used consistently everywhere else (logo,
+    // PolyhedralWheel, CornerHudWheel, WelcomeOverlay, header) instead of
+    // a leftover generic blue -- applies uniformly across every view
+    // mode (Solid/Translucent/Inside) since applyViewMode only ever
+    // touches opacity/side/depthWrite, never the base color itself.
+    new THREE.MeshStandardMaterial({ color: 0x47cc24, flatShading: true, side: THREE.FrontSide }),
   );
   object.add(mesh);
 

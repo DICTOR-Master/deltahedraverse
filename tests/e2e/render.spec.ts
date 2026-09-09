@@ -37,7 +37,15 @@ test('renders the canvas and every shape across all 7 wheel families (8 Deltahed
     // Exact match, not substring -- "Prisms" is a substring of "Antiprisms"
     // now that both are separate families, so a plain hasText: family.label
     // would match both faces' labels at once. See exactLabel()'s doc comment.
-    await expect(page.locator('.pw-label-text', { hasText: exactLabel(family.label) })).toHaveCount(1);
+    //
+    // >=1, not exactly 1: PolyhedralWheel.tsx's own family-face assignment
+    // now clones some families (Deltahedra/Platonic/Johnson) onto their
+    // own antipodal face too, to fill the wheel's otherwise-half-empty
+    // first view -- see its resolveSlots comment for the full layout.
+    // This test only actually cares that the family is reachable at all,
+    // not the exact face count, which is a layout detail free to change.
+    const familyFaceCount = await page.locator('.pw-label-text', { hasText: exactLabel(family.label) }).count();
+    expect(familyFaceCount, `${family.label} should have at least one wheel face`).toBeGreaterThanOrEqual(1);
 
     await clickWheelLabel(page, exactLabel(family.label));
     // Existence in the DOM (not visibility -- that depends on which way

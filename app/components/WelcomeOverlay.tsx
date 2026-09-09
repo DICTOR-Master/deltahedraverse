@@ -133,16 +133,29 @@ export default function WelcomeOverlay({ open, onClose }: WelcomeOverlayProps) {
           Don&apos;t show this again on this device
         </label>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12 }}>
           {/* Rhombiverse's own real favicon (copied from its repo root
               favicon.svg, not the separate RHOMBIS sub-puzzle's icon --
               this links to Rhombiverse itself), same small-square-icon-
               next-to-cross-link pattern as its own welcome screen's
-              "Try RHOMBIS" row. */}
+              "Try RHOMBIS" row. alignItems:flex-start (not center) on
+              the row -- real bug found live: on a narrow screen this
+              link text wraps to multiple lines, and center-aligning
+              against the WHOLE wrapped block visually drops the icon
+              down to the paragraph's middle instead of anchoring it to
+              the first line, reading as misaligned. flexShrink:0 stops
+              a narrow flex container from squeezing the icon down from
+              its real 28x28. */}
           {/* eslint-disable-next-line @next/next/no-img-element -- a
               small static public/ SVG, not a candidate for next/image's
               optimization pipeline. */}
-          <img src="/brand/rhombiverse-icon.svg" alt="" width={28} height={28} style={{ borderRadius: 6 }} />
+          <img
+            src="/brand/rhombiverse-icon.svg"
+            alt=""
+            width={28}
+            height={28}
+            style={{ borderRadius: 6, flexShrink: 0 }}
+          />
           <a href="https://rhombiverse.vercel.app" target="_blank" rel="noopener" style={{ color: GREEN_BRIGHT }}>
             New here? Explore Rhombiverse, our twin lattice-based spatial editor &rarr;
           </a>

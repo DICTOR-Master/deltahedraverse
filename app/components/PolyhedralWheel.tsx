@@ -47,7 +47,7 @@ import {
   buildFaceConnectors,
   type Vec3,
 } from '../lib/polyhedra';
-import { FAMILY_ORDER, FAMILY_META, familyIds } from '../lib/polyhedra/families';
+import { FAMILY_ORDER, FAMILY_META, familyIds, type FamilyKey } from '../lib/polyhedra/families';
 
 // Interaction mechanics (reveal timing, drag threshold, panel opacity)
 // ported exactly from rhombic-wheel-3d.js/-core.js; the COLORS are
@@ -87,7 +87,7 @@ const PANEL_BORDER = 'rgba(71, 204, 36, 0.5)';
 const CLICK_DRAG_THRESHOLD_PX = 5;
 
 interface Family {
-  key: string;
+  key: FamilyKey;
   label: string;
   symbol: string;
   ids: string[];
@@ -133,8 +133,41 @@ function resolveSlots(
   const slots: FaceSlot[] = Array.from({ length: 12 }, () => ({ label: '', symbol: '', spare: true, onSelect: null }));
 
   if (level.kind === 'families') {
+    // Face-slot assignment isn't insertion order anymore -- placed
+    // against DODECAHEDRON's real antipodal pairs (computed directly
+    // from buildFaceConnectors' normals, not assumed: {0,10} {1,4} {2,6}
+    // {3,7} {5,9} {8,11}), per direct request: fill the wheel's
+    // otherwise-half-empty first view with clones of each real family on
+    // its own opposite pole (same "duplicate a spare rather than leave
+    // it blank" policy Rhombiverse's own rhombic-wheel-3d-core.js
+    // already uses), while placing the two families with a genuine
+    // real-world relationship directly opposite EACH OTHER instead of a
+    // clone of themselves: Archimedean/Catalan (true polar duals -- see
+    // docs/catalan-solids-spec.md, Catalan solids are literally
+    // Archimedean solids reciprocated about their own midsphere, NOT
+    // Platonic ones, verified directly rather than assumed from an
+    // earlier loosely-worded note) on {1,4}, and Prisms/Antiprisms (not
+    // strict duals of each other -- a prism's dual is a bipyramid, an
+    // antiprism's is a trapezohedron -- but the one other naturally
+    // paired construction family here) on {2,6}. Deltahedra/Platonic/
+    // Johnson don't have a natural partner among the remaining families,
+    // so each gets a plain clone of itself on its own antipodal face
+    // instead: Deltahedra {0,10}, Platonic {3,7}, Johnson {5,9}. That
+    // leaves exactly one pair, {8,11}, still genuinely spare -- nothing
+    // real left to place there without tripling something up.
+    const FAMILY_FACE_SLOTS: Record<FamilyKey, number[]> = {
+      DELTAHEDRA: [0, 10],
+      PLATONIC: [3, 7],
+      ARCHIMEDEAN: [1],
+      JOHNSON: [5, 9],
+      CATALAN: [4],
+      PRISMS: [2],
+      ANTIPRISMS: [6],
+    };
     FAMILIES.forEach((f, i) => {
-      slots[i] = { label: f.label, symbol: f.symbol, spare: false, onSelect: () => onFamily(i) };
+      for (const faceIndex of FAMILY_FACE_SLOTS[f.key]) {
+        slots[faceIndex] = { label: f.label, symbol: f.symbol, spare: false, onSelect: () => onFamily(i) };
+      }
     });
     return slots;
   }

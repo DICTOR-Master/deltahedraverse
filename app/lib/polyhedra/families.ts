@@ -44,14 +44,30 @@ export const FAMILY_ORDER: FamilyKey[] = [
   'ANTIPRISMS',
 ];
 
+// Single source of truth for both PolyhedralWheel and the ShapeBrowser
+// (HomeScreen/SearchScreen already import FAMILY_META directly, so a
+// symbol changed here updates everywhere at once -- there was never
+// actually a second, independently-chosen "karaoke view" symbol set to
+// reconcile, just a request for more universally-distinct glyphs).
+// Revised for real distinctiveness, not picked freehand: every symbol
+// now has its own base SHAPE (triangle/diamond/hexagon/star/rectangle),
+// no two sharing one the way Catalan's old small-diamond (⬦) and
+// Platonic's own diamond (◇) did. Outline-vs-filled is used
+// deliberately, not decoratively, for the two families with a genuine
+// real-world relationship: Archimedean/Catalan (true polar duals -- see
+// this level's own comment in PolyhedralWheel.tsx) share the hexagon
+// outline/fill pair, and Prisms/Antiprisms (a natural paired
+// construction family, though not strict duals of each other) share
+// the rectangle outline/fill pair -- so the symbol choice itself
+// reinforces which families are related, not just avoids collisions.
 export const FAMILY_META: Record<FamilyKey, { label: string; symbol: string }> = {
   DELTAHEDRA: { label: 'Deltahedra', symbol: '△' },
   PLATONIC: { label: 'Platonic', symbol: '◇' },
   ARCHIMEDEAN: { label: 'Archimedean', symbol: '⬡' },
-  JOHNSON: { label: 'Johnson', symbol: '⛛' },
-  CATALAN: { label: 'Catalan', symbol: '⬦' },
-  PRISMS: { label: 'Prisms', symbol: '▱' },
-  ANTIPRISMS: { label: 'Antiprisms', symbol: '◭' },
+  JOHNSON: { label: 'Johnson', symbol: '★' },
+  CATALAN: { label: 'Catalan', symbol: '⬢' },
+  PRISMS: { label: 'Prisms', symbol: '▭' },
+  ANTIPRISMS: { label: 'Antiprisms', symbol: '▬' },
 };
 
 // Base membership, derived (never hand-copied) from the registry's own
