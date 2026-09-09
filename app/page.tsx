@@ -49,11 +49,16 @@ export default function Home() {
   const [browserOpen, setBrowserOpen] = useState(false);
   // 'reset': picking a shape to start over with (no filter). 'faceAttach':
   // picking a shape to attach via the currently-selected free face (only
-  // shapes with a matching face size are real options) -- set only when
-  // opened via that specific trigger, so it's naturally gone the next
-  // time the picker opens from anywhere else ("unless returning back to
-  // [the general app state]"). Shared by both the wheel and the browser.
-  const [wheelMode, setWheelMode] = useState<'reset' | 'faceAttach'>('reset');
+  // shapes with a matching face size are real options). 'vertexAttach':
+  // picking a shape to attach via the currently-selected free vertex --
+  // unlike face-attach, ANY shape is a valid vertex-attach target (a
+  // vertex ball-joint has no congruence requirement the way a flush face
+  // does), so this is unfiltered, same as 'reset' -- it only needs its
+  // own mode so onSelect below knows to call beginAttach() instead of
+  // reset(). Each is set only when opened via that specific trigger, so
+  // it's naturally gone the next time the picker opens from anywhere
+  // else. Shared by both the wheel and the browser.
+  const [wheelMode, setWheelMode] = useState<'reset' | 'faceAttach' | 'vertexAttach'>('reset');
   const [changelogOpen, setChangelogOpen] = useState(false);
 
   // First-visit welcome overlay -- shown once (persisted via usePrefs'
@@ -74,7 +79,7 @@ export default function Home() {
     setWelcomeDismissedThisSession(true);
   };
 
-  const openPicker = (mode: 'reset' | 'faceAttach') => {
+  const openPicker = (mode: 'reset' | 'faceAttach' | 'vertexAttach') => {
     setWheelMode(mode);
     setBrowserOpen(true);
   };
@@ -258,16 +263,23 @@ export default function Home() {
               Attach to {selection.specId} vertex {selection.vertexId} (capacity{' '}
               {selection.degree}):
             </span>
-            {POLYHEDRON_IDS.map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => handleRef.current?.beginAttach(id)}
-                className="rounded-full bg-blue-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-400"
-              >
-                {id}
-              </button>
-            ))}
+            {/* Real leftover found live: this used to render a flat button
+                for all 137 POLYHEDRON_IDS directly (predating the wheel/
+                browser system entirely) -- "the huge amorphous list
+                format," in the user's own words, never migrated to the
+                same family-grouped picker face-attach already uses below.
+                Vertex-attach has no compatibility constraint (a ball-joint
+                vertex, unlike a flush face, accepts any shape), so this
+                opens the SAME picker unfiltered ('vertexAttach' mode,
+                distinct from 'reset' only so onSelect knows to call
+                beginAttach() instead of starting over). */}
+            <button
+              type="button"
+              onClick={() => openPicker('vertexAttach')}
+              className="rounded-full bg-amber-400 px-4 py-1.5 text-sm font-medium text-black transition-colors hover:bg-amber-300"
+            >
+              Attach via vertex…
+            </button>
           </>
         ) : null}
       </nav>
@@ -297,6 +309,7 @@ export default function Home() {
         filterIds={wheelMode === 'faceAttach' ? nodeSelection?.faceAttachOptions : undefined}
         onSelect={(id) => {
           if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
+          else if (wheelMode === 'vertexAttach') handleRef.current?.beginAttach(id);
           else handleRef.current?.reset(id);
         }}
       />
@@ -307,6 +320,7 @@ export default function Home() {
         onSelect={(id) => {
           setBrowserOpen(false);
           if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
+          else if (wheelMode === 'vertexAttach') handleRef.current?.beginAttach(id);
           else handleRef.current?.reset(id);
         }}
       />

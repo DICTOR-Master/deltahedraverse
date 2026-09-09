@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { getCanvasCenter, resetTo, findOnCanvas } from './utils';
+import { getCanvasCenter, resetTo, findOnCanvas, openBrowserWheel, clickWheelLabel, exactLabel } from './utils';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -15,7 +15,15 @@ test('select a free vertex, attach a shape, twist it, and confirm', async ({ pag
 
   await expect(page.locator('text=/Attach to D4 vertex/')).toBeVisible();
 
-  await page.getByRole('button', { name: 'D6', exact: true }).click();
+  // Real leftover fixed live: this used to click a flat "D6" button
+  // rendered directly in the nav (one for all 137 shapes, "the huge
+  // amorphous list format") -- vertex-attach now opens the same
+  // family-grouped picker face-attach already used, via "Attach via
+  // vertex…", unfiltered (any shape is a valid vertex-attach target).
+  await page.getByRole('button', { name: 'Attach via vertex…' }).click();
+  await openBrowserWheel(page);
+  await clickWheelLabel(page, exactLabel('Deltahedra'));
+  await clickWheelLabel(page, 'D6');
   await expect(page.locator('text=/Placing D6/')).toBeVisible();
 
   // Drag to twist. The exact geometry (the connection point staying fixed
@@ -38,7 +46,10 @@ test('cancel removes the pending piece and frees the target vertex again', async
   const vertexHit = await findOnCanvas(page, cx, cy, (t) => /^vertex \d+ — capacity/.test(t));
   expect(vertexHit).not.toBeNull();
 
-  await page.getByRole('button', { name: 'D6', exact: true }).click();
+  await page.getByRole('button', { name: 'Attach via vertex…' }).click();
+  await openBrowserWheel(page);
+  await clickWheelLabel(page, exactLabel('Deltahedra'));
+  await clickWheelLabel(page, 'D6');
   await expect(page.locator('text=/Placing D6/')).toBeVisible();
 
   await page.getByRole('button', { name: 'Cancel (Esc)' }).click();
