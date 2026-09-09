@@ -388,6 +388,18 @@ export default function CornerHudWheel({
           // them, not underneath, for its own Wheel/Browser close faces
           // to be reachable at all.
           zIndex: 999,
+          // Real bug: dragging to rotate this medallion on touch was
+          // affecting the WHOLE PAGE before the mesh itself even
+          // started turning -- same root cause ShapeViewer.tsx's own
+          // container already had fixed (touch-action:none etc.), just
+          // never applied here too. Without this, the browser reads a
+          // drag on this small fixed element as an ordinary page
+          // scroll/pan gesture, since nothing tells it this element
+          // means to capture and own that drag exclusively.
+          touchAction: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+          WebkitTouchCallout: 'none',
         }}
       />
     </>

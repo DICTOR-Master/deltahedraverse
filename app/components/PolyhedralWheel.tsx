@@ -639,7 +639,23 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
         }
         .pw-label.reveal .pw-label-text { opacity: 1; }
       `}</style>
-      <div ref={containerRef} data-testid="polyhedral-wheel-scene" style={{ position: 'absolute', inset: 0 }} />
+      <div
+        ref={containerRef}
+        data-testid="polyhedral-wheel-scene"
+        // Same real bug/fix as CornerHudWheel and ShapeViewer's own
+        // containers: without this, a drag-to-rotate gesture on touch
+        // reads as an ordinary page scroll/pan first, not a rotation of
+        // this scene, since nothing tells the browser to let OrbitControls
+        // own that drag exclusively.
+        style={{
+          position: 'absolute',
+          inset: 0,
+          touchAction: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+          WebkitTouchCallout: 'none',
+        }}
+      />
       <div ref={labelsRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
 
       <div
