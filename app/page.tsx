@@ -68,6 +68,13 @@ export default function Home() {
   // else. Shared by both the wheel and the browser.
   const [wheelMode, setWheelMode] = useState<'reset' | 'faceAttach' | 'vertexAttach'>('reset');
   const [changelogOpen, setChangelogOpen] = useState(false);
+  // Real user request: "a little x in the corner so you can clear the
+  // space" -- the default-state instruction pill has no way to dismiss
+  // itself otherwise. Plain session-lived state (not persisted) -- a
+  // page reload brings it back, same as every other transient UI state
+  // here; the request was "clear the space" for the current session,
+  // not "never show me this again."
+  const [instructionsDismissed, setInstructionsDismissed] = useState(false);
 
   // First-visit welcome overlay -- shown once (persisted via usePrefs'
   // welcomeSeen, only if the "don't show again" checkbox was checked),
@@ -396,7 +403,7 @@ export default function Home() {
           Only shown in the true default state -- an active
           pending/nodeSelection/selection already has its own action
           buttons in the top nav, so this would be redundant there. */}
-      {!pending && !nodeSelection && !selection && (
+      {!pending && !nodeSelection && !selection && !instructionsDismissed && (
         <div
           style={{
             position: 'fixed',
@@ -407,12 +414,12 @@ export default function Home() {
             background: 'rgba(5,5,10,.6)',
             border: '1px solid rgba(71,204,36,.2)',
             borderRadius: 999,
-            padding: '0.5rem 1rem',
+            padding: '0.5rem 2.25rem 0.5rem 1rem',
             // Leaves clearance for CornerHudWheel, now also bottom-right
-            // (160px + margin) -- this pill has pointerEvents:'none' so
-            // it can never actually block a click either way, but a
-            // narrower cap avoids a purely visual overlap in the common
-            // case where both are showing at once.
+            // (160px + margin) -- the pill body itself still has
+            // pointerEvents:'none' so it can never block a click either
+            // way, but a narrower cap avoids a purely visual overlap in
+            // the common case where both are showing at once.
             maxWidth: 'calc(100vw - 220px)',
             textAlign: 'center',
             color: '#5ee233',
@@ -423,6 +430,33 @@ export default function Home() {
           Click a highlighted, free vertex to attach a shape, or click a node&apos;s body to
           select it — a free face offers face-to-face attach for shapes with a matching face
           size (glowing nodes still have room to build from).
+          <button
+            type="button"
+            onClick={() => setInstructionsDismissed(true)}
+            aria-label="Dismiss instructions"
+            title="Dismiss instructions"
+            style={{
+              position: 'absolute',
+              top: '50%',
+              right: 8,
+              transform: 'translateY(-50%)',
+              // The pill itself is pointerEvents:'none' so it never
+              // blocks a click through to whatever's underneath -- this
+              // button opts back in on its own, the only truly
+              // interactive part of the pill.
+              pointerEvents: 'auto',
+              background: 'none',
+              border: 'none',
+              color: '#5ee233',
+              opacity: 0.7,
+              fontSize: 14,
+              lineHeight: 1,
+              cursor: 'pointer',
+              padding: 4,
+            }}
+          >
+            ✕
+          </button>
         </div>
       )}
       <WelcomeOverlay open={welcomeOpen} onClose={closeWelcome} />
