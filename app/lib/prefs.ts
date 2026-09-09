@@ -12,7 +12,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import type { LangCode } from './i18n';
 
 const STORAGE_KEY = 'polyhedraverse:prefs:v1';
@@ -96,47 +96,55 @@ function savePrefs(prefs: Prefs): void {
   }
 }
 
-export function usePrefs() {
-  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
+// Module-level store, read via useSyncExternalStore -- this is React's own
+// prescribed tool for "read from an external mutable source" (here,
+// localStorage), and it's what actually solves the SSR/hydration problem
+// the previous useState+useEffect('[]') approach was hand-rolling: React
+// calls getServerSnapshot() for the first (server-matching) paint, then
+// getSnapshot() once hydrated, with no manual effect or extra render needed.
+// loadPrefs() itself no-ops to DEFAULT_PREFS under SSR (typeof window check),
+// so calling it eagerly here is safe on both server and client -- on the
+// client it's the one-time real read from localStorage this module needs.
+let cached: Prefs = loadPrefs();
+const listeners = new Set<() => void>();
 
-  // Load post-mount only -- reading localStorage during the initial render
-  // would produce a server/client markup mismatch under Next.js SSR.
-  useEffect(() => {
-    setPrefs(loadPrefs());
-  }, []);
+function getSnapshot(): Prefs {
+  return cached;
+}
+function getServerSnapshot(): Prefs {
+  return DEFAULT_PREFS;
+}
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+function commit(next: Prefs): void {
+  cached = next;
+  savePrefs(next);
+  listeners.forEach((l) => l());
+}
+
+export function usePrefs() {
+  const prefs = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const toggleFavorite = useCallback((id: string) => {
-    setPrefs((p) => {
-      const favorites = p.favorites.includes(id) ? p.favorites.filter((x) => x !== id) : [...p.favorites, id];
-      const next = { ...p, favorites };
-      savePrefs(next);
-      return next;
-    });
+    const favorites = cached.favorites.includes(id)
+      ? cached.favorites.filter((x) => x !== id)
+      : [...cached.favorites, id];
+    commit({ ...cached, favorites });
   }, []);
 
   const recordViewed = useCallback((id: string) => {
-    setPrefs((p) => {
-      const recents = [id, ...p.recents.filter((x) => x !== id)].slice(0, RECENTS_CAP);
-      const next = { ...p, recents };
-      savePrefs(next);
-      return next;
-    });
+    const recents = [id, ...cached.recents.filter((x) => x !== id)].slice(0, RECENTS_CAP);
+    commit({ ...cached, recents });
   }, []);
 
   const setLanguage = useCallback((language: LangCode) => {
-    setPrefs((p) => {
-      const next = { ...p, language };
-      savePrefs(next);
-      return next;
-    });
+    commit({ ...cached, language });
   }, []);
 
   const setTheme = useCallback((theme: ThemeState) => {
-    setPrefs((p) => {
-      const next = { ...p, theme };
-      savePrefs(next);
-      return next;
-    });
+    commit({ ...cached, theme });
   }, []);
 
   return {

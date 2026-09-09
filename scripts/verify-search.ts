@@ -1,4 +1,4 @@
-import { filteredIds, countWith, EMPTY_FILTERS, allFaceShapeSizes } from '../app/lib/polyhedra/search';
+import { filteredIds, EMPTY_FILTERS, allFaceShapeSizes } from '../app/lib/polyhedra/search';
 
 let failures = 0;
 function assert(cond: boolean, msg: string) {
@@ -17,8 +17,17 @@ assert(
   'intersection is exactly {D4,D8,D20}: ' + JSON.stringify(intersection),
 );
 
-const zeroCombo = countWith(EMPTY_FILTERS, { families: ['DELTAHEDRA', 'JOHNSON'] });
-assert(zeroCombo === 0, 'Deltahedra+Johnson together = 0 results (no documented overlap), got ' + zeroCombo);
+// D6/D10/D12/D14/D16 are the 5 strictly-convex deltahedra that are also
+// canonically numbered Johnson solids (J12/J13/J84/J51/J17) -- see
+// families.ts's EXTRA_MEMBERSHIP. This combo should find exactly them,
+// searchable/filterable under either family, not zero (that was the bug
+// this same combo caught before the overlap was documented).
+const deltaJohnsonCombo = filteredIds({ ...EMPTY_FILTERS, families: ['DELTAHEDRA', 'JOHNSON'] });
+assert(deltaJohnsonCombo.length === 5, 'Deltahedra+Johnson together = 5 results, got ' + deltaJohnsonCombo.length);
+assert(
+  ['D6', 'D10', 'D12', 'D14', 'D16'].every((id) => deltaJohnsonCombo.includes(id)),
+  'intersection is exactly {D6,D10,D12,D14,D16}: ' + JSON.stringify(deltaJohnsonCombo),
+);
 
 const triangleOnly = filteredIds({ ...EMPTY_FILTERS, faceShapes: [3] });
 assert(triangleOnly.length > 8, 'face-shape=triangle is a broad OR across families, got ' + triangleOnly.length);

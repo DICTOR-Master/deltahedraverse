@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
-import { getCanvasCenter, resetTo, findOnCanvas, WHEEL_FAMILIES, clickWheelLabel, CONTENT_FACES_PER_PAGE } from './utils';
+import { getCanvasCenter, resetTo, findOnCanvas, WHEEL_FAMILIES, clickWheelLabel, CONTENT_FACES_PER_PAGE, openBrowserWheel, exactLabel } from './utils';
 
 /**
  * A navigating click's onSelect fires after a setTimeout(0), so reading
@@ -27,15 +27,19 @@ test.beforeEach(async ({ page }) => {
   await page.waitForTimeout(500);
 });
 
-test('renders the canvas and every shape across all 6 wheel families (8 deltahedra + 2 Platonic + 13 Archimedean + 92 Johnson (all of them!) + 13 Catalan (all of them!) + 14 prisms/antiprisms)', async ({ page }) => {
+test('renders the canvas and every shape across all 7 wheel families (8 Deltahedra + 5 Platonic + 13 Archimedean + 92 Johnson (all of them, incl. the 5 shared with Deltahedra) + 13 Catalan (all of them!) + 8 Prisms + 8 Antiprisms; 137 distinct shapes once cross-family overlaps are de-duped)', async ({ page }) => {
   // Scoped to <main> -- CornerHudWheel mounts its own small canvas too.
   await expect(page.getByRole('main').locator('canvas')).toBeVisible();
 
   await page.getByRole('button', { name: /^Start over with/ }).click();
+  await openBrowserWheel(page);
   for (const family of WHEEL_FAMILIES) {
-    await expect(page.locator('.pw-label-text', { hasText: family.label })).toHaveCount(1);
+    // Exact match, not substring -- "Prisms" is a substring of "Antiprisms"
+    // now that both are separate families, so a plain hasText: family.label
+    // would match both faces' labels at once. See exactLabel()'s doc comment.
+    await expect(page.locator('.pw-label-text', { hasText: exactLabel(family.label) })).toHaveCount(1);
 
-    await clickWheelLabel(page, family.label);
+    await clickWheelLabel(page, exactLabel(family.label));
     // Existence in the DOM (not visibility -- that depends on which way
     // the wheel currently faces) is what this test cares about: every
     // registered shape actually reached the picker as a real face, paging

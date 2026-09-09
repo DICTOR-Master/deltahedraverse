@@ -19,12 +19,16 @@
  * bounding total per-frame cost regardless of how many cards are visible.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { POLYHEDRA } from '../../lib/polyhedra';
 
-// Matches the wheel/HUD's existing green identity (HUD_METAL_HEX /
-// SCRIPT_COLOR in PolyhedralWheel.tsx) so previews read as part of the
-// same visual system. Phase 2's theme system will make this swappable.
+// Matches PolyhedralWheel's existing green identity (HUD_METAL_HEX /
+// SCRIPT_COLOR in PolyhedralWheel.tsx) so previews read as part of the same
+// visual system as the wheel/browser chrome. Note this is a different accent
+// from the corner HUD medallion itself (CornerHudWheel.tsx), which is
+// silver (HUD_SILVER_HEX) -- "HUD_METAL_HEX" here is a legacy name from
+// before that split, not a claim both are the same color. Phase 2's theme
+// system will make this swappable.
 const LINE_COLOR = '#47cc24';
 const LINE_COLOR_DIM = 'rgba(71, 204, 36, 0.35)';
 
@@ -70,8 +74,10 @@ export interface ShapePreviewProps {
 export default function ShapePreview({ specId, size, spin = false }: ShapePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // A per-instance phase offset so multiple static cards don't all freeze
-  // at the exact same angle -- a purely cosmetic touch.
-  const phaseRef = useRef(Math.random() * Math.PI * 2);
+  // at the exact same angle -- a purely cosmetic touch. useState's lazy
+  // initializer (not a bare useRef(Math.random())) is the React-sanctioned
+  // place for an impure one-time-per-mount value like this.
+  const [phase] = useState(() => Math.random() * Math.PI * 2);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -95,7 +101,7 @@ export default function ShapePreview({ specId, size, spin = false }: ShapePrevie
     const maxR = Math.max(...centered.map(([x, y, z]) => Math.sqrt(x * x + y * y + z * z)), 1e-6);
     const scale = (size * dpr * 0.36) / maxR;
 
-    let angle = phaseRef.current;
+    let angle = phase;
     const tilt = 0.5; // fixed gentle tilt, same for every preview
 
     const draw = () => {
@@ -137,7 +143,7 @@ export default function ShapePreview({ specId, size, spin = false }: ShapePrevie
     }
     draw();
     return undefined;
-  }, [specId, size, spin]);
+  }, [specId, size, spin, phase]);
 
   return (
     <canvas

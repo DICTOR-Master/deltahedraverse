@@ -14,6 +14,7 @@ FAMILY_ORDER.forEach((f) => console.log(f, FAMILY_META[f].symbol, familyIds(f).l
 
 assert(familyIds('DELTAHEDRA').length === 8, 'Deltahedra has 8 members');
 assert(familyIds('PLATONIC').length === 5, 'Platonic has 5 members (2 additions + D4/D8/D20)');
+assert(familyIds('JOHNSON').length === 92, 'Johnson has all 92 canonical members (87 dedicated + D6/D10/D12/D14/D16)');
 assert(familyIds('PRISMS').length === 8, 'Prisms has 8 members (7 dedicated + CUBE)');
 assert(familyIds('ANTIPRISMS').length === 8, 'Antiprisms has 8 members (7 dedicated + D8)');
 
@@ -39,8 +40,14 @@ assert(
   'Deltahedra ∩ Platonic = exactly {D4, D8, D20}: ' + JSON.stringify(intersection),
 );
 
-// Every id appears in exactly one family list, EXCEPT the 5 documented overlaps.
-const OVERLAP_IDS = new Set(['D4', 'D8', 'D20', 'CUBE']);
+const deltaJohnson = familyIds('DELTAHEDRA').filter((id) => familiesFor(id).includes('JOHNSON'));
+assert(
+  deltaJohnson.length === 5 && ['D6', 'D10', 'D12', 'D14', 'D16'].every((id) => deltaJohnson.includes(id)),
+  'Deltahedra ∩ Johnson = exactly {D6, D10, D12, D14, D16} (J12/J13/J84/J51/J17 respectively): ' + JSON.stringify(deltaJohnson),
+);
+
+// Every id appears in exactly one family list, EXCEPT the 9 documented overlaps.
+const OVERLAP_IDS = new Set(['D4', 'D8', 'D20', 'CUBE', 'D6', 'D10', 'D12', 'D14', 'D16']);
 const counts = new Map<string, number>();
 FAMILY_ORDER.forEach((f) => familyIds(f).forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1)));
 let unexpectedMultiMembership = 0;

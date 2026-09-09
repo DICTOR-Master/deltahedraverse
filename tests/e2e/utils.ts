@@ -1,12 +1,5 @@
 import type { Page } from '@playwright/test';
-import {
-  DELTAHEDRON_IDS,
-  PLATONIC_ADDITION_IDS,
-  ARCHIMEDEAN_ADDITION_IDS,
-  JOHNSON_ADDITION_IDS,
-  CATALAN_ADDITION_IDS,
-  PRISM_ANTIPRISM_ADDITION_IDS,
-} from '../../app/lib/polyhedra';
+import { FAMILY_ORDER, FAMILY_META, familyIds } from '../../app/lib/polyhedra/families';
 
 export async function getCanvasCenter(page: Page): Promise<{ cx: number; cy: number }> {
   // Scoped to <main> specifically -- CornerHudWheel mounts its own small
@@ -18,14 +11,32 @@ export async function getCanvasCenter(page: Page): Promise<{ cx: number; cy: num
   return { cx: box.x + box.width / 2, cy: box.y + box.height / 2 };
 }
 
-export const WHEEL_FAMILIES: { label: string; ids: string[] }[] = [
-  { label: 'Deltahedra', ids: DELTAHEDRON_IDS },
-  { label: 'Platonic', ids: PLATONIC_ADDITION_IDS },
-  { label: 'Archimedean', ids: ARCHIMEDEAN_ADDITION_IDS },
-  { label: 'Johnson', ids: JOHNSON_ADDITION_IDS },
-  { label: 'Catalan', ids: CATALAN_ADDITION_IDS },
-  { label: 'Prisms', ids: PRISM_ANTIPRISM_ADDITION_IDS },
-];
+// Derived from the same families.ts module PolyhedralWheel.tsx itself now
+// uses (7 families, including documented cross-family overlaps like
+// D8/octahedron appearing in Deltahedra, Platonic, AND Antiprisms) --
+// kept in sync automatically rather than hand-duplicated, so this fixture
+// can't drift from what the wheel actually renders the way a hand-rolled
+// 6-family version (missing the Prisms/Antiprisms split) previously did.
+export const WHEEL_FAMILIES: { label: string; ids: string[] }[] = FAMILY_ORDER.map((key) => ({
+  label: FAMILY_META[key].label,
+  ids: familyIds(key),
+}));
+
+/**
+ * An exact, anchored match for a family-level wheel label. Needed now that
+ * "Prisms" and "Antiprisms" are separate families (the 7-family split) --
+ * PolyhedralWheel.tsx renders a family face's label as exactly `f.label`
+ * with no prefix, so a *substring* match for "Prisms" (Playwright's default
+ * for a plain string `hasText`) also matches "Antiprisms" text, which
+ * contains "Prisms" as a substring. Individual shape labels (used
+ * elsewhere via clickWheelLabel's plain-string form) deliberately keep
+ * substring matching instead, since their real label text is prefixed with
+ * a catalog number (e.g. "[7] TRUNCATED TETRAHEDRON") and never equals the
+ * bare search text.
+ */
+export function exactLabel(text: string): RegExp {
+  return new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+}
 
 /**
  * Clicks a PolyhedralWheel face label by its visible text, searching for it
@@ -41,8 +52,18 @@ export const WHEEL_FAMILIES: { label: string; ids: string[] }[] = [
  * sweep needed, just camera repositioning via the wheel's own exposed
  * `__pwGoTo`, then a single try/catch click at each orientation).
  */
-export async function clickWheelLabel(page: Page, text: string): Promise<void> {
-  const locator = page.locator('.pw-label', { hasText: text }).first();
+export async function clickWheelLabel(page: Page, text: string | RegExp): Promise<void> {
+  // Filter .pw-label (the clickable face container) by its .pw-label-text
+  // CHILD specifically, not the container's own combined text -- .pw-label
+  // also contains a .pw-label-symbol sibling (e.g. "△"), and the two
+  // concatenate with no separating whitespace in the container's text
+  // content ("△Deltahedra"), which silently defeats an exact/anchored
+  // RegExp match against the container itself (exactLabel()'s callers hit
+  // this) even though substring string matching happened to still work.
+  const locator = page
+    .locator('.pw-label')
+    .filter({ has: page.locator('.pw-label-text', { hasText: text }) })
+    .first();
   const snapshot = async (): Promise<string> => (await page.locator('.pw-label-text').allTextContents()).join(' ');
 
   // A click that lands right as onSelect's setTimeout(0)-deferred state
@@ -153,11 +174,23 @@ export async function clickWheelLabelPaged(page: Page, text: string, familyIds: 
   throw new Error(`clickWheelLabelPaged: could not find "${text}" across ${pages} page(s)`);
 }
 
-/** Opens the PolyhedralWheel, navigates to specId's family, picks it, and waits for the reset to settle. */
+/**
+ * "Start over…"/"Attach via face…" now open the ShapeBrowser (Home/Search/
+ * Scene/Favorites tabs) instead of the literal PolyhedralWheel directly --
+ * its "Spin the Wheel" button renders that same real PolyhedralWheel in
+ * place, sharing its exact prop contract, so every existing .pw-label-*
+ * interaction below still applies once past this one extra click.
+ */
+export async function openBrowserWheel(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Spin the Wheel' }).click();
+}
+
+/** Opens the PolyhedralWheel (via the ShapeBrowser's "Spin the Wheel"), navigates to specId's family, picks it, and waits for the reset to settle. */
 export async function resetTo(page: Page, specId: string): Promise<void> {
   const family = WHEEL_FAMILIES.find((f) => f.ids.includes(specId));
   if (!family) throw new Error(`resetTo: "${specId}" isn't in any known wheel family`);
   await page.getByRole('button', { name: /^Start over with/ }).click();
+  await openBrowserWheel(page);
   await clickWheelLabel(page, family.label);
   await clickWheelLabelPaged(page, specId.replaceAll('_', ' '), family.ids);
   await page.waitForTimeout(300);

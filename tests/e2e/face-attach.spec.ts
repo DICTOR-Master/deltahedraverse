@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { getCanvasCenter, resetTo, readTooltipAt, clickWheelLabel } from './utils';
+import { getCanvasCenter, resetTo, readTooltipAt, clickWheelLabel, openBrowserWheel } from './utils';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -23,6 +23,7 @@ test('selecting a CUBE face offers a matching face-attach, and confirming attach
   const attachBtn = page.getByRole('button', { name: 'Attach via face…' });
   await expect(attachBtn).toBeVisible();
   await attachBtn.click();
+  await openBrowserWheel(page);
   await clickWheelLabel(page, 'Platonic');
   await clickWheelLabel(page, 'CUBE');
 
@@ -63,6 +64,7 @@ test('cancelling a face-attach frees the target face again', async ({ page }) =>
 
   await page.mouse.click(cx, cy);
   await page.getByRole('button', { name: 'Attach via face…' }).click();
+  await openBrowserWheel(page);
   await clickWheelLabel(page, 'Platonic');
   await clickWheelLabel(page, 'CUBE');
   await expect(page.locator('text=/Placing CUBE/')).toBeVisible();

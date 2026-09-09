@@ -70,20 +70,37 @@ const BASE_IDS: Record<FamilyKey, string[]> = {
 };
 
 // Explicit, documented cross-family overlap patch -- encodes facts that
-// today only live as comments in platonic.ts / prisms.ts:
+// today only live as comments in platonic.ts / prisms.ts, plus the
+// registry's own deliberate split of "strictly convex deltahedra" into
+// their own D-id family instead of J-numbering them:
 //   - D4 (tetrahedron), D8 (octahedron), D20 (icosahedron):
 //     Deltahedra AND Platonic
 //   - CUBE: Platonic AND Prisms ("PRISM_4 = CUBE, already Platonic")
 //   - D8 (octahedron): also Antiprisms ("ANTIPRISM_3 = OCTAHEDRON")
-// Keyed by the REAL POLYHEDRA id used elsewhere (D4/D8/D20/CUBE), never a
-// synthetic PRISM_4/ANTIPRISM_3 id -- those are never separate POLYHEDRA
-// entries, and BASE_IDS above already correctly omits them.
+//   - D6/D10/D12/D14/D16: Deltahedra AND Johnson -- these ARE the
+//     canonical J12 (triangular bipyramid), J13 (pentagonal bipyramid),
+//     J84 (snub disphenoid), J51 (triaugmented triangular prism), and J17
+//     (gyroelongated square bipyramid) respectively, just stored under
+//     their D-id here rather than duplicated as separate J-id entries.
+//     Without this patch, familyIds('JOHNSON') undercounts at 87 instead
+//     of the canonical 92, and these 5 shapes wouldn't be findable by
+//     filtering/searching for "Johnson" even though they genuinely are
+//     Johnson solids.
+// Keyed by the REAL POLYHEDRA id used elsewhere (D4/D8/D20/CUBE/D6/D10/
+// D12/D14/D16), never a synthetic PRISM_4/ANTIPRISM_3/J12/J13/J17/J51/J84
+// id -- those are never separate POLYHEDRA entries, and BASE_IDS above
+// already correctly omits them.
 const EXTRA_MEMBERSHIP: Array<{ id: string; family: FamilyKey }> = [
   { id: 'D4', family: 'PLATONIC' },
   { id: 'D8', family: 'PLATONIC' },
   { id: 'D20', family: 'PLATONIC' },
   { id: 'CUBE', family: 'PRISMS' },
   { id: 'D8', family: 'ANTIPRISMS' },
+  { id: 'D6', family: 'JOHNSON' },
+  { id: 'D10', family: 'JOHNSON' },
+  { id: 'D12', family: 'JOHNSON' },
+  { id: 'D14', family: 'JOHNSON' },
+  { id: 'D16', family: 'JOHNSON' },
 ];
 
 const membershipMap: Map<string, Set<FamilyKey>> = (() => {
