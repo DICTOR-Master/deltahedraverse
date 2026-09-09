@@ -27,11 +27,10 @@
  * per explicit user direction to build that before folding in actions
  * (augment/diminish), view modes (Spherical/X-Ray), or the corner HUD
  * element above. 7 families fit comfortably within the dodecahedron's 12
- * faces at the family-selection level (one family per face, plus
- * antipodal clones/dual-pairings filling most of the rest -- see
+ * faces at the family-selection level -- all 12 filled, no spares, via
+ * antipodal clones/dual-pairings plus a "Full Catalog" entry (see
  * `resolveSlots`'s `level.kind === 'families'` branch and its own
- * comment for the exact face layout and the one pair left honestly
- * spare).
+ * comment for the exact face layout).
  * `FAMILIES` still maps to face slots with no change needed as families are
  * added.
  *
@@ -50,7 +49,7 @@ import {
   buildFaceConnectors,
   type Vec3,
 } from '../lib/polyhedra';
-import { FAMILY_ORDER, FAMILY_META, familyIds, type FamilyKey } from '../lib/polyhedra/families';
+import { FAMILY_ORDER, FAMILY_META, familyIds, faceTypeSortKey, type FamilyKey } from '../lib/polyhedra/families';
 import { usePrefs } from '../lib/prefs';
 import { t } from '../lib/i18n';
 
@@ -225,6 +224,25 @@ const FAMILIES: Family[] = FAMILY_ORDER.map((key) => ({
   ids: familyIds(key),
 }));
 
+// "Full Catalog" -- all 137 distinct shapes (POLYHEDRA's own keys ARE
+// exactly that de-duped set already -- see render.spec.ts's own count
+// in its test title), face-type sorted the same way every per-family
+// list is. Re-added per direct request after being pulled once already
+// ("we've lost simplicity") -- the real complaint behind that pull
+// turned out to be a DIFFERENT, genuinely amorphous flat 137-button
+// list (vertex-attach's old pre-wheel UI, fixed separately), not this
+// wheel entry itself, so it's back. Deliberately outside families.ts/
+// FAMILY_ORDER -- it's not a real family, just a full-registry view.
+const ALL_IDS: string[] = Object.keys(POLYHEDRA).sort((a, b) => {
+  const ka = faceTypeSortKey(a);
+  const kb = faceTypeSortKey(b);
+  for (let i = 0; i < ka.length; i++) {
+    if (ka[i] !== kb[i]) return ka[i] - kb[i];
+  }
+  return 0;
+});
+const ALL_CATALOG_LABEL = 'Full Catalog';
+
 // 12 faces available; family level always fits (7 populated + 5 spare).
 // A family's shape level reserves face 11 for "More"/next-page paging
 // once its own id list overflows a single page, and face 0 for
@@ -238,7 +256,10 @@ const CONTENT_FACES_PER_PAGE = 10;
 const MORE_FACE_INDEX = 11;
 const PREV_FACE_INDEX = 0;
 
-type WheelLevel = { kind: 'families' } | { kind: 'family'; familyIndex: number; page: number };
+type WheelLevel =
+  | { kind: 'families' }
+  | { kind: 'family'; familyIndex: number; page: number }
+  | { kind: 'all'; page: number };
 
 interface FaceSlot {
   label: string;
@@ -250,6 +271,7 @@ interface FaceSlot {
 function resolveSlots(
   level: WheelLevel,
   onFamily: (i: number) => void,
+  onAll: () => void,
   onSelectShape: (id: string) => void,
   onMore: () => void,
   onPrev: () => void,
@@ -278,11 +300,8 @@ function resolveSlots(
     // Johnson don't have a natural partner among the remaining families,
     // so each gets a plain clone of itself on its own antipodal face
     // instead: Deltahedra {0,10}, Platonic {3,7}, Johnson {5,9}. That
-    // leaves exactly one pair, {8,11}, genuinely spare -- a "Full
-    // Catalog" entry lived there briefly but was pulled per direct
-    // feedback ("we've lost simplicity"): a plain 7-family wheel with
-    // one honestly-empty pair reads more simply than a pseudo-family
-    // invented just to fill it.
+    // leaves exactly one pair, {8,11} -- "Full Catalog" (see its own
+    // const above for why it's back after being pulled once).
     const FAMILY_FACE_SLOTS: Record<FamilyKey, number[]> = {
       DELTAHEDRA: [0, 10],
       PLATONIC: [3, 7],
@@ -309,24 +328,33 @@ function resolveSlots(
         slots[faceIndex] = { label: f.label, symbol: f.symbol, spare: false, onSelect: () => onFamily(i) };
       }
     });
+    // Full Catalog is the union of every family, so it always has at
+    // least one compatible shape whenever filterIds does (filterIds is
+    // itself a subset of ALL_IDS) -- never a dead end the way a single
+    // family can be, so it's never hidden here.
+    for (const faceIndex of [8, 11]) {
+      slots[faceIndex] = { label: ALL_CATALOG_LABEL, symbol: '★', spare: false, onSelect: onAll };
+    }
     return slots;
   }
 
-  const family = FAMILIES[level.familyIndex];
+  // 'family' and 'all' (Full Catalog) share every bit of paging/slotting
+  // logic below -- only the source id list differs.
+  //
   // Real user feedback ("they should nevertheless show full family
   // members"): pre-filtering incompatible shapes out of view entirely
   // (the old behavior) made a family look incomplete or wrong -- Catalan
   // in particular could look like it had far fewer members than its
-  // real 13 depending on what was being face-attached. Every family now
-  // always lists its FULL roster, in its normal catalog order/paging,
-  // regardless of filterIds -- compatibility only decides which
-  // individual entries are selectable (spare + no onSelect, same
-  // dim/non-clickable treatment an empty wheel face already gets), never
-  // which ones exist at all. (The 'families' level above still skips a
-  // family ENTIRELY when it has zero compatible members at all -- e.g.
-  // Platonic for an RD attach -- that's a different, still-real dead end
-  // this doesn't reverse.)
-  const ids = family.ids;
+  // real 13 depending on what was being face-attached. Every family (and
+  // Full Catalog) now always lists its FULL roster, in its normal
+  // catalog order/paging, regardless of filterIds -- compatibility only
+  // decides which individual entries are selectable (spare + no
+  // onSelect, same dim/non-clickable treatment an empty wheel face
+  // already gets), never which ones exist at all. (The 'families' level
+  // above still skips a family ENTIRELY when it has zero compatible
+  // members at all -- e.g. Platonic for an RD attach -- that's a
+  // different, still-real dead end this doesn't reverse.)
+  const ids = level.kind === 'all' ? ALL_IDS : FAMILIES[level.familyIndex].ids;
   const overflow = ids.length > CONTENT_FACES_PER_PAGE;
   const perPage = overflow ? CONTENT_FACES_PER_PAGE : 12;
   // Content starts at face 1 (not 0) once paging exists at all, leaving
@@ -416,7 +444,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
   }
 
   const goBack = useCallback(() => {
-    setLevel((l) => (l.kind === 'family' ? { kind: 'families' } : l));
+    setLevel((l) => (l.kind !== 'families' ? { kind: 'families' } : l));
   }, []);
 
   // Read from the scene-setup effect below (which only depends on
@@ -432,7 +460,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        if (level.kind === 'family') goBack();
+        if (level.kind !== 'families') goBack();
         else onClose();
       }
     };
@@ -710,7 +738,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
       frameId = requestAnimationFrame(animate);
     };
     animate();
-    applySlots(resolveSlots(level, () => {}, () => {}, () => {}, () => {}, filterIdsRef.current));
+    applySlots(resolveSlots(level, () => {}, () => {}, () => {}, () => {}, () => {}, filterIdsRef.current));
 
     const onResize = () => {
       const { clientWidth, clientHeight } = container;
@@ -782,17 +810,18 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
     const slots = resolveSlots(
       level,
       (familyIndex) => setLevel({ kind: 'family', familyIndex, page: 0 }),
+      () => setLevel({ kind: 'all', page: 0 }),
       (id) => {
         onSelect(id);
         onClose();
       },
       () => {
         setLevel((l) => {
-          if (l.kind !== 'family') return l;
+          if (l.kind === 'families') return l;
           // Full roster always (see resolveSlots' own comment) -- paging
           // no longer depends on filterIds at all.
-          const family = FAMILIES[l.familyIndex];
-          const pages = Math.ceil(family.ids.length / CONTENT_FACES_PER_PAGE);
+          const ids = l.kind === 'all' ? ALL_IDS : FAMILIES[l.familyIndex].ids;
+          const pages = Math.ceil(ids.length / CONTENT_FACES_PER_PAGE);
           return { ...l, page: (l.page + 1) % pages };
         });
       },
@@ -800,7 +829,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
         // No modulo/wrap here -- resolveSlots only ever shows "Previous"
         // when level.page > 0 (hasPrev), so this is always a valid
         // in-range decrement, never called from page 0.
-        setLevel((l) => (l.kind === 'family' ? { ...l, page: l.page - 1 } : l));
+        setLevel((l) => (l.kind !== 'families' ? { ...l, page: l.page - 1 } : l));
       },
       filterIds,
     );
@@ -932,9 +961,11 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
         <span>
           {level.kind === 'families'
             ? t('wheel.head', language)
-            : t('wheel.drag', language, { family: FAMILIES[level.familyIndex].label })}
+            : t('wheel.drag', language, {
+                family: level.kind === 'all' ? ALL_CATALOG_LABEL : FAMILIES[level.familyIndex].label,
+              })}
         </span>
-        {level.kind === 'family' && (
+        {level.kind !== 'families' && (
           <button
             type="button"
             onClick={goBack}
