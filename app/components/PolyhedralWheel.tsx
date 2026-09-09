@@ -48,6 +48,8 @@ import {
   type Vec3,
 } from '../lib/polyhedra';
 import { FAMILY_ORDER, FAMILY_META, familyIds, type FamilyKey } from '../lib/polyhedra/families';
+import { usePrefs } from '../lib/prefs';
+import { t } from '../lib/i18n';
 
 // Interaction mechanics (reveal timing, drag threshold, panel opacity)
 // ported exactly from rhombic-wheel-3d.js/-core.js; the COLORS are
@@ -234,6 +236,14 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelsRef = useRef<HTMLDivElement | null>(null);
   const [level, setLevel] = useState<WheelLevel>({ kind: 'families' });
+  // This component's own top-bar chrome ("Choose a shape family",
+  // "Close (Esc)", "← Back") was hardcoded English -- real gap found
+  // live: the i18n keys for these already existed (wheel.head/
+  // wheel.spin were already translated into all 4 languages), just
+  // never actually wired up here, so changing language never visibly
+  // affected the wheel at all even though the app-wide language
+  // preference genuinely was changing underneath it.
+  const { language } = usePrefs();
 
   // Reset to the family list every time the wheel is (re)opened -- React's
   // own "adjust state during render" pattern (comparing to a *state*
@@ -711,7 +721,9 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
         }}
       >
         <span>
-          {level.kind === 'families' ? 'Choose a shape family' : `${FAMILIES[level.familyIndex].label} — drag to orbit, click a face`}
+          {level.kind === 'families'
+            ? t('wheel.head', language)
+            : t('wheel.drag', language, { family: FAMILIES[level.familyIndex].label })}
         </span>
         {level.kind === 'family' && (
           <button
@@ -719,7 +731,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
             onClick={goBack}
             style={{ background: 'none', border: `1px solid ${PANEL_BORDER}`, color: SCRIPT_COLOR, borderRadius: 6, padding: '2px 10px', cursor: 'pointer' }}
           >
-            ← Back
+            {t('action.back', language)}
           </button>
         )}
         <button
@@ -727,7 +739,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
           onClick={onClose}
           style={{ background: 'none', border: `1px solid ${PANEL_BORDER}`, color: SCRIPT_COLOR, borderRadius: 6, padding: '2px 10px', cursor: 'pointer' }}
         >
-          Close (Esc)
+          {t('wheel.close', language)}
         </button>
       </div>
 

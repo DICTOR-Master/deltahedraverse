@@ -231,7 +231,12 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => openPicker('faceAttach')}
-                className="rounded-full bg-sky-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-sky-400"
+                // Yellow/amber, not blue -- matches COLOR_FREE (the same
+                // "you can interact here" color already used for free
+                // vertices and the new per-face hover highlight in
+                // ShapeViewer.tsx), so this button reads as part of the
+                // same visual language instead of an unrelated blue.
+                className="rounded-full bg-amber-400 px-4 py-1.5 text-sm font-medium text-black transition-colors hover:bg-amber-300"
               >
                 Attach via face…
               </button>
