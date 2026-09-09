@@ -8,15 +8,21 @@
  * own intent plainly: "replacing the previous row of 9 individual icon
  * buttons... with symbol faces on the real shape itself."
  *
- * Six faces carry real actions: Wheel (open/close the literal 3D shape
- * picker), Browser (open/close the karaoke-style ShapeBrowser), Object
- * View (cycle Solid/Translucent/Inside — Polyhedraverse's own object-
- * centric equivalent of Rhombiverse's World View toggle), Save, About,
- * and Language (cycles EN/JA/ES/FR, the same rotation ShapeBrowser's own
+ * Six real actions -- Wheel (open/close the literal 3D shape picker),
+ * Browser (open/close the karaoke-style ShapeBrowser), Object View
+ * (cycle Solid/Translucent/Inside — Polyhedraverse's own object-centric
+ * equivalent of Rhombiverse's World View toggle), Save, About, and
+ * Language (cycles EN/JA/ES/FR, the same rotation ShapeBrowser's own
  * language button already offers, now reachable without opening it
- * first). Every other face stays plain/decorative; clicking one falls
- * back to opening the wheel, preserving this component's original
- * forgiving "click anywhere opens something useful" behavior.
+ * first) -- each placed on its own antipodal opposite face too (real
+ * user report: with only 6 of 12 faces used, the medallion read as
+ * "very empty" mid-drag; same "duplicate a spare rather than leave it
+ * blank" policy already used for PolyhedralWheel's own family-selection
+ * view and Rhombiverse's own rhombic-wheel-3d-core.js). That fills all
+ * 12 faces with no genuinely blank ones left; clicking the medallion
+ * body itself (not a specific label) still falls back to opening the
+ * wheel, preserving this component's original forgiving "click
+ * anywhere opens something useful" behavior.
  *
  * Unlike the original decorative-only version, this stays visible while
  * the wheel/browser are open (Rhombiverse's own HUD is explicitly
@@ -155,15 +161,25 @@ export default function CornerHudWheel({
     });
 
     // 6 real actions, DOM-overlay labels (see module header for why not
-    // mesh-baked text). Face indices are arbitrary but fixed -- any 6 of
-    // the dodecahedron's 12 do, since the same per-frame facing-based
-    // fade/reveal PolyhedralWheel already established handles "which
-    // ones are actually visible from the current drag angle."
+    // mesh-baked text). Primary face indices are arbitrary but fixed --
+    // any 6 of the dodecahedron's 12 do, since the same per-frame
+    // facing-based fade/reveal PolyhedralWheel already established
+    // handles "which ones are actually visible from the current drag
+    // angle." Each also gets a clone on its own antipodal opposite face
+    // (see module header) -- DODECAHEDRON's real antipodal pairs,
+    // computed directly from buildFaceConnectors' normals (not assumed),
+    // are {0,10} {1,4} {2,6} {3,7} {5,9} {8,11}, same pairing table
+    // PolyhedralWheel's own family-clone layout uses.
+    //
+    // The 6 ORIGINAL slots stay first, in this exact order -- __hud-
+    // TriggerAction below indexes into buildSlots() by fixed position
+    // (0=Wheel..5=Language), so the 6 antipodal clones are appended
+    // after them, not interleaved, to keep that mapping stable.
     const buildSlots = (): ActionSlot[] => {
       const s = stateRef.current;
       const a = actionsRef.current;
       const nextLang = LANG_ORDER[(LANG_ORDER.indexOf(s.language) + 1) % LANG_ORDER.length];
-      return [
+      const primary: ActionSlot[] = [
         // Face indices picked by actually computing (not guessing) which
         // of DODECAHEDRON's 12 faces face the camera at this component's
         // resting rotation.set(0.5, 0.6, 0) -- only 3 of 12 clear the
@@ -181,11 +197,14 @@ export default function CornerHudWheel({
         { faceIndex: 5, symbol: 'ℹ', label: 'About', onSelect: a.onAbout },
         { faceIndex: 1, symbol: s.language.toUpperCase(), label: `Language: ${nextLang.toUpperCase()}`, onSelect: () => a.setLanguage(nextLang) },
       ];
+      const ANTIPODE: Record<number, number> = { 3: 7, 11: 8, 2: 6, 10: 0, 5: 9, 1: 4 };
+      const clones: ActionSlot[] = primary.map((slot) => ({ ...slot, faceIndex: ANTIPODE[slot.faceIndex] }));
+      return [...primary, ...clones];
     };
     const slotByFace = new Map<number, ActionSlot>();
 
     const labelEls: HTMLDivElement[] = [];
-    const ACTION_FACE_COUNT = 6;
+    const ACTION_FACE_COUNT = 12;
     for (let i = 0; i < ACTION_FACE_COUNT; i++) {
       const el = document.createElement('div');
       el.className = 'hud-label';

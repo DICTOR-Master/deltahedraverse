@@ -98,6 +98,59 @@ interface Family {
   ids: string[];
 }
 
+// Real disparity found live, even after every symbol got a fixed-size
+// circular badge (see that CSS comment below): different glyphs -- the
+// geometric family symbols, and individual shapes' own single-letter
+// symbols (id.slice(0,1)) -- still occupy very different actual ink
+// area at an identical font-size (a thin "I" vs a wide "M", a small ★
+// vs a filled ⬢), so they still read as inconsistent sizes INSIDE an
+// identically sized circle. Measures each glyph's real rendered
+// bounding box via Canvas2D (not guessed per-glyph multipliers) and
+// scales it toward a common target -- same "verify computationally,
+// don't assume" standard this registry's own geometry already holds
+// itself to (antipodal face pairs, Catalan/Archimedean duality, etc.).
+const SYMBOL_FONT_PX = 36; // must match .pw-label-symbol's font-size below
+// Matches globals.css's body rule ("font-family: Arial, Helvetica,
+// sans-serif") -- .pw-label-symbol never overrides font-family, so this
+// IS what actually renders; measuring a mismatched font would make the
+// "measurement" fictional.
+const SYMBOL_FONT = `${SYMBOL_FONT_PX}px Arial, Helvetica, sans-serif`;
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+const glyphScaleCache = new Map<string, number>();
+let referenceGlyphSize: number | null = null;
+
+function measureGlyphSize(symbol: string): number {
+  if (measureCtx === undefined) {
+    measureCtx = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
+  }
+  if (!measureCtx) return 1; // no canvas (shouldn't happen client-side) -- no-op scale
+  measureCtx.font = SYMBOL_FONT;
+  const m = measureCtx.measureText(symbol);
+  const width = (m.actualBoundingBoxLeft ?? 0) + (m.actualBoundingBoxRight ?? m.width);
+  const height = (m.actualBoundingBoxAscent ?? SYMBOL_FONT_PX * 0.35) + (m.actualBoundingBoxDescent ?? 0);
+  return Math.max(width, height, 1);
+}
+
+/**
+ * Scale factor to apply to a single glyph so it reads as roughly the
+ * same visual size as every other one. Reference is a capital "M" --
+ * representative of the individual per-shape symbols (almost always an
+ * uppercase ASCII letter), so those need the least correction and the
+ * family-level geometric glyphs (which vary far more from each other)
+ * scale toward matching them. Clamped so a degenerate measurement (a
+ * stray combining mark, an unexpectedly tiny/huge glyph) can never
+ * scale to an absurd extreme -- normalizing real disparity, not chasing
+ * pixel-perfect equality.
+ */
+function glyphScale(symbol: string): number {
+  const cached = glyphScaleCache.get(symbol);
+  if (cached !== undefined) return cached;
+  if (referenceGlyphSize === null) referenceGlyphSize = measureGlyphSize('M');
+  const scale = THREE.MathUtils.clamp(referenceGlyphSize / measureGlyphSize(symbol), 0.55, 1.85);
+  glyphScaleCache.set(symbol, scale);
+  return scale;
+}
+
 // Family list, order, labels/symbols, and per-family shape ordering are
 // all owned by app/lib/polyhedra/families.ts now -- the single source of
 // truth shared with the ShapeBrowser, so the wheel and the browser can
@@ -396,6 +449,13 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
       el.className = 'pw-label';
       const symbolEl = document.createElement('div');
       symbolEl.className = 'pw-label-symbol';
+      // Glyph lives in its own inner span, separately scaled per-symbol
+      // (see glyphScale above) -- scaling symbolEl itself would resize
+      // the fixed circular badge along with the glyph, defeating the
+      // whole point of a consistent-size badge.
+      const glyphEl = document.createElement('span');
+      glyphEl.className = 'pw-label-glyph';
+      symbolEl.appendChild(glyphEl);
       const textEl = document.createElement('div');
       textEl.className = 'pw-label-text';
       el.appendChild(symbolEl);
@@ -412,7 +472,9 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
         const mesh = faceMeshes[i];
         (mesh.material as THREE.MeshStandardMaterial).opacity = slot.spare ? 0.08 : 0.24;
         labelEls[i].classList.toggle('spare', slot.spare);
-        labelEls[i].querySelector('.pw-label-symbol')!.textContent = slot.symbol;
+        const glyphEl = labelEls[i].querySelector('.pw-label-glyph') as HTMLElement;
+        glyphEl.textContent = slot.symbol;
+        glyphEl.style.transform = `scale(${glyphScale(slot.symbol)})`;
         labelTextEls[i].textContent = slot.label;
       });
     };
@@ -703,6 +765,9 @@ export default function PolyhedralWheel({ open, onClose, onSelect, filterIds }: 
           background: ${PANEL_BG};
           font-size: 36px; line-height: 1; color: ${SCRIPT_COLOR};
           text-shadow: ${LABEL_STYLE.textShadow};
+        }
+        .pw-label-glyph {
+          display: inline-block; /* transform:scale needs a box, not a bare inline run */
         }
         .pw-label-text {
           position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%);
