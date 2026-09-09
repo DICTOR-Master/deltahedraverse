@@ -134,7 +134,15 @@ export default function WelcomeOverlay({ open, onClose }: WelcomeOverlayProps) {
         </label>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-          <span style={{ color: GREEN, fontSize: 16 }}>◈</span>
+          {/* Rhombiverse's own real favicon (copied from its repo root
+              favicon.svg, not the separate RHOMBIS sub-puzzle's icon --
+              this links to Rhombiverse itself), same small-square-icon-
+              next-to-cross-link pattern as its own welcome screen's
+              "Try RHOMBIS" row. */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- a
+              small static public/ SVG, not a candidate for next/image's
+              optimization pipeline. */}
+          <img src="/brand/rhombiverse-icon.svg" alt="" width={28} height={28} style={{ borderRadius: 6 }} />
           <a href="https://rhombiverse.vercel.app" target="_blank" rel="noopener" style={{ color: GREEN_BRIGHT }}>
             New here? Explore Rhombiverse, our twin lattice-based spatial editor &rarr;
           </a>

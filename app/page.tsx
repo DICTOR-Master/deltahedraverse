@@ -293,38 +293,17 @@ export default function Home() {
         }}
       />
       <WelcomeOverlay open={welcomeOpen} onClose={closeWelcome} />
-      {!wheelOpen && !browserOpen && !welcomeOpen && (
-        <>
-          <CornerHudWheel onOpen={openWheelDirectly} />
-          <button
-            type="button"
-            onClick={() => setWelcomeForceOpen(true)}
-            title="About Polyhedraverse"
-            aria-label="About Polyhedraverse"
-            style={{
-              position: 'fixed',
-              // Same row as CornerHudWheel (top:96, right:16, 110px wide),
-              // offset left of it -- matches the spacing already proposed
-              // for a future Phase 2 ThemeButton in this same row (see
-              // app/components/browser/*'s own plan doc), kept consistent
-              // rather than picking a new offset ad hoc.
-              top: 96,
-              right: 16 + 110 + 12,
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              background: '#0e1209',
-              border: '1px solid rgba(71,204,36,.3)',
-              color: '#5ee233',
-              fontSize: 15,
-              fontWeight: 700,
-              cursor: 'pointer',
-              zIndex: 80,
-            }}
-          >
-            ℹ
-          </button>
-        </>
+      {!welcomeOpen && (
+        <CornerHudWheel
+          wheelOpen={wheelOpen}
+          browserOpen={browserOpen}
+          onToggleWheel={() => (wheelOpen ? setWheelOpen(false) : openWheelDirectly())}
+          onToggleBrowser={() => (browserOpen ? setBrowserOpen(false) : openPicker('reset'))}
+          viewMode={viewMode}
+          onCycleView={cycleViewMode}
+          onSave={handleSave}
+          onAbout={() => setWelcomeForceOpen(true)}
+        />
       )}
     </div>
   );
