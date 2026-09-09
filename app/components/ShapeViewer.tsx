@@ -380,6 +380,52 @@ export default function ShapeViewer({
     scene.background = new THREE.Color(0x111111);
     sceneRef.current = scene;
 
+    // Face-hover highlight: a single shared overlay mesh showing exactly
+    // which triangle is currently targeted, distinct from
+    // applyNodeAppearance's own whole-shape emissive glow. Real gap found
+    // live -- with only a whole-shape glow (correct for "this node has
+    // capacity", never meant to be face-specific) and a text tooltip,
+    // there was no way to actually SEE which of a many-faced shape's
+    // triangles (e.g. all 12 on a snub disphenoid) was about to be
+    // attached to -- it happened to look reasonable on a 4-faced
+    // tetrahedron (each face is a large fraction of the whole shape) but
+    // read as "the whole shape lighting up"/"attaching randomly" on
+    // anything with more, smaller faces. Rebuilt per-hover to match
+    // whichever face is targeted (geometry is cheap -- at most a handful
+    // of triangles), parented under the hovered node's own object so it
+    // inherits that node's transform automatically.
+    const faceHighlightMaterial = new THREE.MeshBasicMaterial({
+      color: COLOR_FREE,
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide,
+      depthTest: false, // always drawn on top, never z-fights the shape's own face underneath
+    });
+    const faceHighlightMesh = new THREE.Mesh(new THREE.BufferGeometry(), faceHighlightMaterial);
+    faceHighlightMesh.renderOrder = 999; // draw after everything else, pairs with depthTest:false above
+    faceHighlightMesh.visible = false;
+    scene.add(faceHighlightMesh);
+
+    const showFaceHighlight = (node: PlacedShape, faceIndex: number) => {
+      const spec = POLYHEDRA[(node.object.userData as ShapeObjectUserData).specId];
+      const positions: number[] = [];
+      for (const [a, b, c] of triangulateFace(spec.faces[faceIndex])) {
+        positions.push(...spec.vertices[a], ...spec.vertices[b], ...spec.vertices[c]);
+      }
+      faceHighlightMesh.geometry.dispose();
+      faceHighlightMesh.geometry = new THREE.BufferGeometry();
+      faceHighlightMesh.geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      faceHighlightMesh.geometry.computeVertexNormals();
+      node.object.updateMatrixWorld(true);
+      faceHighlightMesh.position.copy(node.object.position);
+      faceHighlightMesh.quaternion.copy(node.object.quaternion);
+      faceHighlightMesh.scale.copy(node.object.scale);
+      faceHighlightMesh.visible = true;
+    };
+    const hideFaceHighlight = () => {
+      faceHighlightMesh.visible = false;
+    };
+
     const camera = new THREE.PerspectiveCamera(
       50,
       container.clientWidth / container.clientHeight,
@@ -1010,6 +1056,7 @@ export default function ShapeViewer({
       hoveredRef.current = null;
       hoveredNodeRef.current = null;
       hoveredFaceIndexRef.current = null;
+      hideFaceHighlight();
       label.style.display = 'none';
     };
 
@@ -1072,6 +1119,7 @@ export default function ShapeViewer({
       if (hit) {
         hoveredNodeRef.current = null;
         hoveredFaceIndexRef.current = null;
+        hideFaceHighlight();
         const { vertexId, degree, occupied } = hit.userData as VertexUserData;
         label.textContent = occupied
           ? `vertex ${vertexId} — capacity ${degree} (occupied)`
@@ -1092,6 +1140,8 @@ export default function ShapeViewer({
         hoveredNodeRef.current = node;
         const faceIndex = typeof faceHit.faceIndex === 'number' ? node.triangleToFaceIndex[faceHit.faceIndex] : null;
         hoveredFaceIndexRef.current = faceIndex;
+        if (faceIndex !== null) showFaceHighlight(node, faceIndex);
+        else hideFaceHighlight();
 
         const { specId } = node.object.userData as ShapeObjectUserData;
         const rewriteTarget = REWRITE_TARGET[specId];
@@ -1107,6 +1157,7 @@ export default function ShapeViewer({
       } else {
         hoveredNodeRef.current = null;
         hoveredFaceIndexRef.current = null;
+        hideFaceHighlight();
         label.style.display = 'none';
       }
     };
@@ -1308,6 +1359,8 @@ export default function ShapeViewer({
       container.removeEventListener('pointerup', onPointerUp);
       container.removeEventListener('click', onClick);
       resetScene();
+      faceHighlightMesh.geometry.dispose();
+      faceHighlightMaterial.dispose();
       controls.dispose();
       container.removeChild(renderer.domElement);
       renderer.dispose();
