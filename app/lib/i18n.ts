@@ -1,0 +1,186 @@
+/**
+ * ShapeBrowser chrome i18n. Scoped ONLY to the browser's own UI strings
+ * (tab labels, facet headers, buttons, empty states, stat labels) -- shape
+ * names and family names (Deltahedra, Johnson, etc.) always stay in their
+ * original form in every language, the same way a karaoke machine never
+ * translates a song title.
+ */
+
+export type LangCode = 'en' | 'ja' | 'es' | 'fr';
+
+export const LANG_META: Record<LangCode, { native: string }> = {
+  en: { native: 'English' },
+  ja: { native: '日本語' },
+  es: { native: 'Español' },
+  fr: { native: 'Français' },
+};
+
+export const LANG_ORDER: LangCode[] = ['en', 'ja', 'es', 'fr'];
+
+type Dict = Record<string, string>;
+
+const en: Dict = {
+  'tab.home': 'Home',
+  'tab.search': 'Search',
+  'tab.scene': 'Scene',
+  'tab.favorites': 'Favorites',
+  'home.families': 'Families',
+  'home.recent': 'Recently Viewed',
+  'home.favorites': 'Favorites',
+  'home.emptyHint': 'Pick a family above to start browsing the catalog — shapes you view or star will show up here.',
+  'search.placeholder': 'Search shapes… try "J12" or "gyrobicupola"',
+  'search.prompt': 'Type a name, or pick a family / face shape above, to start browsing.',
+  'search.noResults': 'No shapes match this combination.',
+  'facet.family': 'Family',
+  'facet.faceShape': 'Face Shape',
+  'facet.faceCount': 'Face Count',
+  'action.addToScene': 'Add to Scene',
+  'action.favorite': 'Favorite',
+  'action.compare': 'Add to Compare',
+  'action.remove': 'Remove',
+  'action.reset': 'Reset',
+  'action.close': 'Close',
+  'action.seeAll': 'See all →',
+  'stat.vertices': 'Vertices',
+  'stat.edges': 'Edges',
+  'stat.faces': 'Faces',
+  'stat.connectors': 'Connectors',
+  'scene.title': 'Scene',
+  'scene.emptySub': 'Nothing built yet',
+  'scene.emptyBody': 'Open a shape from Search and tap "Add to Scene" to start a vertex-snapped chain.',
+  'fav.title': 'Favorites',
+  'fav.starred': '{n} starred',
+  'compare.title': 'Compare',
+  'compare.selectedMax': '{n} selected (max 4)',
+  'wheel.head': 'Choose a shape family',
+  'wheel.spin': 'Spin the Wheel',
+  'lang.button': 'Language',
+  'alsoIn': 'Also in: {list}',
+};
+
+const ja: Dict = {
+  'tab.home': 'ホーム',
+  'tab.search': '検索',
+  'tab.scene': 'シーン',
+  'tab.favorites': 'お気に入り',
+  'home.families': 'ファミリー',
+  'home.recent': '最近見た形',
+  'home.favorites': 'お気に入り',
+  'home.emptyHint': '上のファミリーを選ぶとカタログを見られます。表示したりお気に入りにした形はここに表示されます。',
+  'search.placeholder': '形を検索…「J12」や「gyrobicupola」など',
+  'search.prompt': '名前を入力するか、上のファミリー・面の形から選んで探してください。',
+  'search.noResults': 'この組み合わせに一致する形はありません。',
+  'facet.family': 'ファミリー',
+  'facet.faceShape': '面の形',
+  'facet.faceCount': '面の数',
+  'action.addToScene': 'シーンに追加',
+  'action.favorite': 'お気に入り',
+  'action.compare': '比較に追加',
+  'action.remove': '削除',
+  'action.reset': 'リセット',
+  'action.close': '閉じる',
+  'action.seeAll': 'すべて見る →',
+  'stat.vertices': '頂点',
+  'stat.edges': '辺',
+  'stat.faces': '面',
+  'stat.connectors': 'コネクタ',
+  'scene.title': 'シーン',
+  'scene.emptySub': 'まだ何も組んでいません',
+  'scene.emptyBody': '「検索」で形を開き「シーンに追加」をタップすると連結が始まります。',
+  'fav.title': 'お気に入り',
+  'fav.starred': '{n} 件登録済み',
+  'compare.title': '比較',
+  'compare.selectedMax': '{n} 件選択中（最大4件）',
+  'wheel.head': 'ファミリーを選択',
+  'wheel.spin': 'ホイールを回す',
+  'lang.button': '言語',
+  'alsoIn': '他の所属: {list}',
+};
+
+const es: Dict = {
+  'tab.home': 'Inicio',
+  'tab.search': 'Buscar',
+  'tab.scene': 'Escena',
+  'tab.favorites': 'Favoritos',
+  'home.families': 'Familias',
+  'home.recent': 'Vistos Recientemente',
+  'home.favorites': 'Favoritos',
+  'home.emptyHint': 'Elige una familia arriba para explorar el catálogo — las figuras que veas o marques aparecerán aquí.',
+  'search.placeholder': 'Buscar figuras… prueba "J12" o "gyrobicupola"',
+  'search.prompt': 'Escribe un nombre, o elige una familia / forma de cara arriba, para empezar a explorar.',
+  'search.noResults': 'Ninguna figura coincide con esta combinación.',
+  'facet.family': 'Familia',
+  'facet.faceShape': 'Forma de Cara',
+  'facet.faceCount': 'N.º de Caras',
+  'action.addToScene': 'Añadir a la Escena',
+  'action.favorite': 'Favorito',
+  'action.compare': 'Añadir a Comparar',
+  'action.remove': 'Quitar',
+  'action.reset': 'Restablecer',
+  'action.close': 'Cerrar',
+  'action.seeAll': 'Ver todo →',
+  'stat.vertices': 'Vértices',
+  'stat.edges': 'Aristas',
+  'stat.faces': 'Caras',
+  'stat.connectors': 'Conectores',
+  'scene.title': 'Escena',
+  'scene.emptySub': 'Nada construido todavía',
+  'scene.emptyBody': 'Abre una figura desde Buscar y toca "Añadir a la Escena" para iniciar una cadena.',
+  'fav.title': 'Favoritos',
+  'fav.starred': '{n} marcados',
+  'compare.title': 'Comparar',
+  'compare.selectedMax': '{n} seleccionadas (máx. 4)',
+  'wheel.head': 'Elige una familia de figuras',
+  'wheel.spin': 'Girar la Rueda',
+  'lang.button': 'Idioma',
+  'alsoIn': 'También en: {list}',
+};
+
+const fr: Dict = {
+  'tab.home': 'Accueil',
+  'tab.search': 'Recherche',
+  'tab.scene': 'Scène',
+  'tab.favorites': 'Favoris',
+  'home.families': 'Familles',
+  'home.recent': 'Vus Récemment',
+  'home.favorites': 'Favoris',
+  'home.emptyHint': 'Choisissez une famille ci-dessus pour parcourir le catalogue — les formes vues ou mises en favori apparaîtront ici.',
+  'search.placeholder': 'Rechercher des formes… essayez « J12 » ou « gyrobicupola »',
+  'search.prompt': 'Tapez un nom, ou choisissez une famille / forme de face ci-dessus, pour commencer à explorer.',
+  'search.noResults': 'Aucune forme ne correspond à cette combinaison.',
+  'facet.family': 'Famille',
+  'facet.faceShape': 'Forme de Face',
+  'facet.faceCount': 'Nb. de Faces',
+  'action.addToScene': 'Ajouter à la Scène',
+  'action.favorite': 'Favori',
+  'action.compare': 'Ajouter à Comparer',
+  'action.remove': 'Retirer',
+  'action.reset': 'Réinitialiser',
+  'action.close': 'Fermer',
+  'action.seeAll': 'Tout voir →',
+  'stat.vertices': 'Sommets',
+  'stat.edges': 'Arêtes',
+  'stat.faces': 'Faces',
+  'stat.connectors': 'Connecteurs',
+  'scene.title': 'Scène',
+  'scene.emptySub': 'Rien construit pour l’instant',
+  'scene.emptyBody': 'Ouvrez une forme depuis Recherche et appuyez sur « Ajouter à la Scène » pour lancer un assemblage.',
+  'fav.title': 'Favoris',
+  'fav.starred': '{n} en favoris',
+  'compare.title': 'Comparer',
+  'compare.selectedMax': '{n} sélectionnées (max 4)',
+  'wheel.head': 'Choisissez une famille de formes',
+  'wheel.spin': 'Faire Tourner la Roue',
+  'lang.button': 'Langue',
+  'alsoIn': 'Également dans : {list}',
+};
+
+const I18N: Record<LangCode, Dict> = { en, ja, es, fr };
+
+export function t(key: string, lang: LangCode, vars?: Record<string, string | number>): string {
+  let s = I18N[lang]?.[key] ?? I18N.en[key] ?? key; // fallback chain: lang -> en -> raw key
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
+  }
+  return s;
+}

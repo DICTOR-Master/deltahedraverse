@@ -21,14 +21,16 @@
  * follow-up direction.
  *
  * Scope note: this first pass is the wheel SHELL plus the SHAPE PICKER
- * only (family-grouped: deltahedra/Platonic/Archimedean/Johnson/Catalan/
- * Prisms & antiprisms), per explicit user direction to build that before
- * folding in actions (augment/diminish), view modes (Spherical/X-Ray),
- * or the corner HUD element above. 6 families fit comfortably within the
- * dodecahedron's 12 faces at the family-selection level (one family per
- * face, 6 spare) -- see `resolveSlots`'s `level.kind === 'families'`
- * branch, which maps `FAMILIES` 1:1 onto face slots with no change
- * needed as families are added.
+ * only (family-grouped: Deltahedra/Platonic/Archimedean/Johnson/Catalan/
+ * Prisms/Antiprisms -- 7 families since Prisms and Antiprisms split into
+ * two independently browsable families, see app/lib/polyhedra/families.ts),
+ * per explicit user direction to build that before folding in actions
+ * (augment/diminish), view modes (Spherical/X-Ray), or the corner HUD
+ * element above. 7 families fit comfortably within the dodecahedron's 12
+ * faces at the family-selection level (one family per face, 5 spare) --
+ * see `resolveSlots`'s `level.kind === 'families'` branch, which maps
+ * `FAMILIES` 1:1 onto face slots with no change needed as families are
+ * added.
  *
  * Geometry: reuses this registry's own POLYHEDRA.DODECAHEDRON spec
  * directly (vertices + faces already unit-edge, already validated) —
@@ -41,16 +43,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
   POLYHEDRA,
-  DELTAHEDRON_IDS,
-  PLATONIC_ADDITION_IDS,
-  ARCHIMEDEAN_ADDITION_IDS,
-  JOHNSON_ADDITION_IDS,
-  CATALAN_ADDITION_IDS,
-  PRISM_ANTIPRISM_ADDITION_IDS,
   triangulateFace,
   buildFaceConnectors,
   type Vec3,
 } from '../lib/polyhedra';
+import { FAMILY_ORDER, FAMILY_META, familyIds } from '../lib/polyhedra/families';
 
 // Interaction mechanics (reveal timing, drag threshold, panel opacity)
 // ported exactly from rhombic-wheel-3d.js/-core.js; the COLORS are
@@ -96,43 +93,21 @@ interface Family {
   ids: string[];
 }
 
-// Within a family, order by face type then face count, smallest to
-// largest -- a geometrically intuitive browse order (simplest/most
-// familiar shapes first) rather than registry-insertion order. "Face
-// type" here means the smallest face size present (3 = has a triangle,
-// 4 = smallest face is a square, etc.), then how many distinct face
-// sizes the shape has (a pure single-face-type shape before a hybrid
-// one with the same minimum), then total face count -- derived directly
-// from each shape's own `faces` array, never a separately hand-declared
-// ordering.
-function faceTypeSortKey(id: string): [number, number, number] {
-  const spec = POLYHEDRA[id];
-  const faceSizes = spec.faces.map((f) => f.length);
-  const distinctSizes = new Set(faceSizes);
-  return [Math.min(...faceSizes), distinctSizes.size, spec.faceCount];
-}
+// Family list, order, labels/symbols, and per-family shape ordering are
+// all owned by app/lib/polyhedra/families.ts now -- the single source of
+// truth shared with the ShapeBrowser, so the wheel and the browser can
+// never disagree about family membership. Note this means a shape with a
+// documented cross-family membership (e.g. the octahedron: Deltahedra AND
+// Antiprisms) is reachable from more than one family face here -- that's
+// intended, not a bug to dedupe.
+const FAMILIES: Family[] = FAMILY_ORDER.map((key) => ({
+  key,
+  label: FAMILY_META[key].label,
+  symbol: FAMILY_META[key].symbol,
+  ids: familyIds(key),
+}));
 
-function sortByFaceType(ids: string[]): string[] {
-  return [...ids].sort((a, b) => {
-    const ka = faceTypeSortKey(a);
-    const kb = faceTypeSortKey(b);
-    for (let i = 0; i < ka.length; i++) {
-      if (ka[i] !== kb[i]) return ka[i] - kb[i];
-    }
-    return 0;
-  });
-}
-
-const FAMILIES: Family[] = [
-  { key: 'DELTAHEDRA', label: 'Deltahedra', symbol: '△', ids: sortByFaceType(DELTAHEDRON_IDS) },
-  { key: 'PLATONIC', label: 'Platonic', symbol: '◇', ids: sortByFaceType(PLATONIC_ADDITION_IDS) },
-  { key: 'ARCHIMEDEAN', label: 'Archimedean', symbol: '⬡', ids: sortByFaceType(ARCHIMEDEAN_ADDITION_IDS) },
-  { key: 'JOHNSON', label: 'Johnson', symbol: '⛛', ids: sortByFaceType(JOHNSON_ADDITION_IDS) },
-  { key: 'CATALAN', label: 'Catalan', symbol: '⬦', ids: sortByFaceType(CATALAN_ADDITION_IDS) },
-  { key: 'PRISMS', label: 'Prisms', symbol: '▱', ids: sortByFaceType(PRISM_ANTIPRISM_ADDITION_IDS) },
-];
-
-// 12 faces available; family level always fits (4 populated + 8 spare).
+// 12 faces available; family level always fits (7 populated + 5 spare).
 // A family's shape level reserves face 11 for "More" paging once its
 // own id list overflows 11 content slots (today only Archimedean does,
 // at 13 -- Johnson will too once later batches grow past 11).

@@ -6,6 +6,7 @@ import { POLYHEDRON_IDS } from './lib/polyhedra';
 import type { NodeSelection, ShapeSelection, ShapeViewerHandle, ViewMode } from './components/ShapeViewer';
 import PolyhedralWheel from './components/PolyhedralWheel';
 import CornerHudWheel from './components/CornerHudWheel';
+import ShapeBrowser from './components/browser/ShapeBrowser';
 
 const ShapeViewer = dynamic(() => import('./components/ShapeViewer'), {
   ssr: false,
@@ -33,33 +34,46 @@ export default function Home() {
   const [cageClosed, setCageClosed] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [viewMode, setViewModeState] = useState<ViewMode>('normal');
+  // wheelOpen now drives ONLY the literal 3D PolyhedralWheel, opened
+  // directly via CornerHudWheel's medallion -- a fast, unchanged shortcut
+  // for anyone who wants the wheel itself rather than the browser.
   const [wheelOpen, setWheelOpen] = useState(false);
+  // browserOpen drives the karaoke-style ShapeBrowser, which is now the
+  // DEFAULT entry point for picking a shape (Tab/Space, "Start over
+  // with…", "Attach via face…"). The browser has its own internal "Spin
+  // the Wheel" affordance that renders this same PolyhedralWheel in
+  // place, sharing the identical onSelect contract below.
+  const [browserOpen, setBrowserOpen] = useState(false);
   // 'reset': picking a shape to start over with (no filter). 'faceAttach':
   // picking a shape to attach via the currently-selected free face (only
   // shapes with a matching face size are real options) -- set only when
   // opened via that specific trigger, so it's naturally gone the next
-  // time the wheel opens from anywhere else ("unless returning back to
-  // [the general app state]").
+  // time the picker opens from anywhere else ("unless returning back to
+  // [the general app state]"). Shared by both the wheel and the browser.
   const [wheelMode, setWheelMode] = useState<'reset' | 'faceAttach'>('reset');
 
-  const openWheel = (mode: 'reset' | 'faceAttach') => {
+  const openPicker = (mode: 'reset' | 'faceAttach') => {
     setWheelMode(mode);
+    setBrowserOpen(true);
+  };
+  const openWheelDirectly = () => {
+    setWheelMode('reset');
     setWheelOpen(true);
   };
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (wheelOpen) return;
+      if (wheelOpen || browserOpen) return;
       const target = e.target as HTMLElement | null;
       if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) return;
       if (e.key === 'Tab' || e.key === ' ') {
         e.preventDefault();
-        openWheel('reset');
+        openPicker('reset');
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [wheelOpen]);
+  }, [wheelOpen, browserOpen]);
 
   const handleSave = async () => {
     setSaveStatus('saving');
@@ -134,7 +148,7 @@ export default function Home() {
       <nav className="flex flex-wrap items-center gap-2 px-6 pb-2">
         <button
           type="button"
-          onClick={() => openWheel('reset')}
+          onClick={() => openPicker('reset')}
           className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
         >
           Start over with… <span className="ml-1 text-xs opacity-70">(Tab / Space)</span>
@@ -187,7 +201,7 @@ export default function Home() {
             {nodeSelection.faceAttachOptions.length > 0 && (
               <button
                 type="button"
-                onClick={() => openWheel('faceAttach')}
+                onClick={() => openPicker('faceAttach')}
                 className="rounded-full bg-sky-500 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-sky-400"
               >
                 Attach via face…
@@ -248,7 +262,17 @@ export default function Home() {
           else handleRef.current?.reset(id);
         }}
       />
-      {!wheelOpen && <CornerHudWheel onOpen={() => openWheel('reset')} />}
+      <ShapeBrowser
+        open={browserOpen}
+        onClose={() => setBrowserOpen(false)}
+        filterIds={wheelMode === 'faceAttach' ? nodeSelection?.faceAttachOptions : undefined}
+        onSelect={(id) => {
+          setBrowserOpen(false);
+          if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
+          else handleRef.current?.reset(id);
+        }}
+      />
+      {!wheelOpen && !browserOpen && <CornerHudWheel onOpen={openWheelDirectly} />}
     </div>
   );
 }
