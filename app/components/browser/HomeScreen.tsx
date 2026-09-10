@@ -11,6 +11,17 @@ export interface HomeScreenProps {
   lang: LangCode;
   recents: string[];
   favorites: string[];
+  /** Mirrors every other screen's filterIds (face-attach mode: only
+   *  shapes with a matching face size are real options) -- previously
+   *  NOT threaded through here, a real gap: Home's family tiles and
+   *  Recent/Favorites shelves showed every shape regardless, the one
+   *  corner of the picker that didn't narrow down to relevant options
+   *  when a face was selected. Family tiles with zero compatible members
+   *  are hidden entirely (same convention PolyhedralWheel already uses
+   *  for its own family faces), and the two shelves are filtered down to
+   *  only compatible ids, same convention FullCatalogScreen/SearchScreen
+   *  already use. */
+  filterIds?: string[];
   onSelectFamily: (family: FamilyKey) => void;
   onOpenShape: (specId: string) => void;
   onSeeAllRecent: () => void;
@@ -25,6 +36,7 @@ export default function HomeScreen({
   lang,
   recents,
   favorites,
+  filterIds,
   onSelectFamily,
   onOpenShape,
   onSeeAllRecent,
@@ -34,16 +46,23 @@ export default function HomeScreen({
   onToggleFavorite,
   onToggleCompare,
 }: HomeScreenProps) {
+  const visibleFamilies = FAMILY_ORDER.filter(
+    (fam) => !filterIds || familyIds(fam).some((id) => filterIds.includes(id)),
+  );
+  const visibleRecents = filterIds ? recents.filter((id) => filterIds.includes(id)) : recents;
+  const visibleFavorites = filterIds ? favorites.filter((id) => filterIds.includes(id)) : favorites;
+
   return (
     <div style={{ overflowY: 'auto', flex: 1, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+      {visibleFamilies.length > 0 && (
       <div>
         <div style={{ marginBottom: 10, fontSize: 13, fontWeight: 700, color: '#a9f795', letterSpacing: '.02em' }}>
           {t('home.families', lang)}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
-          {FAMILY_ORDER.map((fam) => {
+          {visibleFamilies.map((fam) => {
             const meta = FAMILY_META[fam];
-            const count = familyIds(fam).length;
+            const count = filterIds ? familyIds(fam).filter((id) => filterIds.includes(id)).length : familyIds(fam).length;
             return (
               <div
                 key={fam}
@@ -74,15 +93,16 @@ export default function HomeScreen({
           })}
         </div>
       </div>
+      )}
 
-      {recents.length > 0 && (
+      {visibleRecents.length > 0 && (
         <Shelf
           title={t('home.recent', lang)}
-          showSeeAll={recents.length > SHELF_CAP}
+          showSeeAll={visibleRecents.length > SHELF_CAP}
           onSeeAll={onSeeAllRecent}
           seeAllLabel={t('action.seeAll', lang)}
         >
-          {recents.slice(0, SHELF_CAP).map((id) => (
+          {visibleRecents.slice(0, SHELF_CAP).map((id) => (
             <ShapePreviewCard
               key={id}
               specId={id}
@@ -97,14 +117,14 @@ export default function HomeScreen({
         </Shelf>
       )}
 
-      {favorites.length > 0 && (
+      {visibleFavorites.length > 0 && (
         <Shelf
           title={t('home.favorites', lang)}
-          showSeeAll={favorites.length > SHELF_CAP}
+          showSeeAll={visibleFavorites.length > SHELF_CAP}
           onSeeAll={onSeeAllFavorites}
           seeAllLabel={t('action.seeAll', lang)}
         >
-          {favorites.slice(0, SHELF_CAP).map((id) => (
+          {visibleFavorites.slice(0, SHELF_CAP).map((id) => (
             <ShapePreviewCard
               key={id}
               specId={id}
@@ -119,11 +139,17 @@ export default function HomeScreen({
         </Shelf>
       )}
 
-      {recents.length === 0 && favorites.length === 0 && (
-        <div style={{ color: '#3a9e1f', fontSize: 12, textAlign: 'center', padding: '24px 0' }}>
-          {t('home.emptyHint', lang)}
-        </div>
-      )}
+      {filterIds
+        ? visibleFamilies.length === 0 && visibleRecents.length === 0 && visibleFavorites.length === 0 && (
+            <div style={{ color: '#3a9e1f', fontSize: 12, textAlign: 'center', padding: '24px 0' }}>
+              {t('search.noResults', lang)}
+            </div>
+          )
+        : recents.length === 0 && favorites.length === 0 && (
+            <div style={{ color: '#3a9e1f', fontSize: 12, textAlign: 'center', padding: '24px 0' }}>
+              {t('home.emptyHint', lang)}
+            </div>
+          )}
     </div>
   );
 }

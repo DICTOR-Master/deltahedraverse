@@ -121,3 +121,67 @@ test('face-attaching a RHOMBIC_DODECAHEDRON face only offers Catalan, never a de
   await expect(triakisTetEntry).toBeVisible();
   await expect(triakisTetEntry).toHaveClass(/spare/);
 });
+
+/**
+ * Real user request: "when attach a face is selected that relevant
+ * options automatically appear across all groups." Following straight
+ * from the dead-end-family bug fixed just above (the wheel's family
+ * screen not applying filterIds) -- ShapeBrowser's own Home tab (family
+ * tiles + Recent/Favorites shelves) and Favorites tab had the identical
+ * gap: filterIds was never threaded through to them at all, so a face-
+ * attach in progress still showed every family and every favorited shape
+ * regardless of whether it could ever actually attach. Checked here via
+ * RHOMBIC_DODECAHEDRON, the same shape/family pairing as the test above:
+ * only Catalan has a real match, and TRIAKIS_TETRAHEDRON (also Catalan,
+ * but not congruent to RD's own rhombus) is a real non-match.
+ */
+test('face-attaching onto an RD face filters Home and Favorites too, not just the wheel', async ({ page }) => {
+  // Favorite one compatible shape (RD itself) and one incompatible one
+  // (TRIAKIS_TETRAHEDRON) via the plain, unfiltered 'reset' picker's
+  // Search tab, before ever entering face-attach mode.
+  await page.getByRole('button', { name: /^Start over with/ }).click();
+  const searchInput = page.getByPlaceholder(/Search shapes/);
+
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await searchInput.fill('rhombic dodecahedron');
+  // exact: true matters here -- each ShapePreviewCard's own root <div> is
+  // ALSO role="button" (the whole card is clickable to open the detail
+  // drawer), and its computed accessible name happens to include the
+  // nested Favorite button's own text as a substring. A plain substring
+  // match on "Favorite" resolves .first() to that outer card div instead
+  // of the real <button>, which opens the detail drawer rather than
+  // toggling the favorite -- caught live: it hung the second fill()
+  // beneath the now-opened, full-screen drawer.
+  await page.getByRole('button', { name: 'Favorite', exact: true }).first().click();
+  await searchInput.fill('triakis tetrahedron');
+  await page.getByRole('button', { name: 'Favorite', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+
+  await resetTo(page, 'RHOMBIC_DODECAHEDRON');
+  const { cx, cy } = await getCanvasCenter(page);
+  await page.mouse.click(cx, cy);
+  await page.getByRole('button', { name: 'Attach via face…' }).click();
+
+  const browser = page.getByRole('dialog', { name: 'Shape browser' });
+
+  // ShapeBrowser stays mounted across opens (only `open` toggles), so its
+  // internal `tab` state carries over from the earlier Search-tab visit
+  // above rather than resetting to Home -- explicitly select Home first
+  // rather than assuming it's still the landing tab.
+  await browser.getByRole('button', { name: 'Home', exact: true }).click();
+
+  // Home tab -- family tiles.
+  await expect(browser.getByRole('button', { name: /Catalan/ })).toBeVisible();
+  for (const fam of ['Platonic', 'Archimedean', 'Johnson', 'Prisms', 'Antiprisms', 'Deltahedra']) {
+    await expect(browser.getByRole('button', { name: new RegExp(fam) })).toHaveCount(0);
+  }
+
+  // Home tab's own Favorites shelf -- only the compatible favorite shows.
+  await expect(browser.locator('text=/^rhombic dodecahedron$/i')).toBeVisible();
+  await expect(browser.locator('text=/^triakis tetrahedron$/i')).toHaveCount(0);
+
+  // Favorites tab -- same filtering, independently.
+  await browser.getByRole('button', { name: 'Favorites', exact: true }).click();
+  await expect(browser.locator('text=/^rhombic dodecahedron$/i')).toBeVisible();
+  await expect(browser.locator('text=/^triakis tetrahedron$/i')).toHaveCount(0);
+});

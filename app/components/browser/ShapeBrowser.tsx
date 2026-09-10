@@ -248,6 +248,7 @@ export default function ShapeBrowser({
                 lang={lang}
                 recents={recents}
                 favorites={favorites}
+                filterIds={filterIds}
                 onSelectFamily={selectFamily}
                 onOpenShape={openShape}
                 onSeeAllRecent={() => {
@@ -279,6 +280,7 @@ export default function ShapeBrowser({
               <FavoritesScreen
                 lang={lang}
                 favorites={favorites}
+                filterIds={filterIds}
                 isInCompare={isInCompare}
                 onOpenShape={openShape}
                 onToggleFavorite={toggleFavorite}
@@ -330,7 +332,28 @@ export default function ShapeBrowser({
         </button>
       )}
 
-      <nav style={{ display: 'flex', borderTop: '1px solid rgba(71,204,36,.16)' }}>
+      <nav
+        style={{
+          display: 'flex',
+          borderTop: '1px solid rgba(71,204,36,.16)',
+          // Real bug found live (Playwright pointer-interception, not
+          // eyeballed): CornerHudWheel is a fixed, always-on-top
+          // (zIndex 999, above this nav's own 985) 160px medallion
+          // anchored bottom-right:16 -- deliberately NOT covered by
+          // anything else here (see its own header comment on why it's
+          // bottom-right at all), but nothing had reserved that corner
+          // FROM this side either. At normal viewport widths the
+          // rightmost tab (Favorites, in a 4-way flex:1 row spanning the
+          // full width) has its own clickable center sitting directly
+          // under the medallion, silently swallowing the tap. Same class
+          // of bug as the star-polyhedra detail drawer's own bottom-right
+          // Favorite/Compare buttons, fixed the same way: reserve the
+          // medallion's real footprint (160 + its own 16 margin) so nav
+          // content never extends into that corner, rather than raising
+          // z-index further (the medallion must stay clickable itself).
+          paddingRight: 176,
+        }}
+      >
         {TABS.map((tb) => (
           <button
             key={tb}
