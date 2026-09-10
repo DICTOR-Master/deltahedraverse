@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
-import { getCanvasCenter, resetTo, findOnCanvas, WHEEL_FAMILIES, clickWheelLabel, CONTENT_FACES_PER_PAGE, openBrowserWheel, exactLabel } from './utils';
+import { getCanvasCenter, resetTo, findOnCanvas, WHEEL_FAMILIES, clickWheelLabel, CONTENT_FACES_PER_PAGE, PAGED_CONTENT_PER_PAGE, openBrowserWheel, exactLabel } from './utils';
 
 /**
  * A navigating click's onSelect fires after a setTimeout(0), so reading
@@ -52,7 +52,7 @@ test('renders the canvas and every shape across all 7 wheel families (8 Deltahed
     // the wheel currently faces) is what this test cares about: every
     // registered shape actually reached the picker as a real face, paging
     // through "More" for families that overflow a single 12-face wheel.
-    const pages = family.ids.length > CONTENT_FACES_PER_PAGE ? Math.ceil(family.ids.length / CONTENT_FACES_PER_PAGE) : 1;
+    const pages = family.ids.length > CONTENT_FACES_PER_PAGE ? Math.ceil(family.ids.length / PAGED_CONTENT_PER_PAGE) : 1;
     const seen = new Set<string>();
     for (let p = 0; p < pages; p++) {
       const texts = await stableLabelTexts(page);

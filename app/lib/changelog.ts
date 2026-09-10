@@ -17,6 +17,10 @@ export const CHANGELOG: ChangelogDay[] = [
   {
     date: '2026-09-10',
     entries: [
+      'Shapes belonging to more than one family now show a small "+N" badge right on their card, not just a hover-only tooltip — much easier to notice at a glance (and works on touch, where hover never did).',
+      'Added a "Search" face to the wheel, jumping straight to the browser\'s Search tab (name search + face-shape filters) as an alternative to browsing family by family.',
+      'The wheel can now jump straight to a specific section of Full Catalog instead of always drilling through per-shape pages: a new "Star Polyhedra" face for those 4 solids, and a "View all" face on every large family (Archimedean, Johnson, Catalan) once it spans more than one wheel page.',
+      'Added a small always-visible "menu" button (bottom-left) that opens the shape wheel from anywhere, alongside the existing corner HUD medallion.',
       'Star polyhedra now render Solid and Translucent, not just Wireframe — a real winding-number-correct triangulation fills even the self-intersecting pentagram faces (small/great stellated dodecahedron) correctly, with a mode toggle right on the viewer.',
       'Added a real 3D starfield to the main viewer, plus a starry background behind the page header.',
     ],

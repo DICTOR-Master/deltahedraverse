@@ -10,6 +10,7 @@ import ShapeBrowser from './components/browser/ShapeBrowser';
 import WelcomeOverlay from './components/WelcomeOverlay';
 import ChangelogOverlay from './components/ChangelogOverlay';
 import { usePrefs } from './lib/prefs';
+import type { FamilyKey } from './lib/polyhedra/families';
 
 const ShapeViewer = dynamic(() => import('./components/ShapeViewer'), {
   ssr: false,
@@ -43,6 +44,15 @@ export default function Home() {
   // mounted. The embedded wheel INSIDE ShapeBrowser needs no such
   // round-trip, it flips its own local state directly.
   const [fullCatalogRequestId, setFullCatalogRequestId] = useState(0);
+  // Paired with fullCatalogRequestId -- which section (if any) the
+  // direct wheel's Full Catalog/Star Polyhedra/family "View all" face
+  // should land scrolled to. See ShapeBrowser's own
+  // fullCatalogFocusSection doc comment.
+  const [fullCatalogFocusSection, setFullCatalogFocusSection] = useState<FamilyKey | 'STAR' | undefined>(undefined);
+  // Bumped whenever the DIRECT wheel picks "Search" -- same pattern as
+  // fullCatalogRequestId, see ShapeBrowser's own searchRequestId doc
+  // comment.
+  const [searchRequestId, setSearchRequestId] = useState(0);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [viewMode, setViewModeState] = useState<ViewMode>('normal');
   // wheelOpen now drives ONLY the literal 3D PolyhedralWheel, opened
@@ -402,7 +412,25 @@ export default function Home() {
         }}
         onSelectAll={() => {
           setWheelOpen(false);
+          setFullCatalogFocusSection(undefined);
           setFullCatalogRequestId((n) => n + 1);
+          setBrowserOpen(true);
+        }}
+        onSelectStarPolyhedra={() => {
+          setWheelOpen(false);
+          setFullCatalogFocusSection('STAR');
+          setFullCatalogRequestId((n) => n + 1);
+          setBrowserOpen(true);
+        }}
+        onSelectFamilyGrid={(familyKey) => {
+          setWheelOpen(false);
+          setFullCatalogFocusSection(familyKey);
+          setFullCatalogRequestId((n) => n + 1);
+          setBrowserOpen(true);
+        }}
+        onSelectSearch={() => {
+          setWheelOpen(false);
+          setSearchRequestId((n) => n + 1);
           setBrowserOpen(true);
         }}
       />
@@ -411,6 +439,8 @@ export default function Home() {
         onClose={() => setBrowserOpen(false)}
         filterIds={wheelMode === 'faceAttach' ? nodeSelection?.faceAttachOptions : undefined}
         fullCatalogRequestId={fullCatalogRequestId}
+        fullCatalogFocusSection={fullCatalogFocusSection}
+        searchRequestId={searchRequestId}
         onSelect={(id) => {
           setBrowserOpen(false);
           if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
@@ -496,6 +526,46 @@ export default function Home() {
           onSave={handleSave}
           onAbout={() => setWelcomeForceOpen(true)}
         />
+      )}
+      {/* Real user request: "a little bottom left hand 'menu' button that
+          summons wheel from anywhere" -- a second, always-visible trigger
+          for the direct wheel, deliberately alongside (not replacing)
+          CornerHudWheel's own medallion (bottom-right, see its own
+          right:16/bottom:16) rather than unifying them into one -- this
+          project has already decided against collapsing the wheel and
+          browser's separate entry points into a single toggle, and the
+          same reasoning applies here: more doors in, not fewer.
+          bottom:72 (not 16) -- real bug caught by e2e: Next.js's own dev-
+          mode indicator badge lives in the literal bottom-left corner and
+          its portal intercepts clicks there, so a plain bottom:16 button
+          was unclickable under `next dev` (this doesn't exist in a
+          production build, but local dev/test needs to work too). */}
+      {!welcomeOpen && (
+        <button
+          type="button"
+          onClick={() => (wheelOpen ? setWheelOpen(false) : openWheelDirectly())}
+          aria-label="Open shape wheel"
+          title="Open shape wheel"
+          style={{
+            position: 'fixed',
+            left: 16,
+            bottom: 72,
+            zIndex: 60,
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            background: 'rgba(5,5,10,.75)',
+            border: '1px solid rgba(71,204,36,.4)',
+            color: '#5ee233',
+            fontSize: 18,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          ☰
+        </button>
       )}
     </div>
   );

@@ -224,7 +224,7 @@ const FAMILIES: Family[] = FAMILY_ORDER.map((key) => ({
   ids: familyIds(key),
 }));
 
-// "Full Catalog" -- the wheel face itself (star symbol, {8,11}) stays,
+// "Full Catalog" -- the wheel face itself (star symbol, face 8) stays,
 // but selecting it no longer drills into the wheel's own pagination.
 // Real user feedback: browsing all 137 shapes one wheel-face at a time
 // read as "just go round the wheel itself almost anonymously" -- what
@@ -234,6 +234,42 @@ const FAMILIES: Family[] = FAMILY_ORDER.map((key) => ({
 // same as picking a real shape does, just routed to that screen instead
 // of onSelect(id).
 const ALL_CATALOG_LABEL = 'Full Catalog';
+// Star polyhedra get their own direct wheel face (face 11, formerly a
+// plain duplicate of Full Catalog) -- real user request: they were only
+// ever reachable by opening Full Catalog and scrolling all the way down.
+// A real pentagram (not a generic ★, which Full Catalog already owns and
+// sits right next to this face on the wheel) so the two read as visually
+// distinct, and the symbol itself is specific to what these 4 solids
+// actually are rather than a generic "star" gesture. Selecting it exits
+// the wheel and routes to FullCatalogScreen scrolled to that section,
+// same external-trigger pattern as onAll.
+const STAR_POLYHEDRA_LABEL = 'Star Polyhedra';
+const STAR_POLYHEDRA_SYMBOL = '⛧';
+// Search -- real user request: an alternate way into the registry
+// besides family-by-family, deep-linking straight to ShapeBrowser's own
+// Search tab (already has both a name search box AND a face-shape facet
+// -- see SearchScreen.tsx -- so this reuses that existing, more capable
+// screen rather than building a parallel filtering UI on the wheel
+// itself). Takes over Platonic's second/duplicate face (was {3,7}, a
+// plain antipodal clone of itself -- Platonic keeps just face 3 now),
+// the same "reclaim a duplicate rather than leave nothing spare" move
+// already used for Star Polyhedra taking over Full Catalog's own second
+// face.
+const SEARCH_LABEL = 'Search';
+const SEARCH_SYMBOL = '⌕';
+// "View all" -- real user request ("group by group summoning from
+// wheel"): a shortcut past the per-shape wheel drilldown straight to
+// that family's own Full Catalog section, only offered once a family
+// actually spans more than one wheel page (`overflow`) -- a family whose
+// whole roster already fits on one wheel screen (Deltahedra, Platonic,
+// Prisms, Antiprisms) has nothing to shortcut past. Reserves face 10
+// alongside Previous (0) and More (11), regardless of which page is
+// currently showing (unlike Previous/More, this isn't page-dependent) --
+// content then fills 9 slots per page instead of 10 once overflowing
+// (see PAGED_CONTENT_PER_PAGE), so this never collides with a real shape.
+const VIEW_ALL_LABEL = 'View all';
+const VIEW_ALL_FACE_INDEX = 10;
+const PAGED_CONTENT_PER_PAGE = 9;
 
 // 12 faces available; family level always fits (7 populated + 5 spare).
 // A family's shape level reserves face 11 for "More"/next-page paging
@@ -264,6 +300,9 @@ function resolveSlots(
   onSelectShape: (id: string) => void,
   onMore: () => void,
   onPrev: () => void,
+  onStarPolyhedra: () => void,
+  onFamilyGrid: (familyKey: FamilyKey) => void,
+  onSearch: () => void,
   filterIds?: string[],
 ): FaceSlot[] {
   const slots: FaceSlot[] = Array.from({ length: 12 }, () => ({ label: '', symbol: '', spare: true, onSelect: null }));
@@ -288,12 +327,14 @@ function resolveSlots(
     // paired construction family here) on {2,6}. Deltahedra/Platonic/
     // Johnson don't have a natural partner among the remaining families,
     // so each gets a plain clone of itself on its own antipodal face
-    // instead: Deltahedra {0,10}, Platonic {3,7}, Johnson {5,9}. That
-    // leaves exactly one pair, {8,11} -- "Full Catalog" (see its own
-    // const above for why it's back after being pulled once).
+    // instead: Deltahedra {0,10}, Johnson {5,9}. Platonic keeps only face
+    // 3 now -- face 7 (its former duplicate) went to "Search" instead
+    // (see SEARCH_LABEL's own comment). That leaves exactly one pair,
+    // {8,11} -- Full Catalog and Star Polyhedra (see their own consts
+    // above).
     const FAMILY_FACE_SLOTS: Record<FamilyKey, number[]> = {
       DELTAHEDRA: [0, 10],
-      PLATONIC: [3, 7],
+      PLATONIC: [3],
       ARCHIMEDEAN: [1],
       JOHNSON: [5, 9],
       CATALAN: [4],
@@ -317,13 +358,17 @@ function resolveSlots(
         slots[faceIndex] = { label: f.label, symbol: f.symbol, spare: false, onSelect: () => onFamily(i) };
       }
     });
-    // Full Catalog is a plain external trigger now (onAll), not a level
-    // this wheel navigates to itself -- always clickable regardless of
-    // filterIds (FullCatalogScreen handles per-section compatibility on
-    // its own end).
-    for (const faceIndex of [8, 11]) {
-      slots[faceIndex] = { label: ALL_CATALOG_LABEL, symbol: '★', spare: false, onSelect: onAll };
-    }
+    // Full Catalog and Star Polyhedra are both plain external triggers
+    // now (onAll/onStarPolyhedra), not levels this wheel navigates to
+    // itself -- always clickable regardless of filterIds (FullCatalogScreen
+    // handles per-section compatibility, and star polyhedra are never a
+    // valid attach target under any filter, so they'd offer nothing
+    // useful there -- but staying visible/clickable is simpler and more
+    // honest than a third special-cased dead-end rule here; the section
+    // itself is what decides what's actually shown).
+    slots[8] = { label: ALL_CATALOG_LABEL, symbol: '★', spare: false, onSelect: onAll };
+    slots[11] = { label: STAR_POLYHEDRA_LABEL, symbol: STAR_POLYHEDRA_SYMBOL, spare: false, onSelect: onStarPolyhedra };
+    slots[7] = { label: SEARCH_LABEL, symbol: SEARCH_SYMBOL, spare: false, onSelect: onSearch };
     return slots;
   }
 
@@ -342,7 +387,7 @@ function resolveSlots(
   // this doesn't reverse.)
   const ids = FAMILIES[level.familyIndex].ids;
   const overflow = ids.length > CONTENT_FACES_PER_PAGE;
-  const perPage = overflow ? CONTENT_FACES_PER_PAGE : 12;
+  const perPage = overflow ? PAGED_CONTENT_PER_PAGE : 12;
   // Content starts at face 1 (not 0) once paging exists at all, leaving
   // face 0 free for "Previous" -- fixed position regardless of how many
   // items land on this particular page, so it's always in the same spot.
@@ -383,6 +428,14 @@ function resolveSlots(
   if (hasPrev) {
     slots[PREV_FACE_INDEX] = { label: 'Previous', symbol: '←', spare: false, onSelect: onPrev };
   }
+  if (overflow) {
+    slots[VIEW_ALL_FACE_INDEX] = {
+      label: VIEW_ALL_LABEL,
+      symbol: '▦',
+      spare: false,
+      onSelect: () => onFamilyGrid(FAMILIES[level.familyIndex].key),
+    };
+  }
 
   return slots;
 }
@@ -400,6 +453,33 @@ export interface PolyhedralWheelProps {
    */
   onSelectAll?: () => void;
   /**
+   * Fired when the "Star Polyhedra" face (face 11, the pentagram symbol)
+   * is picked -- same external-trigger pattern as onSelectAll: the wheel
+   * closes itself immediately, the caller shows FullCatalogScreen
+   * scrolled to that section. Real user request: these 4 solids were
+   * only reachable by opening Full Catalog and scrolling all the way
+   * down; this gives them a direct door of their own.
+   */
+  onSelectStarPolyhedra?: () => void;
+  /**
+   * Fired when a family's own "View all" face is picked (only offered
+   * once that family spans more than one wheel page) -- same
+   * external-trigger pattern, routed to FullCatalogScreen scrolled to
+   * that ONE family's section instead of drilling through wheel pages
+   * shape-by-shape. Real user request ("group by group summoning from
+   * wheel"): a shortcut past the two-step family-then-shape drilldown.
+   */
+  onSelectFamilyGrid?: (familyKey: FamilyKey) => void;
+  /**
+   * Fired when the "Search" face (face 7, magnifying-glass symbol) is
+   * picked -- same external-trigger pattern, routed to ShapeBrowser's own
+   * Search tab (SearchScreen.tsx) instead of a new parallel filtering UI
+   * on the wheel itself: it already has both a name search box and a
+   * face-shape facet. Real user request: an alternate way into the
+   * registry besides drilling family-by-family.
+   */
+  onSelectSearch?: () => void;
+  /**
    * When set, only these shape ids are selectable within any family
    * (e.g. face-attach: only shapes with a matching face size are real
    * options). A family with at least one compatible member still lists
@@ -412,7 +492,16 @@ export interface PolyhedralWheelProps {
   filterIds?: string[];
 }
 
-export default function PolyhedralWheel({ open, onClose, onSelect, onSelectAll, filterIds }: PolyhedralWheelProps) {
+export default function PolyhedralWheel({
+  open,
+  onClose,
+  onSelect,
+  onSelectAll,
+  onSelectStarPolyhedra,
+  onSelectFamilyGrid,
+  onSelectSearch,
+  filterIds,
+}: PolyhedralWheelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelsRef = useRef<HTMLDivElement | null>(null);
   const [level, setLevel] = useState<WheelLevel>({ kind: 'families' });
@@ -732,7 +821,7 @@ export default function PolyhedralWheel({ open, onClose, onSelect, onSelectAll, 
       frameId = requestAnimationFrame(animate);
     };
     animate();
-    applySlots(resolveSlots(level, () => {}, () => {}, () => {}, () => {}, () => {}, filterIdsRef.current));
+    applySlots(resolveSlots(level, () => {}, () => {}, () => {}, () => {}, () => {}, () => {}, () => {}, () => {}, filterIdsRef.current));
 
     const onResize = () => {
       const { clientWidth, clientHeight } = container;
@@ -818,7 +907,10 @@ export default function PolyhedralWheel({ open, onClose, onSelect, onSelectAll, 
       () => {
         setLevel((l) => {
           if (l.kind === 'families') return l;
-          const pages = Math.ceil(FAMILIES[l.familyIndex].ids.length / CONTENT_FACES_PER_PAGE);
+          // Must match resolveSlots' own perPage exactly (PAGED_CONTENT_PER_PAGE,
+          // not the overflow-threshold constant) or this miscounts how
+          // many pages actually exist once "View all" took a content slot.
+          const pages = Math.ceil(FAMILIES[l.familyIndex].ids.length / PAGED_CONTENT_PER_PAGE);
           return { ...l, page: (l.page + 1) % pages };
         });
       },
@@ -828,10 +920,26 @@ export default function PolyhedralWheel({ open, onClose, onSelect, onSelectAll, 
         // in-range decrement, never called from page 0.
         setLevel((l) => (l.kind !== 'families' ? { ...l, page: l.page - 1 } : l));
       },
+      () => {
+        // Star Polyhedra exits the wheel immediately, same as Full
+        // Catalog does -- no internal level change here either.
+        onSelectStarPolyhedra?.();
+        onClose();
+      },
+      (familyKey) => {
+        onSelectFamilyGrid?.(familyKey);
+        onClose();
+      },
+      () => {
+        // Search exits the wheel immediately too, same external-trigger
+        // pattern as Full Catalog/Star Polyhedra/View all.
+        onSelectSearch?.();
+        onClose();
+      },
       filterIds,
     );
     container.__pwApplySlots(slots);
-  }, [level, onSelect, onClose, onSelectAll, filterIds]);
+  }, [level, onSelect, onClose, onSelectAll, onSelectStarPolyhedra, onSelectFamilyGrid, onSelectSearch, filterIds]);
 
   const step = (axis: 'azimuth' | 'polar', delta: number) => {
     const container = containerRef.current as unknown as { __pwStep?: (axis: 'azimuth' | 'polar', delta: number) => void } | null;

@@ -67,9 +67,34 @@ export default function ShapePreviewCard({
         if (e.key === 'Enter' || e.key === ' ') onOpen(specId);
       }}
     >
-      <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontSize: 11, color: '#47cc24' }}>
-        <span title={families.length > 1 ? t('alsoIn', lang, { list: families.filter((f) => f !== fam).map((f) => FAMILY_META[f].label).join(', ') }) : undefined}>
+      <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: '#47cc24' }}>
+        <span
+          style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+          title={families.length > 1 ? t('alsoIn', lang, { list: families.filter((f) => f !== fam).map((f) => FAMILY_META[f].label).join(', ') }) : undefined}
+        >
           {fam ? FAMILY_META[fam].symbol : '★'}
+          {/* Real user catch: this cross-family hint used to live ONLY in
+              the title attribute above -- a hover-only browser tooltip,
+              invisible on touch devices and easy to miss even with a
+              mouse. A small always-visible "+N" badge (N = how many
+              OTHER families this shape also belongs to) makes it
+              discoverable at a glance; the full family list is still one
+              hover/tap away via the same title attribute. */}
+          {families.length > 1 && (
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: '#04140a',
+                background: '#5ee233',
+                borderRadius: 999,
+                padding: '1px 5px',
+                lineHeight: 1.4,
+              }}
+            >
+              +{families.length - 1}
+            </span>
+          )}
         </span>
         {catalogNumber !== undefined && <span style={{ fontFamily: 'monospace', opacity: 0.7 }}>[{catalogNumber}]</span>}
       </div>

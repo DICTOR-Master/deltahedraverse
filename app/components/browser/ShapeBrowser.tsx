@@ -47,17 +47,30 @@ export interface ShapeBrowserProps {
   assemblySummary?: AssemblySummary;
   /**
    * Bumped (any change in value, e.g. an incrementing counter) by a
-   * PARENT-level PolyhedralWheel's own onSelectAll (page.tsx's direct
-   * corner-HUD wheel, not this component's own embedded one) to request
-   * FullCatalogScreen open externally. This component stays mounted
-   * with `open` toggling false/true rather than unmounting, so a plain
-   * initial-state seed wouldn't fire on a later request -- compared
-   * against a state-tracked previous value during render instead (see
-   * this component's own body). Omit when there's no such external
-   * wheel (this component's own embedded wheel needs no round-trip, it
-   * just flips local state directly).
+   * PARENT-level PolyhedralWheel's own onSelectAll/onSelectStarPolyhedra/
+   * onSelectFamilyGrid (page.tsx's direct corner-HUD wheel, not this
+   * component's own embedded one) to request FullCatalogScreen open
+   * externally. This component stays mounted with `open` toggling
+   * false/true rather than unmounting, so a plain initial-state seed
+   * wouldn't fire on a later request -- compared against a state-tracked
+   * previous value during render instead (see this component's own
+   * body). Omit when there's no such external wheel (this component's
+   * own embedded wheel needs no round-trip, it just flips local state
+   * directly).
    */
   fullCatalogRequestId?: number;
+  /** Paired with fullCatalogRequestId -- which section (if any) the
+   *  parent-level wheel's request should land scrolled to. Read at the
+   *  same moment fullCatalogRequestId is detected to have changed. */
+  fullCatalogFocusSection?: FamilyKey | 'STAR';
+  /**
+   * Bumped by a PARENT-level PolyhedralWheel's own onSelectSearch (see
+   * fullCatalogRequestId's own doc comment for why a counter, not a
+   * boolean) -- switches this browser to its own Search tab. This
+   * component's own embedded wheel needs no such round-trip, it just
+   * flips local state directly.
+   */
+  searchRequestId?: number;
 }
 
 const TABS: BrowserTab[] = ['home', 'search', 'scene', 'favorites'];
@@ -75,6 +88,8 @@ export default function ShapeBrowser({
   onSelect,
   assemblySummary,
   fullCatalogRequestId,
+  fullCatalogFocusSection,
+  searchRequestId,
 }: ShapeBrowserProps) {
   const { favorites, recents, language, toggleFavorite, recordViewed, setLanguage } = usePrefs();
   const [tab, setTab] = useState<BrowserTab>('home');
@@ -84,6 +99,7 @@ export default function ShapeBrowser({
   const [showCompare, setShowCompare] = useState(false);
   const [showWheel, setShowWheel] = useState(false);
   const [showFullCatalog, setShowFullCatalog] = useState(false);
+  const [focusSection, setFocusSection] = useState<FamilyKey | 'STAR' | undefined>(undefined);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
 
   // External request from a PARENT-level wheel (see fullCatalogRequestId's
@@ -98,7 +114,22 @@ export default function ShapeBrowser({
   const [prevFullCatalogRequestId, setPrevFullCatalogRequestId] = useState(fullCatalogRequestId);
   if (fullCatalogRequestId !== prevFullCatalogRequestId) {
     setPrevFullCatalogRequestId(fullCatalogRequestId);
-    if (fullCatalogRequestId) setShowFullCatalog(true);
+    if (fullCatalogRequestId) {
+      setShowFullCatalog(true);
+      setFocusSection(fullCatalogFocusSection);
+    }
+  }
+
+  // Same external-request pattern as fullCatalogRequestId, for the
+  // direct wheel's own Search face.
+  const [prevSearchRequestId, setPrevSearchRequestId] = useState(searchRequestId);
+  if (searchRequestId !== prevSearchRequestId) {
+    setPrevSearchRequestId(searchRequestId);
+    if (searchRequestId) {
+      setShowFullCatalog(false);
+      setSearchSeed(undefined);
+      setTab('search');
+    }
   }
 
   if (!open) return null;
@@ -190,7 +221,10 @@ export default function ShapeBrowser({
             <div style={{ padding: '10px 18px', borderBottom: '1px solid rgba(71,204,36,.16)' }}>
               <button
                 type="button"
-                onClick={() => setShowFullCatalog(false)}
+                onClick={() => {
+                  setShowFullCatalog(false);
+                  setFocusSection(undefined);
+                }}
                 style={{ background: 'none', border: '1px solid rgba(71,204,36,.3)', color: '#5ee233', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}
               >
                 {t('action.back', lang)}
@@ -199,6 +233,7 @@ export default function ShapeBrowser({
             <FullCatalogScreen
               lang={lang}
               filterIds={filterIds}
+              focusSection={focusSection}
               isFavorite={isFavorite}
               isInCompare={isInCompare}
               onOpenShape={openShape}
@@ -302,6 +337,7 @@ export default function ShapeBrowser({
             type="button"
             onClick={() => {
               setShowFullCatalog(false);
+              setFocusSection(undefined);
               setTab(tb);
             }}
             style={{
@@ -330,7 +366,24 @@ export default function ShapeBrowser({
         }}
         onSelectAll={() => {
           setShowWheel(false);
+          setFocusSection(undefined);
           setShowFullCatalog(true);
+        }}
+        onSelectStarPolyhedra={() => {
+          setShowWheel(false);
+          setFocusSection('STAR');
+          setShowFullCatalog(true);
+        }}
+        onSelectFamilyGrid={(familyKey) => {
+          setShowWheel(false);
+          setFocusSection(familyKey);
+          setShowFullCatalog(true);
+        }}
+        onSelectSearch={() => {
+          setShowWheel(false);
+          setShowFullCatalog(false);
+          setSearchSeed(undefined);
+          setTab('search');
         }}
       />
     </div>

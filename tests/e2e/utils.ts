@@ -130,7 +130,16 @@ export async function clickWheelLabel(page: Page, text: string | RegExp): Promis
   throw new Error(`clickWheelLabel: could not find/click a face labelled "${text}" at any orientation`);
 }
 
-export const CONTENT_FACES_PER_PAGE = 10; // must match PolyhedralWheel.tsx's own constant (10 once "Previous" reserved face 0 too)
+export const CONTENT_FACES_PER_PAGE = 10; // overflow THRESHOLD only -- must match PolyhedralWheel.tsx's own CONTENT_FACES_PER_PAGE (does a family need paging at all?)
+// Once a family IS paging, each page holds only 9 real shapes, not 10 --
+// face 10 is reserved for "View all" on every page of an overflowing
+// family (see PolyhedralWheel.tsx's own VIEW_ALL_FACE_INDEX/
+// PAGED_CONTENT_PER_PAGE). Real bug this constant split fixed: reusing
+// CONTENT_FACES_PER_PAGE (10) for the actual per-page division too
+// undercounted how many pages Johnson (92) actually has, silently
+// causing this file's own paging walk to stop one page short and miss
+// whatever shapes lived on the real last page.
+export const PAGED_CONTENT_PER_PAGE = 9;
 
 /**
  * Like clickWheelLabel, but also pages forward (clicking "More") when a
@@ -139,7 +148,7 @@ export const CONTENT_FACES_PER_PAGE = 10; // must match PolyhedralWheel.tsx's ow
  * but will as later batches grow it past 11.
  */
 export async function clickWheelLabelPaged(page: Page, text: string, familyIds: string[]): Promise<void> {
-  const pages = familyIds.length > CONTENT_FACES_PER_PAGE ? Math.ceil(familyIds.length / CONTENT_FACES_PER_PAGE) : 1;
+  const pages = familyIds.length > CONTENT_FACES_PER_PAGE ? Math.ceil(familyIds.length / PAGED_CONTENT_PER_PAGE) : 1;
   for (let p = 0; p < pages; p++) {
     // Cheap presence check before the expensive path: clickWheelLabel's
     // exhaustive 24-orientation search (worst case tens of seconds) is

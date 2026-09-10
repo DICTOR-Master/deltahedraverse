@@ -17,10 +17,18 @@
  * this app already follows.
  */
 
-import { FAMILY_ORDER, FAMILY_META, familyIds } from '../../lib/polyhedra/families';
+import { useEffect } from 'react';
+import { FAMILY_ORDER, FAMILY_META, familyIds, type FamilyKey } from '../../lib/polyhedra/families';
 import { STAR_POLYHEDRON_IDS } from '../../lib/polyhedra/starPolyhedra';
 import { t, type LangCode } from '../../lib/i18n';
 import ShapePreviewCard from './ShapePreviewCard';
+
+/** DOM id for a given section's own heading, used by focusSection's
+ *  scroll-into-view -- 'STAR' for the trailing star-polyhedra section,
+ *  otherwise a real FamilyKey. */
+function sectionDomId(section: FamilyKey | 'STAR'): string {
+  return `fc-section-${section}`;
+}
 
 export interface FullCatalogScreenProps {
   lang: LangCode;
@@ -30,6 +38,18 @@ export interface FullCatalogScreenProps {
    *  convention), so a family with zero compatible members here just
    *  shows an empty section rather than a jarring dimmed grid. */
   filterIds?: string[];
+  /**
+   * Real user request ("group by group summoning from wheel"): a
+   * family's own "View all" wheel face, or the wheel's dedicated Star
+   * Polyhedra face, opens THIS screen already scrolled to that one
+   * section rather than landing at the top and making the user scroll
+   * down themselves. This screen remounts fresh every time it's opened
+   * (see ShapeBrowser's own `showFullCatalog` conditional render), so a
+   * plain mount-time scroll (no request-id bumping needed) is enough --
+   * unlike fullCatalogRequestId, which exists specifically because THAT
+   * component stays mounted across requests.
+   */
+  focusSection?: FamilyKey | 'STAR';
   isFavorite: (specId: string) => boolean;
   isInCompare: (specId: string) => boolean;
   onOpenShape: (specId: string) => void;
@@ -40,12 +60,22 @@ export interface FullCatalogScreenProps {
 export default function FullCatalogScreen({
   lang,
   filterIds,
+  focusSection,
   isFavorite,
   isInCompare,
   onOpenShape,
   onToggleFavorite,
   onToggleCompare,
 }: FullCatalogScreenProps) {
+  useEffect(() => {
+    if (!focusSection) return;
+    document.getElementById(sectionDomId(focusSection))?.scrollIntoView({ block: 'start' });
+    // Mount-once: this screen is remounted fresh every time it opens (see
+    // this prop's own doc comment above), so there's no later focusSection
+    // change to react to within one mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div style={{ overflowY: 'auto', flex: 1, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 24 }}>
       {FAMILY_ORDER.map((fam) => {
@@ -53,7 +83,7 @@ export default function FullCatalogScreen({
         const ids = filterIds ? familyIds(fam).filter((id) => filterIds.includes(id)) : familyIds(fam);
         if (ids.length === 0) return null;
         return (
-          <div key={fam}>
+          <div key={fam} id={sectionDomId(fam)}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
               <span style={{ fontSize: 18, color: '#47cc24' }}>{meta.symbol}</span>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#a9f795', letterSpacing: '.02em' }}>{meta.label}</span>
@@ -83,7 +113,7 @@ export default function FullCatalogScreen({
           picker (filterIds set): none of these 4 could ever be a valid
           attach target, and there's no "Add to Scene" for them anyway. */}
       {!filterIds && STAR_POLYHEDRON_IDS.length > 0 && (
-        <div>
+        <div id={sectionDomId('STAR')}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
             <span style={{ fontSize: 18, color: '#47cc24' }}>★</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: '#a9f795', letterSpacing: '.02em' }}>Star Polyhedra — reference only</span>

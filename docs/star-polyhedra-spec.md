@@ -267,12 +267,18 @@ much larger than a rendering problem. `StarShapeViewer` is a real,
 separate, read-only viewer; it was never merged into `ShapeViewer` and
 none of the attach-path files were touched.
 
-## Open questions
+## Open questions — RESOLVED (2026-09-10)
 
-- Whether a Home-screen shelf (alongside Recents/Favorites) is worth
-  adding for discoverability, or Full Catalog's own new section is
-  sufficient — not decided here; shipped with Full Catalog only, revisit
-  only if that alone doesn't surface them.
+Discoverability turned out not to need a Home-screen shelf: the wheel
+itself gained a direct "Star Polyhedra" face (pentagram symbol, distinct
+from Full Catalog's own ★) that exits the wheel and opens Full Catalog
+scrolled straight to that section — real user request ("a separate
+group [for star polyhedra] ... group by group summoning from wheel"),
+generalized into the same mechanism for every regular family's own
+"View all" face too. See `PolyhedralWheel.tsx`'s `resolveSlots` and
+`docs/` — no separate doc for that feature since it's a wheel/navigation
+change, not specific to star polyhedra, beyond giving them their own
+door.
 
 ## Build postmortem — the real difficulty in this build
 
