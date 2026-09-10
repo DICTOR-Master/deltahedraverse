@@ -42,7 +42,12 @@ const MODE_LABELS: Record<StarViewMode, string> = {
 
 export interface StarShapeViewerProps {
   specId: string;
-  height?: number;
+  /** Number (px) or any valid CSS height value (e.g. '100%') -- '100%'
+   *  lets this fill a flex/absolute parent so it can stand in for the
+   *  real Scene's own full-viewport 3D view (see ShapeDetailDrawer's
+   *  full-screen star layout) rather than being locked to a small
+   *  fixed-px card size. */
+  height?: number | string;
 }
 
 export default function StarShapeViewer({ specId, height = 260 }: StarShapeViewerProps) {
@@ -57,10 +62,16 @@ export default function StarShapeViewer({ specId, height = 260 }: StarShapeViewe
     if (!container || !spec) return undefined;
 
     const scene = new THREE.Scene();
+    // Same navy-black as ShapeViewer's own real Scene (0x0a0a10) -- this
+    // viewer now owns a real, opaque environment of its own rather than
+    // relying on alpha-blending into whatever's behind it, so it reads
+    // identically whether it's a small drawer card or filling the whole
+    // screen (see ShapeDetailDrawer's full-screen star layout).
+    scene.background = new THREE.Color(0x0a0a10);
     const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 100);
     camera.position.set(0, 0, 3.4);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.domElement.style.display = 'block';
@@ -70,6 +81,35 @@ export default function StarShapeViewer({ specId, height = 260 }: StarShapeViewe
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
     dirLight.position.set(3, 4, 5);
     scene.add(dirLight);
+
+    // Real user request: these should look like "exactly the same
+    // environment Scene creates" -- ShapeViewer's own main 3D view gets a
+    // real starfield (points scattered on a large sphere shell), not just
+    // a CSS backdrop; this is the identical construction (same count,
+    // distribution, and material) so the two feel like one environment
+    // rather than two different-looking viewers.
+    const STAR_COUNT = 800;
+    const starPositions = new Float32Array(STAR_COUNT * 3);
+    for (let i = 0; i < STAR_COUNT; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 40 + Math.random() * 20;
+      starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      starPositions[i * 3 + 2] = r * Math.cos(phi);
+    }
+    const starGeometry = new THREE.BufferGeometry();
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starMaterial = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.16,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+    });
+    const starfield = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starfield);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -151,6 +191,8 @@ export default function StarShapeViewer({ specId, height = 260 }: StarShapeViewe
       controls.dispose();
       lineGeometry.dispose();
       lineMaterial.dispose();
+      starGeometry.dispose();
+      starMaterial.dispose();
       faceGeometry.dispose();
       faceMaterial.dispose();
       meshMaterialRef.current = null;
