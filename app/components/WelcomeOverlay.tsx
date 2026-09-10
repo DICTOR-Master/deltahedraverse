@@ -98,6 +98,16 @@ export default function WelcomeOverlay({ open, onClose }: WelcomeOverlayProps) {
         <p style={{ margin: 0, fontSize: 13, opacity: 0.8, fontStyle: 'italic', color: GREEN_BRIGHT }}>
           137 shapes, one registry — connect them face to face, vertex to vertex.
         </p>
+        {/* Real user catch: the welcome page never mentioned the 4 Kepler-
+            Poinsot star solids at all, undersizing what the app actually
+            has. Deliberately its own smaller, dimmer line rather than
+            folded into the "137" count above -- these 4 are look-only
+            (self-intersecting faces, no well-defined flush attach), so
+            stating them as part of the same "connect them" claim would be
+            wrong, not just imprecise. */}
+        <p style={{ margin: 0, fontSize: 11, opacity: 0.6, color: GREEN_BRIGHT }}>
+          + 4 impossible star solids to explore in Full Catalog — look, don&apos;t build.
+        </p>
 
         <div style={{ position: 'relative', width: 180, height: 180 }}>
           <ShapePreview specId="DODECAHEDRON" size={180} spin />

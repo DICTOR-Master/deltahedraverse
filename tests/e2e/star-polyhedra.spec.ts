@@ -64,10 +64,10 @@ test('a star polyhedron detail drawer shows Schläfli/density and has no Add to 
  * Stage 2's real point: genuine drag-to-rotate, not just an auto-spinning
  * still image -- the user explicitly flagged that ShapePreview (used by
  * every other family) only auto-spins with no pointer handling at all.
- * StarWireframeViewer is its own small standalone THREE.Scene/
- * OrbitControls component specifically to close that gap for these 4.
+ * StarShapeViewer is its own small standalone THREE.Scene/OrbitControls
+ * component specifically to close that gap for these 4.
  */
-test('the star polyhedron detail drawer is a real drag-rotatable 3D wireframe, not a static/auto-spin-only preview', async ({ page }) => {
+test('the star polyhedron detail drawer is a real drag-rotatable 3D shape, not a static/auto-spin-only preview', async ({ page }) => {
   await page.getByRole('button', { name: /^Start over with/ }).click();
   await openBrowserWheel(page);
   await clickWheelLabel(page, exactLabel('Full Catalog'));
@@ -76,13 +76,13 @@ test('the star polyhedron detail drawer is a real drag-rotatable 3D wireframe, n
   await card.scrollIntoViewIfNeeded();
   await card.click();
 
-  const canvas = page.locator('[aria-label="Draggable 3D wireframe preview"] canvas');
+  const canvas = page.locator('[aria-label="Draggable 3D shape preview"] canvas');
   await expect(canvas).toBeVisible();
   await page.waitForTimeout(1000);
   const before = await canvas.screenshot();
 
   const box = await canvas.boundingBox();
-  if (!box) throw new Error('star wireframe canvas has no bounding box');
+  if (!box) throw new Error('star shape canvas has no bounding box');
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   await page.mouse.move(cx, cy);
@@ -92,4 +92,49 @@ test('the star polyhedron detail drawer is a real drag-rotatable 3D wireframe, n
 
   const afterDrag = await canvas.screenshot();
   expect(Buffer.compare(before, afterDrag)).not.toBe(0);
+});
+
+/**
+ * Stage 4: real Solid/Translucent fills for pentagram (self-intersecting)
+ * faces, not just wireframe -- uses starTriangulation.ts's winding-
+ * number-correct triangulation (verified: scripts/validate-star-
+ * triangulation.ts). Checked on a pentagram-faced solid specifically
+ * (small stellated dodecahedron), the harder of the two face types, and
+ * confirms toggling modes doesn't reset the camera (the rendered frame
+ * changes between modes but the shape/orbit distance stays put -- no
+ * scene rebuild).
+ */
+test('a pentagram-faced star polyhedron has working Wireframe/Solid/Translucent mode toggles', async ({ page }) => {
+  await page.getByRole('button', { name: /^Start over with/ }).click();
+  await openBrowserWheel(page);
+  await clickWheelLabel(page, exactLabel('Full Catalog'));
+
+  const card = page.locator('text=/^small stellated dodecahedron$/i').first();
+  await card.scrollIntoViewIfNeeded();
+  await card.click();
+
+  const canvas = page.locator('[aria-label="Draggable 3D shape preview"] canvas');
+  await expect(canvas).toBeVisible();
+  await page.waitForTimeout(800);
+
+  // Scoped to the drawer's own dialog -- the main page header also has an
+  // unrelated "View: Solid" button (ShapeViewer's own mode cycler) that
+  // matches "Solid" as a substring.
+  const drawer = page.getByRole('dialog', { name: 'small stellated dodecahedron' });
+
+  // Defaults to Solid -- the fully-filled star shape, not an empty scene.
+  await expect(drawer.getByRole('button', { name: 'Solid', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  const solidShot = await canvas.screenshot();
+
+  await drawer.getByRole('button', { name: 'Translucent', exact: true }).click();
+  await expect(drawer.getByRole('button', { name: 'Translucent', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.waitForTimeout(300);
+  const translucentShot = await canvas.screenshot();
+  expect(Buffer.compare(solidShot, translucentShot)).not.toBe(0);
+
+  await drawer.getByRole('button', { name: 'Wireframe', exact: true }).click();
+  await expect(drawer.getByRole('button', { name: 'Wireframe', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.waitForTimeout(300);
+  const wireframeShot = await canvas.screenshot();
+  expect(Buffer.compare(translucentShot, wireframeShot)).not.toBe(0);
 });

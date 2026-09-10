@@ -1,6 +1,6 @@
 # Star Polyhedra (Kepler-Poinsot Solids) — Scoping
 
-**Status: Stages 0-2 shipped.** Started as a staged plan only, per direct
+**Status: Stages 0-4 shipped.** Started as a staged plan only, per direct
 request ("for the sake of completeness can you stage a plan"), following a
 live design discussion: the wheel's own ★ symbol has been explicitly
 retired from every real family and left free specifically for "a possible
@@ -12,23 +12,29 @@ standard throughout" plus "winding number aware triangulation etc" — is
 what pushed this from a documented plan into real, numerically-verified
 construction work rather than eyeballed/approximate coordinates. See
 "Build postmortem" at the bottom for what that verification actually
-found, including one real construction bug it caught.
+found, including two real bugs it caught (one in the geometry
+construction itself, one later in the face-fill triangulation).
 
-**Browsable only, never buildable — decided up front, not a fallback.**
-The whole vertex/face-attach engine (`ShapeViewer.tsx`'s
+A follow-up request ("the new ones can only be viewed small without
+opaque or solid... would definitely like to push further") took the
+originally-deferred face-fill work (see the old "Deferred" note, now
+superseded below) and shipped it for real as Stage 4 — real Solid/
+Translucent rendering using the winding-number-correct triangulation
+that was only proven on paper in Stage 0.
+
+**Still browsable only, never buildable — that boundary didn't move.**
+The whole vertex/face-attach engine (`ShapeViewer.tsx`'s own
 `triangulateFace`/`buildFaceGeometry`, `core.ts`'s `facesCongruent`,
-every vertex-capacity/hover computation) assumes every face is a
-simple, non-self-intersecting convex polygon. A star polyhedron's own
-defining feature — faces that are literal pentagrams (5-pointed stars),
-not pentagons — breaks that assumption outright: fan-triangulating a
-pentagram from one vertex does not correctly cover its actual
-star-shaped area, and "attach a shape to a pentagram face" has no
-well-defined flush-contact meaning the way it does for a regular
-polygon. Making them genuinely buildable would mean rethinking core
-geometry assumptions used by every other family in this registry — out
-of scope here by design, not an oversight. The user's own framing
-("browsable would have to be enough") already lands on this same
-conclusion independently.
+every vertex-capacity/hover computation) still assumes every face is a
+simple, non-self-intersecting convex polygon, and none of that code was
+touched. Stage 4 gave star polyhedra their OWN real face-fill (a
+separate, winding-number-aware triangulator — see `starTriangulation.ts`
+— used only by the separate `StarShapeViewer.tsx`), not access to
+`ShapeViewer`'s own triangulation. "Attach a shape to a pentagram face"
+still has no well-defined flush-contact meaning the way it does for a
+regular polygon, and making these 4 real attach targets would still mean
+rethinking core assumptions used by every other family here — that part
+is still out of scope, deliberately.
 
 ## The 4 Kepler-Poinsot solids
 
@@ -109,20 +115,22 @@ straight line segments between two real vertices — nothing
 self-intersecting about an edge itself, only a filled star FACE is
 self-intersecting. That means real, correct-looking wireframe previews
 of all 4 solids need **zero new rendering code** once real
-vertices/edges exist — the hard problem (face triangulation) only
-matters for `ShapeViewer.tsx`'s solid 3D view, which these are
-explicitly never opened in.
+vertices/edges exist — the hard problem (face triangulation) was real,
+but deferred to Stage 4 rather than solved here, and only ever mattered
+for `ShapeViewer.tsx`'s own solid 3D view, which these are still
+explicitly never opened in (Stage 4 built its OWN separate face-filler
+instead — see below).
 
 **Real limitation, not just a simplification:** `ShapePreview` only
 auto-spins (`spin?: boolean`) — it has no drag/pointer handling at all,
 so cards and the detail drawer alone would only ever show a fixed or
 auto-rotating angle, never free user-driven 3D rotation the way
 `ShapeViewer`'s own `OrbitControls`-driven view gives every other
-shape. Real 3D drag-to-rotate for these 4 needs its own small dedicated
+shape. Real 3D drag-to-rotate for these 4 needed its own small dedicated
 component (Stage 2 below) — genuinely separate from both `ShapePreview`
-(2D canvas, auto-spin only) and `ShapeViewer` (solid-triangulated,
-still correctly out of scope) — not a free side effect of adding the
-data.
+(2D canvas, auto-spin only) and `ShapeViewer` (solid-triangulated via a
+convex-only algorithm, still correctly never opened for these 4) — not a
+free side effect of adding the data.
 
 `faces: number[][]` (`PolyhedronSpec`'s own field) still gets populated
 with each solid's real per-face vertex-index list (e.g. a pentagram
@@ -164,7 +172,13 @@ there or they'd silently become "buildable" the moment anything reads
   explanatory pill ("Reference only — not buildable (self-intersecting
   star faces)", `i18n.ts`'s `star.referenceOnly` key, translated in all
   4 languages) for these 4 ids specifically, and the preview slot renders
-  `StarWireframeViewer` (Stage 2) instead of the static `ShapePreview`.
+  `StarShapeViewer` (Stage 2, renamed from `StarWireframeViewer` once
+  Stage 4 gave it real fills too) instead of the static `ShapePreview`.
+- `app/lib/polyhedra/starTriangulation.ts` (new, Stage 4): a real,
+  numerically-verified triangulator for these 4 solids' own faces --
+  winding-number-correct for pentagram faces, plain fan for the 2 solids
+  whose faces are simple. Used only by `StarShapeViewer.tsx`; `core.ts`'s
+  own `triangulateFace` (assumes convex) was never touched.
 - `ShapeStatsBlock.tsx`: shows a Schläfli/density line for these 4 ids
   (`STAR_POLYHEDRON_META`) in place of the empty family-membership line
   (star polyhedra belong to no `FamilyKey`).
@@ -192,20 +206,20 @@ E2e coverage: `tests/e2e/star-polyhedra.spec.ts`.
 
 ### Stage 2 — a real 3D drag-rotate viewer — SHIPPED
 `ShapePreview`'s auto-spin-only limitation (noted above) needed its own
-small component: `StarWireframeViewer.tsx`, a dedicated
-`THREE.Scene`/`WebGLRenderer`/`OrbitControls` view rendering ONLY
-`THREE.LineSegments` over `spec.edges` (real wireframe geometry, no
-`BufferGeometry` face mesh at all) — sidesteps the star-face
-triangulation problem entirely by construction, since there's no face
-fill to get wrong. Auto-rotates until the user's first drag (an
-`OrbitControls` `'start'` listener flips `autoRotate` off permanently at
-that point, so it never fights the user's own angle), then stays under
-full user control — `enableDamping` for real inertia, zoom bounded,
-panning disabled. Opened from `ShapeDetailDrawer` in place of the
-static/auto-spin `ShapePreview` for these 4 ids specifically. Verified
+small component (originally `StarWireframeViewer.tsx`, since renamed --
+see Stage 4): a dedicated `THREE.Scene`/`WebGLRenderer`/`OrbitControls`
+view rendering ONLY `THREE.LineSegments` over `spec.edges` (real
+wireframe geometry, no `BufferGeometry` face mesh at all) — at the time,
+sidestepped the star-face triangulation problem entirely by not needing
+one. Auto-rotates until the user's first drag (an `OrbitControls`
+`'start'` listener flips `autoRotate` off permanently at that point, so
+it never fights the user's own angle), then stays under full user
+control — `enableDamping` for real inertia, zoom bounded, panning
+disabled. Opened from `ShapeDetailDrawer` in place of the static/
+auto-spin `ShapePreview` for these 4 ids specifically. Verified
 end-to-end: dragging the canvas genuinely changes the rendered frame
-(`tests/e2e/star-polyhedra.spec.ts`'s third test), not just that a
-canvas element exists.
+(`tests/e2e/star-polyhedra.spec.ts`'s own drag-rotation test), not just
+that a canvas element exists.
 
 ### Stage 3 — Stats and identity — SHIPPED (folded into Stage 1)
 `ShapeStatsBlock.tsx` shows density and Schläfli symbol for these 4 ids
@@ -214,13 +228,44 @@ specifically, in place of the (empty, since they belong to no
 family that the other 7 don't have, not decoration. Cheap enough to ship
 alongside Stage 1 rather than as a separate pass.
 
-### Deferred / explicitly out of scope
-Making any of the 4 attachable (vertex or face), or rendering them as
-solid (face-filled) anywhere — both would require solving non-convex
-face triangulation and, for attach specifically, redefining what
-"flush contact" means for a self-intersecting face. Genuinely different
-and much larger than this plan; Stage 2's wireframe-only viewer is the
-deliberate way to get real 3D inspection without needing either.
+### Stage 4 — real Solid/Translucent fills — SHIPPED
+The originally-deferred face-fill work, done for real: `app/lib/
+polyhedra/starTriangulation.ts` triangulates each face's own actual fill
+region (not an approximation) --
+- **Simple faces** (great dodecahedron's pentagons, great icosahedron's
+  triangles): detected by checking whether the face's own non-adjacent
+  edges genuinely cross in its own plane; if not, plain fan
+  triangulation (same pattern as `core.ts`'s `triangulateFace`, just
+  returning real points instead of vertex indices).
+- **Pentagram faces** (small/great stellated dodecahedron): each of the
+  5 star edges is crossed by exactly 2 others, giving 5 real intersection
+  points (the inner pentagon's own corners) and splitting each edge into
+  an outer-near-start / outer-near-end pair. Triangulated as 5 outer
+  "tip" triangles + a 3-triangle fan of the inner pentagon (8 triangles
+  total) -- the same algorithm already proven identical to the star's
+  true nonzero-winding-number fill via dense random-point sampling
+  (160,801 points, 0 mismatches -- see the earlier coverage proof above),
+  re-verified here at 200×200 density per real face against the actual
+  registry data (24 pentagram faces total, 0 coverage mismatches -- see
+  `scripts/validate-star-triangulation.ts` / `npm run
+  validate:star-triangulation`). That real-data re-run is also where a
+  genuine winding bug turned up -- see "Stage 4 postmortem" below.
+
+`StarWireframeViewer.tsx` was renamed to `StarShapeViewer.tsx` and
+extended with a local Wireframe/Solid/Translucent mode toggle (own
+component state, not `ShapeViewer`'s `ViewMode` prop) -- mode changes
+only ever touch material properties (`opacity`/`transparent`/
+`depthWrite`), never rebuild the scene, so toggling modes doesn't reset
+whatever angle the user has already dragged to. Defaults to Solid.
+Screenshot-verified for all 4 solids in all 3 modes; e2e coverage:
+`tests/e2e/star-polyhedra.spec.ts`'s mode-toggle test.
+
+**Still deferred / explicitly out of scope:** making any of the 4
+attachable (vertex or face) -- would mean redefining what "flush
+contact" means for a self-intersecting face, genuinely different and
+much larger than a rendering problem. `StarShapeViewer` is a real,
+separate, read-only viewer; it was never merged into `ShapeViewer` and
+none of the attach-path files were touched.
 
 ## Open questions
 
@@ -283,3 +328,41 @@ match. The published V/E/F table (checked here, not skipped) is what
 actually caught this — a strong argument for always writing the
 cross-check script before trusting a construction "looks right" from a
 screenshot alone.
+
+### Stage 4 postmortem: a winding bug the original proof didn't cover
+
+The pentagram face-fill algorithm (5 tip triangles + a 3-triangle inner
+fan) was numerically proven *before* being written into
+`starTriangulation.ts` -- 160,801 randomly sampled points checked against
+the true nonzero-winding-number fill, 0 mismatches (the same proof cited
+above). That proof only checked **coverage** (is a given point inside the
+filled region or not), which is orientation-agnostic: it can't tell a
+correctly-wound triangle from one with its vertices listed backward,
+since a triangle's fill *area* doesn't depend on winding order.
+
+`scripts/validate-star-triangulation.ts` added a check the original proof
+never had: comparing each triangle's own computed normal against its
+face's outward normal, run directly against the real registry data (not
+the idealized flat pentagon the algorithm was first proven on). It failed
+immediately -- every one of the 5 tip triangles per pentagram face (120
+total across both pentagram-faced solids) was wound backward, i.e.
+pointing inward. The 3 inner-fan triangles were fine.
+
+**Why the area check missed it, and the fix.** `pointInTriangle` (used by
+the original sampling proof) is winding-independent by construction --
+swapping any two triangle vertices doesn't change what area it covers,
+only which way it faces. The tip-triangle vertex order
+`[tip, nearFromIncoming, nearFromOutgoing]` happened to trace the
+triangle the opposite way around from the already-correct inner-fan
+order. Fixed by swapping to `[tip, nearFromOutgoing, nearFromIncoming]`
+-- re-verified against real 3D face data afterward (not just the
+idealized flat pentagon this bug had been hiding in), all 4 solids now
+pass every check including a full re-run of the dense nonzero-winding
+sampling directly on real per-face geometry.
+
+**Takeaway:** a coverage/area proof and a winding/orientation proof are
+different claims -- proving one doesn't imply the other, and a rendering
+pipeline cares about both (wrong winding means backward normals, which
+mean wrong lighting and, with backface culling on, invisible faces).
+When verifying a triangulation meant for real 3D rendering, check
+winding explicitly; don't assume an area-only proof covers it.

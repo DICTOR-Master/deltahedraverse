@@ -4,7 +4,7 @@ import { getAnySpec, isStarPolyhedron } from '../../lib/polyhedra/lookup';
 import { t, type LangCode } from '../../lib/i18n';
 import ShapePreview from './ShapePreview';
 import ShapeStatsBlock from './ShapeStatsBlock';
-import StarWireframeViewer from './StarWireframeViewer';
+import StarShapeViewer from './StarShapeViewer';
 
 export interface ShapeDetailDrawerProps {
   specId: string;
@@ -58,7 +58,7 @@ export default function ShapeDetailDrawer({
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 20px 20px', gap: 14 }}>
         {isStar ? (
-          <StarWireframeViewer specId={specId} height={260} />
+          <StarShapeViewer specId={specId} height={300} />
         ) : (
           <ShapePreview specId={specId} size={220} spin />
         )}

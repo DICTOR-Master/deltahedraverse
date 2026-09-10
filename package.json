@@ -14,6 +14,7 @@
     "validate:catalan": "tsx scripts/validate-catalan.ts",
     "validate:prisms": "tsx scripts/validate-prisms.ts",
     "validate:star": "tsx scripts/validate-star-polyhedra.ts",
+    "validate:star-triangulation": "tsx scripts/validate-star-triangulation.ts",
     "verify:attach": "tsx scripts/verify-attach.ts",
     "verify:twist": "tsx scripts/verify-twist.ts",
     "verify:rewrite": "tsx scripts/verify-rewrite.ts",

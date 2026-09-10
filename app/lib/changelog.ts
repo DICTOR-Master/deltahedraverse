@@ -15,6 +15,13 @@ export interface ChangelogDay {
 
 export const CHANGELOG: ChangelogDay[] = [
   {
+    date: '2026-09-10',
+    entries: [
+      'Star polyhedra now render Solid and Translucent, not just Wireframe — a real winding-number-correct triangulation fills even the self-intersecting pentagram faces (small/great stellated dodecahedron) correctly, with a mode toggle right on the viewer.',
+      'Added a real 3D starfield to the main viewer, plus a starry background behind the page header.',
+    ],
+  },
+  {
     date: '2026-09-09',
     entries: [
       'Added the 4 Kepler-Poinsot star polyhedra (great dodecahedron, small stellated dodecahedron, great icosahedron, great stellated dodecahedron) as a browsable-only reference family in Full Catalog, with real geometry — every construction verified against the published Schläfli/vertex/edge/face/density table, not eyeballed — plus a real drag-to-rotate 3D wireframe viewer in the shape detail drawer.',
