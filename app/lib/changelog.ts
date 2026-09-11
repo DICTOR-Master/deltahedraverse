@@ -19,6 +19,7 @@ export const CHANGELOG: ChangelogDay[] = [
     entries: [
       'Added a real 4D extension: 4 shapes (tetrahedron, octahedron, cube, dodecahedron) are recognized as valid "cells" of a convex 4-polytope and gathered into a new 4D-Capable family, marked with a distinct gold "4D" badge on their cards.',
       'Selecting a free face on one of those 4 shapes now offers a second option, "Attach via 4D fold…", alongside the ordinary face-attach — self-attaching with a real 4D dihedral fold instead of a flush 3D join. Once a fold exists anywhere in the scene, a labeled 0–100% slider lets you scrub between the ordinary 3D construction and the fold correction. Exact for a single attached pair; denser clusters (3+ copies meeting around one shared edge) only partially close — a real mathematical limit of approximating a 4D structure in a 3D scene, not yet a fully solved case.',
+      'Added the 4D Prism (duoprism) construction — two identical copies of a shape connected by a real 3D "wall" cell per face, exactly how a tesseract is a cube extruded into a 4th dimension. Exact for any shape, at any chaining depth. "View 4D Duoprism" on any shape\'s detail card shows a reference-only 3D preview; the same 4 gold-badge shapes additionally get a real, scene-buildable "Attach via Duoprism…" option that chains into groups.',
     ],
   },
   {

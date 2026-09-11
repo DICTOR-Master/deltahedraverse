@@ -271,6 +271,23 @@ Since then:
   icosahedron has a perfectly well-defined single dihedral angle despite
   never being 4D-capable at any `k`, which a looser check would have
   missed).
+- **The 4D Prism (duoprism) construction** (`app/lib/polyhedra/duoprism.ts`)
+  — literally "shape × interval", exactly how a tesseract is a cube
+  extruded into a 4th dimension, generalized to any polyhedron: two
+  identical-orientation copies of a shape (a pure translation, not a
+  mirrored flush join — there's no registration/twist choice to make)
+  connected by one real 3D wall-prism cell per face. Exactly correct in
+  ordinary 3D for any shape, at any chaining depth — verified against
+  the 4D Euler characteristic (`V-E+F-C=0`, which reduces to nothing
+  more than the base shape's own `V-E+F=2`) across all 137 registered
+  shapes, real winding/non-degeneracy checks, and a direct, computed
+  proof that chaining a second duoprism onto a different face of the
+  same parent never disturbs the first or the two siblings' own
+  positions. "View 4D Duoprism" on any shape's detail card shows a
+  reference-only 3D preview (all 137 shapes); the same 4 gold-badge
+  FOURD-capable shapes additionally get a real, scene-buildable "Attach
+  via Duoprism…" option with no picker step (there's no shape or
+  orientation choice left to make), chainable into groups.
 
 ## Structure
 
@@ -288,6 +305,7 @@ polyhedraverse/
         rewrite.ts       # D10<->D12 vertex-matching (pure function, no three.js)
         fourD.ts         # dihedral-angle-defect classifier -- which shapes are 4D-Capable
         fold4.ts         # the real 4D dihedral fold/projection math, driven by the scene slider
+        duoprism.ts      # the 4D Prism (duoprism) construction -- always-exact, any shape, any chaining depth
         index.ts         # combined POLYHEDRA / POLYHEDRON_IDS across every family
       assembly.ts        # the real {nodes, connections} graph + validation (vertex-, face-, and fold4-kind)
       graph.ts           # subtree/cycle graph logic (pure, no three.js)
