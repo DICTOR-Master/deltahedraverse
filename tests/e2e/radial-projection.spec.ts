@@ -63,5 +63,12 @@ test('every FOURD_CAPABLE shape shows its own real cell count under "View 4D"', 
     await expect(drawer.locator(`text=/${cellCountText}/`)).toBeVisible();
     await drawer.getByRole('button', { name: 'Close' }).click();
     await expect(drawer).toHaveCount(0);
+    // Closing the detail drawer leaves the underlying "Shape browser"
+    // dialog open (it's a separate overlay opened by Full Catalog) --
+    // that dialog intercepts the next iteration's "Start over" click if
+    // left open.
+    const browserDialog = page.getByRole('dialog', { name: 'Shape browser' });
+    await browserDialog.getByRole('button', { name: 'Close' }).click();
+    await expect(browserDialog).toHaveCount(0);
   }
 });
