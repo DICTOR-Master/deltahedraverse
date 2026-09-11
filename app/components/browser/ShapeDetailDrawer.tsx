@@ -162,8 +162,12 @@ export default function ShapeDetailDrawer({
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 20px 20px', gap: 14 }}>
         {showFourD ? (
-          <div style={{ width: '100%', maxWidth: 380 }}>
-            {isFourDCapable ? <RadialProjectionViewer specId={specId} height={260} /> : <DuoprismShapeViewer specId={specId} height={260} />}
+          // Radial projection gets a much bigger card than duoprism's:
+          // seeing the cell-first structure (up to 120 cells) and flying
+          // the camera inside it needs real screen space, not a 380px
+          // preview box.
+          <div style={{ width: '100%', maxWidth: isFourDCapable ? 720 : 380 }}>
+            {isFourDCapable ? <RadialProjectionViewer specId={specId} height={520} /> : <DuoprismShapeViewer specId={specId} height={260} />}
           </div>
         ) : (
           <ShapePreview specId={specId} size={220} spin />

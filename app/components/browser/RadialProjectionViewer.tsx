@@ -84,7 +84,12 @@ export default function RadialProjectionViewer({ specId, height = 260 }: RadialP
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.enablePan = false;
-    controls.minDistance = 1.2;
+    // Deliberately close to zero, not the usual ~1.2: the whole point of
+    // this view is seeing the cell-first structure, which for a
+    // 120-cell means flying the camera IN PAST the outer cells to see
+    // the nested layers -- a real user request, not a default worth
+    // guarding against.
+    controls.minDistance = 0.02;
     controls.maxDistance = 12;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 1.6;
