@@ -166,6 +166,27 @@ export function buildWallPrism(faceVerts: Vec3[], offset: Vec3): WallPrismRaw {
   return { verts, edges, faces };
 }
 
+/**
+ * The lateral (wall) quads only, excluding the near/far cap faces.
+ * Every real caller renders the wall ALONGSIDE two already-solid,
+ * already-capped copies of the shape (a real placed node at each end in
+ * BUILD mode; a separately-drawn capGeometry mesh at each end in VIEW
+ * mode) -- rendering the wall's OWN cap triangles too duplicates
+ * geometry that's already there, and since the cap's own winding
+ * (`reversed`/`direct`, chosen for the WHOLE mesh's outward-normal
+ * consistency) doesn't match the solid's own natural face
+ * triangulation, the two overlapping, differently-diagonalized
+ * pentagons/triangles visibly cross near the middle -- a real, reported
+ * artifact ("edges attaching to face centers", confirmed live as the
+ * near/far cap triangulations disagreeing), not a subtle rendering
+ * preference. checkWallPrism in scripts/verify-duoprism.ts still
+ * verifies the FULL mesh (caps included) for winding/volume
+ * correctness -- this only changes what actually gets drawn.
+ */
+export function wallLateralFaces(wall: WallPrismRaw): number[][] {
+  return wall.faces.slice(2);
+}
+
 function cross(a: Vec3, b: Vec3): Vec3 {
   return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 }

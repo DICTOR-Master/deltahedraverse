@@ -24,7 +24,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { POLYHEDRA, triangulateFace, type PolyhedronSpec } from '../../lib/polyhedra';
-import { buildDuoprismShadow, type WallPrismRaw } from '../../lib/polyhedra/duoprism';
+import { buildDuoprismShadow, wallLateralFaces, type WallPrismRaw } from '../../lib/polyhedra/duoprism';
 
 const CAP_COLOR = 0x47cc24;
 const WALL_COLOR = 0x2ad6c9; // matches the "Attach via Duoprism…" button's own teal accent
@@ -54,9 +54,14 @@ function capGeometry(spec: PolyhedronSpec, scale: number, offset: THREE.Vector3)
   return geometry;
 }
 
+// Lateral faces only -- both caps are already drawn separately by
+// capGeometry above; including the wall's own cap triangles too would
+// duplicate that geometry with a different (reversed) triangulation,
+// visibly crossing near the middle (see duoprism.ts's own
+// wallLateralFaces doc comment).
 function wallGeometry(wall: WallPrismRaw, scale: number): THREE.BufferGeometry {
   const positions: number[] = [];
-  for (const face of wall.faces) {
+  for (const face of wallLateralFaces(wall)) {
     for (const [i, j, k] of triangulateFace(face)) {
       for (const idx of [i, j, k]) {
         const v = wall.verts[idx];

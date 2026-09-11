@@ -1166,10 +1166,18 @@ export default function ShapeViewer({
       label.style.display = 'block';
     };
 
-    /** Builds a renderable mesh for a raw {verts, faces} structure (a wall-prism, not a full PolyhedronSpec). */
+    /**
+     * Builds a renderable mesh for a raw {verts, faces} structure (a
+     * wall-prism, not a full PolyhedronSpec). Renders LATERAL faces
+     * only (wallLateralFaces) -- both ends are already real, solid,
+     * fully-capped placed nodes, so the wall's own near/far cap
+     * triangles would duplicate geometry that's already there (see
+     * duoprism.ts's own wallLateralFaces doc comment for the real,
+     * reported artifact this caused).
+     */
     const buildWallPrismMesh = (wall: { verts: [number, number, number][]; faces: number[][] }): THREE.Mesh => {
       const positions: number[] = [];
-      for (const face of wall.faces) {
+      for (const face of wall.faces.slice(2)) {
         for (const [i, j, k] of triangulateFace(face)) {
           positions.push(...wall.verts[i], ...wall.verts[j], ...wall.verts[k]);
         }
