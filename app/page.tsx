@@ -78,14 +78,19 @@ export default function Home() {
   // reset(). Each is set only when opened via that specific trigger, so
   // it's naturally gone the next time the picker opens from anywhere
   // else. Shared by both the wheel and the browser.
-  // 'faceAttachFold4': same as 'faceAttach' but the resulting attach uses
-  // the real 4D fold (see fold4.ts) instead of an ordinary flush join --
-  // only ever reachable via the "Attach via 4D fold…" button, itself only
-  // shown when nodeSelection.faceFold4Eligible (this node's own shape is
-  // FOURD_CAPABLE_IDS-eligible and the selected face is free). Filtered
-  // to just the node's own shape (self-attach only, Stage-1 scope), not
-  // nodeSelection.faceAttachOptions' full congruent-face list.
-  const [wheelMode, setWheelMode] = useState<'reset' | 'faceAttach' | 'faceAttachFold4' | 'vertexAttach'>('reset');
+  //
+  // 4D fold ("Attach via 4D fold…", a 'faceAttachFold4' mode here)
+  // removed for now: it's mathematically exact for a single attached
+  // pair, but has a real, unsolved limitation once 3+ copies share an
+  // edge (see fold4.ts's own header). Direct user decision: pull the
+  // entry point rather than let players reach the known-broken case,
+  // now that duoprism.ts's own construction offers an always-exact way
+  // to build groups instead. The underlying fold4 machinery
+  // (ShapeViewer's beginFaceAttach fold4 param, recomputeAllFolds, the
+  // slider) is untouched, so any already-saved assembly with a fold4
+  // connection keeps loading and scrubbing correctly -- only the UI path
+  // to CREATE a new one is gone.
+  const [wheelMode, setWheelMode] = useState<'reset' | 'faceAttach' | 'vertexAttach'>('reset');
   // 4D extension, Stage E: the slider itself only ever renders once the
   // assembly has at least one real fold4 connection (contextual, not a
   // permanent control) -- foldPercent is 0-100 for the <input type="range">
@@ -123,7 +128,7 @@ export default function Home() {
     setWelcomeDismissedThisSession(true);
   };
 
-  const openPicker = (mode: 'reset' | 'faceAttach' | 'faceAttachFold4' | 'vertexAttach') => {
+  const openPicker = (mode: 'reset' | 'faceAttach' | 'vertexAttach') => {
     setWheelMode(mode);
     setBrowserOpen(true);
   };
@@ -409,23 +414,6 @@ export default function Home() {
                 Attach via face…
               </button>
             )}
-            {nodeSelection.faceFold4Eligible && (
-              // 4D extension, trigger point 1: only ever shown for a free
-              // face on one of the 4 gold-badge FOURD_CAPABLE shapes --
-              // never a permanent option. Gold, matching the "4D" shape-
-              // card badge (ShapePreviewCard.tsx) rather than reusing the
-              // ordinary face-attach amber, so the real-4D-fold nature of
-              // this specific attach reads as visually distinct.
-              <button
-                type="button"
-                onClick={() => openPicker('faceAttachFold4')}
-                title="Self-attach with the real 4D dihedral fold instead of an ordinary flush join"
-                className="rounded-full px-4 py-1.5 text-sm font-medium text-black transition-colors"
-                style={{ background: '#ffd54a' }}
-              >
-                Attach via 4D fold…
-              </button>
-            )}
             {nodeSelection.faceDuoprismEligible && (
               // 4D Prism (duoprism) construction: same eligibility as
               // 4D fold, but a structurally different, always-exact
@@ -501,16 +489,9 @@ export default function Home() {
       <PolyhedralWheel
         open={wheelOpen}
         onClose={() => setWheelOpen(false)}
-        filterIds={
-          wheelMode === 'faceAttach'
-            ? nodeSelection?.faceAttachOptions
-            : wheelMode === 'faceAttachFold4' && nodeSelection
-              ? [nodeSelection.specId]
-              : undefined
-        }
+        filterIds={wheelMode === 'faceAttach' ? nodeSelection?.faceAttachOptions : undefined}
         onSelect={(id) => {
-          if (wheelMode === 'faceAttachFold4') handleRef.current?.beginFaceAttach(id, true);
-          else if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
+          if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
           else if (wheelMode === 'vertexAttach') handleRef.current?.beginAttach(id);
           else handleRef.current?.reset(id);
         }}
@@ -541,20 +522,13 @@ export default function Home() {
       <ShapeBrowser
         open={browserOpen}
         onClose={() => setBrowserOpen(false)}
-        filterIds={
-          wheelMode === 'faceAttach'
-            ? nodeSelection?.faceAttachOptions
-            : wheelMode === 'faceAttachFold4' && nodeSelection
-              ? [nodeSelection.specId]
-              : undefined
-        }
+        filterIds={wheelMode === 'faceAttach' ? nodeSelection?.faceAttachOptions : undefined}
         fullCatalogRequestId={fullCatalogRequestId}
         fullCatalogFocusSection={fullCatalogFocusSection}
         searchRequestId={searchRequestId}
         onSelect={(id) => {
           setBrowserOpen(false);
-          if (wheelMode === 'faceAttachFold4') handleRef.current?.beginFaceAttach(id, true);
-          else if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
+          if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
           else if (wheelMode === 'vertexAttach') handleRef.current?.beginAttach(id);
           else handleRef.current?.reset(id);
         }}
