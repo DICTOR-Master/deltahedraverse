@@ -240,7 +240,7 @@ Since then:
   picking a face-attach target. Actions (augment/diminish) and
   Spherical/X-Ray view modes are still deferred — see
   `docs/build-plan.md`'s own sections for the full design record.
-- **A real 4D extension** (`app/lib/polyhedra/fourD.ts`,
+- **A 4D fold extension** (`app/lib/polyhedra/fourD.ts`,
   `app/lib/polyhedra/fold4.ts`) — classifies which shapes can be a "cell"
   of a convex 4-polytope via dihedral-angle-defect math (`k` copies
   meeting at a shared edge close into 4D when `k × dihedralAngle < 360°`).
@@ -252,23 +252,25 @@ Since then:
   on their cards (no dedicated wheel face; reachable via Full Catalog and
   search like any other family). Selecting a free face on one of those 4
   shapes offers "Attach via 4D fold..." alongside the ordinary face-attach:
-  a genuine 4D dihedral fold (rotation confined to the plane spanned by
-  the shared face's normal and the new W axis, pivoting about the face
-  itself) rather than a flush 3D join. Once at least one such attachment
-  exists, a labeled 0-100% slider appears (never a permanent control) to
-  continuously scrub between the true 4D view (flush) and an ordinary 3D
-  projection, revealing the real geometric separation gap a rigid 3D
-  construction can't avoid (independently confirmed for the dodecahedron:
-  chaining 3 real cells around one shared edge, using nothing but the
-  shape's own vertex/edge data, leaves a measured ~10.3 degree residual
-  gap, exactly matching the closure formula's own prediction). Sandboxed
-  at two independent layers, not just the UI: `assembly.ts`'s
-  `isValidAssembly` rejects a fold4 connection for anything outside the
-  4 qualifying shapes, and `fold4.ts`'s own `foldAngleRad` refuses to
-  produce an angle for a non-qualifying shape even if asked directly
-  (caught live: the icosahedron has a perfectly well-defined single
-  dihedral angle despite never being 4D-capable at any `k`, which a
-  looser check would have missed).
+  the resulting pair can then be rotated, via a labeled 0-100% slider
+  (never a permanent control), between the ordinary rigid 3D construction
+  (0%, a real ~10.3° angular gap between two dodecahedra sharing a parent
+  edge — independently confirmed against the closure formula's own
+  prediction, not eyeballed) and a corrected pose that closes that gap
+  (100%) — exact for a single attached pair. **Known limitation, not yet
+  solved**: once 3 or more copies share a single edge (unavoidable at
+  higher density — e.g. filling every face of a central dodecahedron),
+  no combination of ordinary 3D rotations can close every shared-edge gap
+  simultaneously — that's a real mathematical consequence of approximating
+  a genuinely 4-dimensional structure inside a 3D scene, not an
+  implementation bug still to be found. Sandboxed at two independent
+  layers regardless: `assembly.ts`'s `isValidAssembly` rejects a fold4
+  connection for anything outside the 4 qualifying shapes, and
+  `fold4.ts`'s own angle helpers refuse to produce an angle for a
+  non-qualifying shape even if asked directly (caught live: the
+  icosahedron has a perfectly well-defined single dihedral angle despite
+  never being 4D-capable at any `k`, which a looser check would have
+  missed).
 
 ## Structure
 

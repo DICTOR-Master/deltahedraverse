@@ -18,8 +18,7 @@ export const CHANGELOG: ChangelogDay[] = [
     date: '2026-09-11',
     entries: [
       'Added a real 4D extension: 4 shapes (tetrahedron, octahedron, cube, dodecahedron) are recognized as valid "cells" of a convex 4-polytope and gathered into a new 4D-Capable family, marked with a distinct gold "4D" badge on their cards.',
-      'Selecting a free face on one of those 4 shapes now offers a second option, "Attach via 4D fold…", alongside the ordinary face-attach — self-attaching with the real 4D dihedral fold instead of a flush 3D join.',
-      'Once a 4D-fold attachment exists anywhere in the scene, a labeled 0–100% slider appears letting you continuously scrub between the true 4D view (flush) and an ordinary 3D projection, revealing the real geometric separation gap along the way.',
+      'Selecting a free face on one of those 4 shapes now offers a second option, "Attach via 4D fold…", alongside the ordinary face-attach — self-attaching with a real 4D dihedral fold instead of a flush 3D join. Once a fold exists anywhere in the scene, a labeled 0–100% slider lets you scrub between the ordinary 3D construction and the fold correction. Exact for a single attached pair; denser clusters (3+ copies meeting around one shared edge) only partially close — a real mathematical limit of approximating a 4D structure in a 3D scene, not yet a fully solved case.',
     ],
   },
   {
