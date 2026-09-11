@@ -174,7 +174,11 @@ export default function RadialProjectionViewer({ specId, height = 260 }: RadialP
       if (!material) continue;
       material.transparent = mode !== 'solid';
       material.depthWrite = mode === 'solid';
-      material.opacity = mode === 'translucent' ? 0.35 : 1;
+      // Low enough that even 120 stacked, overlapping cells (the
+      // dodecahedron/120-cell case) stay see-through rather than
+      // compounding into near-opacity -- real request: "not transparent
+      // enough to see inside".
+      material.opacity = mode === 'translucent' ? 0.1 : 1;
       material.needsUpdate = true;
     }
   }, [mode, specId]);
