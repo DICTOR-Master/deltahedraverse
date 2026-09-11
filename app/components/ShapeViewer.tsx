@@ -18,7 +18,7 @@ import { matchRewriteVertices, REWRITE_TARGET } from '../lib/polyhedra/rewrite';
 import { collectSubtree, findParentConnection, hasCycle } from '../lib/graph';
 import { FOURD_CAPABLE_IDS } from '../lib/polyhedra/fourD';
 import { edgeClosingCorrection } from '../lib/polyhedra/fold4';
-import { buildWallPrism, DUOPRISM_DEPTH } from '../lib/polyhedra/duoprism';
+import { buildWallPrism, duoprismBuildDepth } from '../lib/polyhedra/duoprism';
 
 const VERTEX_RADIUS = 0.06; // relative to unit edge length
 const COLOR_FREE = 0xffcc33;
@@ -915,8 +915,8 @@ export default function ShapeViewer({
             // baked transforms, never stored -- same "derive, don't
             // duplicate" rule fold4 already follows. The offset is
             // read back from B's actual position relative to A's,
-            // rather than reusing DUOPRISM_DEPTH directly, so this
-            // stays correct even if that constant ever changes later.
+            // rather than recomputing duoprismBuildDepth, so this stays
+            // correct even if that formula's own margin ever changes.
             scene.updateMatrixWorld(true);
             const aSpec = POLYHEDRA[assembly.nodes.find((n) => n.id === conn.nodeA)!.shape];
             const faceVertsWorld = aSpec.faces[conn.vertexA].map((i) =>
@@ -1192,7 +1192,7 @@ export default function ShapeViewer({
       targetPlaced.foldGroup.getWorldQuaternion(targetWorldQuat);
       const targetWorldNormal = new THREE.Vector3(...targetFaceConnector.normal).applyQuaternion(targetWorldQuat).normalize();
       const targetOriginWorld = new THREE.Vector3(0, 0, 0).applyMatrix4(targetPlaced.foldGroup.matrixWorld);
-      const offsetWorld = targetWorldNormal.clone().multiplyScalar(DUOPRISM_DEPTH);
+      const offsetWorld = targetWorldNormal.clone().multiplyScalar(duoprismBuildDepth(spec, targetFaceIndex));
 
       const nodeId = crypto.randomUUID();
       const placed = buildPlacedShape(spec, nodeId);

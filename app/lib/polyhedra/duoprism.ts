@@ -21,15 +21,58 @@
  * exact near-cap-reversed / far-cap-direct winding convention.
  */
 
-import type { Vec3, PolyhedronSpec } from './core';
+import { buildFaceConnectors, type Vec3, type PolyhedronSpec } from './core';
 
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const scale = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s];
 const norm = (a: Vec3): Vec3 => scale(a, 1 / Math.hypot(...a));
 
-/** BUILD mode's fixed wall-prism depth: one unit edge length, matching `prisms.ts`'s own top-to-bottom span. */
-export const DUOPRISM_DEPTH = 1;
+/**
+ * The minimum depth needed for the near and far copies to NOT overlap
+ * along `axis`: the shape's own real extent along that exact axis (the
+ * distance between its furthest-forward and furthest-backward vertex
+ * projections), not an approximation. A real bug shipped without this
+ * check: an earlier version used a flat `DUOPRISM_DEPTH = 1` (matching
+ * `prisms.ts`'s own top-to-bottom span for extruding a FLAT 2D polygon,
+ * which has no depth of its own) — but here both "caps" are full 3D
+ * solids with real depth along the very axis being extruded, so that
+ * constant badly undersized the gap for anything much bigger than a
+ * tetrahedron (confirmed live: DODECAHEDRON needs >=2.227 just to touch,
+ * not 1 — real user report, "overlapping everywhere," reproduced and
+ * measured directly, not guessed at). This function returns the EXACT
+ * touching distance for the given axis; callers add their own margin
+ * for a visible gap.
+ */
+function minNonOverlapDepth(spec: PolyhedronSpec, axis: Vec3): number {
+  const projections = spec.vertices.map((v) => dot(v, axis));
+  return Math.max(...projections) - Math.min(...projections);
+}
+
+/**
+ * BUILD mode's wall-prism depth for a specific face: `minNonOverlapDepth`
+ * along that face's own normal, plus a 15% margin for a real visible gap
+ * rather than the two copies' faces looking fused.
+ *
+ * A first version of this used "2x that face's own apothem" instead,
+ * reasoning that a convex shape's boundary never extends past its own
+ * face plane along that face's own normal, so the near copy's forward
+ * extent (=apothem) should equal the far copy's backward extent
+ * (=apothem again, by symmetry). That symmetry assumption is only true
+ * for a CENTRALLY SYMMETRIC shape (opposite faces parallel and
+ * equidistant from center) — CUBE, D8, and DODECAHEDRON all happen to
+ * have it, but D4 (tetrahedron) does NOT: the vertex opposite a face
+ * sits at the shape's own real HEIGHT from that face (~0.817 for a
+ * unit-edge tetrahedron), not at 2x the apothem (~0.408) — caught live
+ * (D4 alone, not the other 3, failing the real overlap check below)
+ * rather than assumed safe from the apothem shortcut. Measuring the
+ * real extent directly via `minNonOverlapDepth`, exactly like VIEW's
+ * own depth already does, removes the symmetry assumption entirely.
+ */
+export function duoprismBuildDepth(spec: PolyhedronSpec, faceIndex: number): number {
+  const normal = buildFaceConnectors(spec)[faceIndex].normal;
+  return minNonOverlapDepth(spec, normal) * 1.15;
+}
 
 export interface WallPrismRaw {
   /** 2n verts: [0..n-1] = near cap (face's own order, REVERSED), [n..2n-1] = far cap (face's own order, direct). */
@@ -175,10 +218,21 @@ export function duoprismCombinatorics(spec: PolyhedronSpec): DuoprismCombinatori
  */
 export const DUOPRISM_VIEW_AXIS: Vec3 = norm([0.8742315094966826, -0.42353828345368133, -0.23734908942791608]);
 
-/** VIEW mode's depth for `spec`, proportional to its own vertex-radius so separation looks sane at any shape's scale. */
+/**
+ * VIEW mode's depth for `spec`: `minNonOverlapDepth` along
+ * `DUOPRISM_VIEW_AXIS` specifically (the shape's own REAL extent along
+ * that exact generic axis), not a circumradius-based approximation. An
+ * earlier version used `maxVertexRadius * 1.2` — circumradius is the
+ * worst-case distance in ANY direction, but a shape's real extent along
+ * one SPECIFIC generic (non-face-normal) axis can be smaller OR, for an
+ * axis nearly aligned with a vertex-to-vertex diagonal, approach nearly
+ * TWICE the circumradius — an approximation, not the exact figure this
+ * needs (the same class of bug BUILD's own depth had, caught by the
+ * same live report). Measuring the real extent directly removes the
+ * guesswork entirely.
+ */
 export function duoprismViewDepth(spec: PolyhedronSpec): number {
-  const R = Math.max(...spec.vertices.map((v) => Math.hypot(...v)));
-  return R * 1.2;
+  return minNonOverlapDepth(spec, DUOPRISM_VIEW_AXIS) * 1.15;
 }
 
 export interface DuoprismShadow {

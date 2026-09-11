@@ -3,13 +3,13 @@ import { FOURD_CAPABLE_IDS } from '../app/lib/polyhedra/fourD';
 import {
   buildWallPrism,
   duoprismCombinatorics,
-  DUOPRISM_DEPTH,
+  duoprismBuildDepth,
   DUOPRISM_VIEW_AXIS,
   duoprismViewDepth,
   buildDuoprismShadow,
   type WallPrismRaw,
 } from '../app/lib/polyhedra/duoprism';
-import { buildFaceConnectors } from '../app/lib/polyhedra/core';
+import { buildFaceConnectors, type PolyhedronSpec } from '../app/lib/polyhedra/core';
 import { isValidAssembly, type Assembly } from '../app/lib/assembly';
 
 type Vec3 = [number, number, number];
@@ -28,6 +28,7 @@ const near = (a: number, b: number, tol = 1e-9) => Math.abs(a - b) < tol;
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = (a: Vec3): Vec3 => { const l = Math.hypot(...a); return [a[0] / l, a[1] / l, a[2] / l]; };
 
 // (1) Combinatorial 4D Euler-characteristic check -- every registered shape.
 for (const id of POLYHEDRON_IDS) {
@@ -136,25 +137,52 @@ function checkWallPrism(label: string, wall: WallPrismRaw, offset: Vec3, expectR
   }
 }
 
+// The check that should have existed from the start: do the near and far
+// SOLID copies (the actual dodecahedra/cubes/etc, not just the connecting
+// wall-prism) avoid occupying the same space? Measured directly by
+// projecting every vertex of both copies onto the extrusion axis and
+// confirming the near copy's forward extent never exceeds the far copy's
+// backward extent -- a real bug shipped without this: `DUOPRISM_DEPTH=1`
+// (borrowed from prisms.ts's own flat-2D-polygon convention) badly
+// undersized the gap once the "caps" became full 3D solids with their
+// own real depth along the very axis being extruded (confirmed live on
+// DODECAHEDRON: needs >=2.227, not 1 -- a live user report, reproduced
+// and measured, not guessed at).
+function checkCapsDontOverlap(label: string, spec: PolyhedronSpec, offset: Vec3) {
+  const axis = norm(offset);
+  const nearProjections = spec.vertices.map((v) => dot(v as Vec3, axis));
+  const farProjections = spec.vertices.map((v) => dot(v as Vec3, axis) + dot(offset, axis));
+  const nearMaxForward = Math.max(...nearProjections);
+  const farMinBackward = Math.min(...farProjections);
+  assert(
+    farMinBackward >= nearMaxForward - 1e-9,
+    `${label}: near copy's forward extent (${nearMaxForward.toFixed(4)}) does not exceed far copy's backward extent (${farMinBackward.toFixed(4)}) -- the two solids don't overlap`,
+  );
+}
+
 for (const id of FOURD_CAPABLE_IDS) {
   const spec = POLYHEDRA[id];
   const connectors = buildFaceConnectors(spec);
   spec.faces.forEach((face, faceIndex) => {
     const faceVerts = face.map((i) => spec.vertices[i]) as Vec3[];
     const normal = connectors[faceIndex].normal as Vec3;
-    const offset: Vec3 = [normal[0] * DUOPRISM_DEPTH, normal[1] * DUOPRISM_DEPTH, normal[2] * DUOPRISM_DEPTH];
+    const depth = duoprismBuildDepth(spec, faceIndex);
+    const offset: Vec3 = [normal[0] * depth, normal[1] * depth, normal[2] * depth];
     const wall = buildWallPrism(faceVerts, offset);
     checkWallPrism(`${id} face ${faceIndex} (BUILD)`, wall, offset, true);
+    checkCapsDontOverlap(`${id} face ${faceIndex} (BUILD)`, spec, offset);
   });
 }
 
-// Same checks for VIEW's oblique shadow, all 137 shapes (winding/congruence/non-degeneracy still must hold; NOT expected to be right prisms).
+// Same checks for VIEW's oblique shadow, all 137 shapes (winding/congruence/non-degeneracy still must hold; NOT expected to be right prisms)
+// PLUS the same cap-overlap check the BUILD-mode bug above was missing.
 for (const id of POLYHEDRON_IDS) {
   const spec = POLYHEDRA[id];
   const shadow = buildDuoprismShadow(spec);
   spec.faces.forEach((_, faceIndex) => {
     checkWallPrism(`${id} face ${faceIndex} (VIEW)`, shadow.walls[faceIndex], shadow.offset, false);
   });
+  checkCapsDontOverlap(`${id} (VIEW)`, spec, shadow.offset);
 }
 assert(duoprismViewDepth(POLYHEDRA.DODECAHEDRON) > 0, 'duoprismViewDepth is positive for a real shape');
 
@@ -171,12 +199,14 @@ assert(duoprismViewDepth(POLYHEDRA.DODECAHEDRON) > 0, 'duoprismViewDepth is posi
 
   const offsets = facesToTest.map((f) => {
     const n = connectors[f].normal as Vec3;
-    return [n[0] * DUOPRISM_DEPTH, n[1] * DUOPRISM_DEPTH, n[2] * DUOPRISM_DEPTH] as Vec3;
+    const depth = duoprismBuildDepth(spec, f);
+    return [n[0] * depth, n[1] * depth, n[2] * depth] as Vec3;
   });
   const walls = facesToTest.map((f, idx) => {
     const faceVerts = spec.faces[f].map((i) => spec.vertices[i]) as Vec3[];
     return buildWallPrism(faceVerts, offsets[idx]);
   });
+  facesToTest.forEach((f, idx) => checkCapsDontOverlap(`chained sibling ${idx}`, spec, offsets[idx]));
 
   const verticesAfter = spec.vertices;
   assert(
