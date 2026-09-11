@@ -14,6 +14,7 @@ import { FOURD_CAPABLE_IDS } from '../app/lib/polyhedra/fourD';
 import {
   buildCellComplex,
   cellVertices,
+  dualize,
   dot4,
   bisectingMirror,
   reflectionMatrix,
@@ -136,6 +137,51 @@ for (const [id, params] of Object.entries(FOUR_D_SHAPE_PARAMS)) {
   const v: Vec4 = [1, 2, 3, 5]; // w exactly AT the view distance -- the literal blowup case
   const projected = projectVec4ToVec3(v, 5);
   assert(projected.every((c) => Number.isFinite(c)), `projection stays finite even when w equals the view distance exactly, got [${projected}]`);
+}
+
+// (4) Stage 6: dualize() on the real Stage-1-engine 120-cell output
+// (built from a dodecahedron seed via reflections, not the bespoke
+// 600-cell quaternion construction used earlier this session) must
+// reproduce the known 600-cell combinatorics exactly: 600 cells, each a
+// genuine regular tetrahedron (4 vertices, all 6 pairwise distances
+// equal), degree 4, and 1200 adjacent pairs (matching the 120-cell's
+// own known edge count -- duality's "original edges become the dual's
+// adjacency" relationship, checked here rather than assumed).
+{
+  const complex120 = buildCellComplex(POLYHEDRA.DODECAHEDRON);
+  const dual = dualize(complex120);
+  assert(dual.cells.length === 600, `dualize(120-cell): 600 dual cells, got ${dual.cells.length}`);
+  assert(dual.cells.every((c) => c.vertices.length === 4), `dualize(120-cell): every dual cell has exactly 4 vertices (tetrahedron), counts: ${[...new Set(dual.cells.map((c) => c.vertices.length))]}`);
+
+  let worstTetraSpread = 0;
+  for (const cell of dual.cells) {
+    const dists: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      for (let j = i + 1; j < 4; j++) {
+        const a = cell.vertices[i];
+        const b = cell.vertices[j];
+        dists.push(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2], a[3] - b[3]));
+      }
+    }
+    const spread = Math.max(...dists) - Math.min(...dists);
+    worstTetraSpread = Math.max(worstTetraSpread, spread);
+  }
+  assert(worstTetraSpread < 1e-6, `dualize(120-cell): every dual cell is a genuine REGULAR tetrahedron (worst edge-length spread=${worstTetraSpread})`);
+
+  const degree = new Array(dual.cells.length).fill(0);
+  for (const [a, b] of dual.adjacency) {
+    degree[a]++;
+    degree[b]++;
+  }
+  assert(degree.every((d) => d === 4), `dualize(120-cell): every dual cell has degree 4, got degrees ${[...new Set(degree)]}`);
+  assert(dual.adjacency.length === 1200, `dualize(120-cell): 1200 adjacent pairs (matching the 120-cell's own known edge count), got ${dual.adjacency.length}`);
+
+  // Radii check: a genuine dual polytope's vertices (the original
+  // cells' centroids) should all be equidistant from the origin --
+  // checked, not assumed, exactly as this session's own 120-cell spike found.
+  const radii = dual.cells.flatMap((c) => c.vertices.map((v) => Math.hypot(v[0], v[1], v[2], v[3])));
+  const radiusSpread = Math.max(...radii) - Math.min(...radii);
+  assert(radiusSpread < 1e-6, `dualize(120-cell): all 600 dual vertices (original cell centroids) are equidistant from the origin (spread=${radiusSpread})`);
 }
 
 console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} FAILURE(S).`);

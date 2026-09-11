@@ -262,3 +262,107 @@ export function projectVec4ToVec3(v: Vec4, viewDistance: number): Vec3 {
 export function cellVertices(complex: FourDCellComplex, cell: FourDCell): Vec4[] {
   return complex.seedEmbedding.map((v) => matVec(cell.transform, v));
 }
+
+export interface DualCell {
+  id: number;
+  vertices: Vec4[]; // this dual cell's own embedded vertices (one per original polytope CELL incident to the corresponding original VERTEX)
+  normal: Vec4; // this dual cell's own outward direction -- equal to the corresponding original polytope vertex's own direction
+}
+
+export interface DualCellComplex {
+  cells: DualCell[];
+  adjacency: [number, number][];
+}
+
+function keyOf4(v: Vec4): string {
+  return v.map((c) => Math.round(c * 1e6) / 1e6).join(',');
+}
+
+/**
+ * Stage 6: duality, as a real operation on ANY FourDCellComplex, not a
+ * 120/600-cell-only special case. Standard polytope duality: k-faces of
+ * P correspond to (n-1-k)-faces of its dual with reversed inclusion --
+ * here, VERTICES of the original become CELLS of the dual (one dual
+ * cell per original vertex, its own vertices being the centroids of
+ * every original CELL incident to that vertex), and EDGES of the
+ * original become the dual's own cell-ADJACENCY (two dual cells are
+ * adjacent exactly when the corresponding original vertices are
+ * edge-connected) -- exactly the relationship independently verified by
+ * hand this session for 120-cell <-> 600-cell (dodecahedral cells dual
+ * to binary-icosahedral quaternions), now implemented generically off
+ * of whatever FourDCellComplex buildCellComplex() produces, for any
+ * seed. Checked in scripts/verify-radial-projection.ts against the
+ * already-known 600-cell combinatorics (120 cells, all regular
+ * tetrahedra, degree 4, matching V=120,E=720,F=1200,C=600).
+ */
+export function dualize(complex: FourDCellComplex): DualCellComplex {
+  const vertexIndexByKey = new Map<string, number>();
+  const vertexPositions: Vec4[] = [];
+  const vertexMembership: number[][] = []; // global vertex index -> [cell ids incident to it]
+
+  for (const cell of complex.cells) {
+    const verts = cellVertices(complex, cell);
+    for (const v of verts) {
+      const key = keyOf4(v);
+      let idx = vertexIndexByKey.get(key);
+      if (idx === undefined) {
+        idx = vertexPositions.length;
+        vertexIndexByKey.set(key, idx);
+        vertexPositions.push(v);
+        vertexMembership.push([]);
+      }
+      vertexMembership[idx].push(cell.id);
+    }
+  }
+
+  const cellsById = new Map(complex.cells.map((c) => [c.id, c]));
+  const centroidOfCell = (cellId: number): Vec4 => {
+    const verts = cellVertices(complex, cellsById.get(cellId)!);
+    const sum = verts.reduce((acc, v) => [acc[0] + v[0], acc[1] + v[1], acc[2] + v[2], acc[3] + v[3]] as Vec4, [0, 0, 0, 0] as Vec4);
+    return [sum[0] / verts.length, sum[1] / verts.length, sum[2] / verts.length, sum[3] / verts.length];
+  };
+
+  const dualCells: DualCell[] = vertexPositions.map((vpos, idx) => ({
+    id: idx,
+    vertices: vertexMembership[idx].map(centroidOfCell),
+    normal: norm4(vpos),
+  }));
+
+  // Original edges (local edge list applied through every cell's own
+  // embedding, deduped globally) become the dual's own adjacency.
+  const adjacencySet = new Set<string>();
+  const adjacency: [number, number][] = [];
+  for (const cell of complex.cells) {
+    const verts = cellVertices(complex, cell);
+    const localIndexOf = (v: Vec4) => vertexIndexByKey.get(keyOf4(v))!;
+    // Recover this cell's own local edges from its seed embedding's
+    // relative structure isn't available here (only the embedded
+    // points are) -- instead, treat any two vertices at the cell's own
+    // minimum pairwise distance as an edge, exactly the same
+    // "measure, don't assume" rule used throughout this session's
+    // verification scripts.
+    let minDist = Infinity;
+    for (let i = 0; i < verts.length; i++) {
+      for (let j = i + 1; j < verts.length; j++) {
+        const d = Math.hypot(verts[i][0] - verts[j][0], verts[i][1] - verts[j][1], verts[i][2] - verts[j][2], verts[i][3] - verts[j][3]);
+        if (d > 1e-9 && d < minDist) minDist = d;
+      }
+    }
+    for (let i = 0; i < verts.length; i++) {
+      for (let j = i + 1; j < verts.length; j++) {
+        const d = Math.hypot(verts[i][0] - verts[j][0], verts[i][1] - verts[j][1], verts[i][2] - verts[j][2], verts[i][3] - verts[j][3]);
+        if (Math.abs(d - minDist) < 1e-6) {
+          const gi = localIndexOf(verts[i]);
+          const gj = localIndexOf(verts[j]);
+          const key = [Math.min(gi, gj), Math.max(gi, gj)].join(':');
+          if (!adjacencySet.has(key)) {
+            adjacencySet.add(key);
+            adjacency.push([gi, gj]);
+          }
+        }
+      }
+    }
+  }
+
+  return { cells: dualCells, adjacency };
+}
