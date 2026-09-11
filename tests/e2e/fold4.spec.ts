@@ -45,9 +45,12 @@ test('a DODECAHEDRON face offers 4D-fold self-attach, and confirming it reveals 
   await page.getByRole('button', { name: 'Confirm' }).click();
   await expect(page.locator('text=/Placing DODECAHEDRON/')).toHaveCount(0);
 
-  // Trigger point 2: the slider mounts now that a real fold4 connection exists.
+  // Trigger point 2: the slider mounts now that a real fold4 connection
+  // exists, defaulting to 0% (raw/ordinary-3D -- a freshly confirmed
+  // fold4 attach looks exactly like a normal flush attach until the
+  // player drags toward 4D themselves).
   await expect(page.getByText('4D ⧉ Fold')).toBeVisible();
-  await expect(page.getByText('100%')).toBeVisible();
+  await expect(page.getByText('0%')).toBeVisible();
 
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('text=Saved')).toBeVisible();

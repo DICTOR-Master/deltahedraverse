@@ -89,8 +89,12 @@ export default function Home() {
   // assembly has at least one real fold4 connection (contextual, not a
   // permanent control) -- foldPercent is 0-100 for the <input type="range">
   // UI, converted to fold4.ts's own 0..1 `t` before reaching ShapeViewer.
+  // 0 (default) is the raw/ordinary-3D end: a freshly confirmed fold4
+  // attach looks exactly like a normal flush attach (its real geometric
+  // consequences, if any, already visible) until the player drags toward
+  // 4D themselves -- matches ShapeViewer's own foldAmountRef default.
   const [hasFoldConnections, setHasFoldConnections] = useState(false);
-  const [foldPercent, setFoldPercent] = useState(100);
+  const [foldPercent, setFoldPercent] = useState(0);
   const [changelogOpen, setChangelogOpen] = useState(false);
   // Real user request: "a little x in the corner so you can clear the
   // space" -- the default-state instruction pill has no way to dismiss
@@ -263,7 +267,7 @@ export default function Home() {
             <div
               className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium"
               style={{ background: '#0e1209', border: '1px solid #ffd54a' }}
-              title="Fold amount: 100% is the true 4D embedding (flush); dragging toward 0% projects into ordinary 3D, revealing the real separation gap"
+              title="Fold amount: 0% is ordinary rigid 3D (the real separation gap between neighboring pieces, if any); dragging toward 100% closes it, matching the true 4D structure"
             >
               <span style={{ color: '#ffd54a' }}>4D ⧉ Fold</span>
               <span className="text-xs" style={{ color: '#5ee233', opacity: 0.8 }}>
@@ -464,7 +468,7 @@ export default function Home() {
           onCanUndoChange={setCanUndo}
           onFoldConnectionsChange={(has) => {
             setHasFoldConnections(has);
-            if (!has) setFoldPercent(100); // matches ShapeViewer's own foldAmountRef reset
+            if (!has) setFoldPercent(0); // matches ShapeViewer's own foldAmountRef reset
           }}
           onReady={(handle) => {
             handleRef.current = handle;

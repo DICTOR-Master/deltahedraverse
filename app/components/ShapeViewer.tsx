@@ -17,7 +17,7 @@ import { emptyAssembly, isValidAssembly, type Assembly } from '../lib/assembly';
 import { matchRewriteVertices, REWRITE_TARGET } from '../lib/polyhedra/rewrite';
 import { collectSubtree, findParentConnection, hasCycle } from '../lib/graph';
 import { FOURD_CAPABLE_IDS } from '../lib/polyhedra/fourD';
-import { foldAngleRad, foldMatrix4RowMajor } from '../lib/polyhedra/fold4';
+import { edgeClosingCorrection } from '../lib/polyhedra/fold4';
 
 const VERTEX_RADIUS = 0.06; // relative to unit edge length
 const COLOR_FREE = 0xffcc33;
@@ -50,44 +50,23 @@ interface ShapeObjectUserData {
 
 interface PlacedShape {
   object: THREE.Group; // holds foldGroup + vertexGroup; positioned/oriented directly in world space
-  // 4D extension, Stage D: mesh + edge lines live one level deeper, inside
-  // this group, so a fold4-attached node's visual squish (see
-  // registerFoldNode/applyFoldToNode below) can be applied as this
-  // group's own local matrix without ever touching `object`'s own
-  // position/quaternion (which stays the ordinary flush pose the graph
-  // itself stores). vertexGroup deliberately stays a DIRECT child of
-  // `object`, a sibling of foldGroup rather than nested inside it --
-  // vertex-attach code elsewhere assumes exactly `sphere.parent.parent
-  // === object` (see placedOwningVertexSphere/beginAttach), and a folded
-  // node can never be the target of a NEW vertex-attach in this pass
-  // anyway (fold4 is face-only, and attaching further onto an already-
-  // folded node's own other faces is explicitly out of scope for now --
-  // see the project plan's "Notes carried forward"). For every node
-  // without an incoming fold4 connection, foldGroup's matrix is simply
-  // identity and this is invisible.
+  // 4D extension: mesh + edge lines live one level deeper, inside this
+  // group, so a fold4-attached node's real closing rotation (see
+  // recomputeAllFolds below) can be applied as this group's own local
+  // matrix without ever touching `object`'s own position/quaternion
+  // (which stays the ordinary flush pose the graph itself stores).
+  // vertexGroup deliberately stays a DIRECT child of `object`, a sibling
+  // of foldGroup rather than nested inside it -- vertex-attach code
+  // elsewhere assumes exactly `sphere.parent.parent === object` (see
+  // placedOwningVertexSphere/beginAttach), and a folded node can never be
+  // the target of a NEW vertex-attach in this pass anyway (fold4 is
+  // face-only). For every node with no fold4 sibling relationship,
+  // foldGroup's matrix is simply identity and this is invisible.
   foldGroup: THREE.Group;
   mesh: THREE.Mesh;
   vertexGroup: THREE.Group;
   triangleToFaceIndex: number[]; // maps a raycast hit's mesh triangle index back to the original polygon face index
   faceOccupied: boolean[]; // one per spec.faces entry — face-attach's counterpart to vertex "occupied"
-}
-
-/**
- * Bookkeeping for one node with an incoming fold4 face-attach connection --
- * the CHILD side of that connection (see PendingFaceAttach/confirmAttach:
- * nodeB, the newly-attached node, always plays this role; nodeA is always
- * the pre-existing parent it attached to). `pivot`/`axis` are the child's
- * own incoming face connector's local centroid/normal -- fully derived
- * from `node.shape` + the connection's own face index, matching fold4.ts's
- * own "derive, don't duplicate" rule, so nothing about the fold itself is
- * ever separately stored on the node or the connection beyond `fold4:
- * true`.
- */
-interface FoldNode {
-  foldGroup: THREE.Group;
-  pivot: THREE.Vector3;
-  axis: THREE.Vector3;
-  angleRad: number;
 }
 
 interface PendingVertexAttach {
@@ -452,17 +431,23 @@ export default function ShapeViewer({
   // specific node gets removed some other way (an explicit delete
   // covering it).
   const lastAddedNodeIdRef = useRef<string | null>(null);
-  // 4D extension, Stage D. foldAmountRef is the slider's own `t` (0 = pure
-  // 3D projection, 1 = pure 4D/flush) -- starts at 1 so a freshly
-  // confirmed fold4 attach looks exactly like an ordinary flush attach
-  // until the player actually drags the slider toward 0 themselves; reset
-  // back to 1 whenever the assembly's last fold4 connection is removed,
-  // so a later, unrelated fold4 attach doesn't inherit a stale scrub
-  // position. foldNodesRef holds one entry per node with an incoming
-  // fold4 connection, keyed by that node's own id -- see FoldNode's own
-  // doc comment for what pivot/axis/angleRad mean.
-  const foldAmountRef = useRef<number>(1);
-  const foldNodesRef = useRef<Map<string, FoldNode>>(new Map());
+  // 4D extension. foldAmountRef is the slider's own `t`: 0 = raw/ordinary
+  // 3D (every fold4-attached sibling sits at its own real, independent
+  // flush pose -- the actual geometric gap between siblings sharing an
+  // edge is fully visible, matching a rigid physical construction), 1 =
+  // fully closed (each sibling rotated to meet its neighbor, matching
+  // the true 4D structure where the gap doesn't exist). Starts at 0 so a
+  // freshly confirmed fold4 attach looks exactly like an ordinary flush
+  // attach (its real geometric consequences visible) until the player
+  // drags the slider toward 4D themselves; reset back to 0 whenever the
+  // assembly's last fold4 connection is removed. See
+  // recomputeAllFolds's own doc comment for how `t` turns into actual
+  // per-node rotations, recomputed fresh from the current graph on every
+  // change rather than incrementally cached (simpler and correct even
+  // when a new sibling's arrival changes an EXISTING node's own
+  // correction, which incremental per-node registration got wrong).
+  const foldAmountRef = useRef<number>(0);
+  const hasFoldConnectionsRef = useRef<boolean>(false);
   const onFoldConnectionsChangeRef = useRef(onFoldConnectionsChange);
   const onSelectionChangeRef = useRef(onSelectionChange);
   const onPendingChangeRef = useRef(onPendingChange);
@@ -573,9 +558,18 @@ export default function ShapeViewer({
       faceHighlightMesh.geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
       faceHighlightMesh.geometry.computeVertexNormals();
       node.object.updateMatrixWorld(true);
-      faceHighlightMesh.position.copy(node.object.position);
-      faceHighlightMesh.quaternion.copy(node.object.quaternion);
-      faceHighlightMesh.scale.copy(node.object.scale);
+      // Through the node's own foldGroup, not `object` directly -- matches
+      // beginFaceAttach's own fix (see its comment): a fold4 node's real
+      // rendered position can differ from its outer object's unfolded
+      // baseline once the slider is off 0, and the highlight should track
+      // whichever one is actually clickable/visible.
+      const pos = new THREE.Vector3();
+      const quat = new THREE.Quaternion();
+      const scl = new THREE.Vector3();
+      node.foldGroup.matrixWorld.decompose(pos, quat, scl);
+      faceHighlightMesh.position.copy(pos);
+      faceHighlightMesh.quaternion.copy(quat);
+      faceHighlightMesh.scale.copy(scl);
       faceHighlightMesh.visible = true;
     };
     const hideFaceHighlight = () => {
@@ -617,58 +611,126 @@ export default function ShapeViewer({
       onCageClosedChangeRef.current?.(hasCycle(graphRef.current));
     };
 
-    /** Applies (or re-applies, after a slider change) one node's fold squish. */
-    const applyFoldToNode = (entry: FoldNode, t: number) => {
-      entry.foldGroup.matrix.set(
-        ...(foldMatrix4RowMajor(
-          entry.pivot.toArray() as [number, number, number],
-          entry.axis.toArray() as [number, number, number],
-          entry.angleRad,
-          t,
-        ) as [
-          number, number, number, number, number, number, number, number,
-          number, number, number, number, number, number, number, number,
-        ]),
-      );
+    /** The OTHER face of `spec` (besides `faceIndex`) that also borders the edge (vi,vj) of `faceIndex`'s own cycle, or null (shouldn't happen for a valid manifold solid). */
+    const otherFaceAcrossEdge = (spec: PolyhedronSpec, faceIndex: number, vi: number, vj: number): number | null => {
+      for (let f = 0; f < spec.faces.length; f++) {
+        if (f === faceIndex) continue;
+        const face = spec.faces[f];
+        for (let k = 0; k < face.length; k++) {
+          const a = face[k];
+          const b = face[(k + 1) % face.length];
+          if ((a === vi && b === vj) || (a === vj && b === vi)) return f;
+        }
+      }
+      return null;
     };
 
     /**
-     * Registers `childNodeId` (always the newly-attached side of a fold4
-     * connection -- see FoldNode's own doc comment) so future
-     * setFoldAmount calls affect it. `childSpec`/`childFaceIndex` are the
-     * child's OWN shape and its own face index at the join -- pivot/axis
-     * are derived from those alone, matching fold4.ts's "derive, don't
-     * duplicate" rule, never separately stored.
+     * Recomputes EVERY fold4 node's own closing rotation from scratch,
+     * walking the current graph fresh -- not incrementally cached. That's
+     * deliberate: a lone fold4 child (no sibling on the parent's adjacent
+     * face yet) needs zero correction, but the MOMENT a second sibling
+     * attaches next to it, the FIRST one's own correction changes too
+     * (it now has a real edge partner) -- an earlier, incremental
+     * per-node registration design got exactly this case wrong. Recomputing
+     * fresh is simple, correct, and cheap at this app's real scale
+     * (at most a few dozen placed nodes).
+     *
+     * For each fold4 connection (parent P, child C attached via P's face
+     * F_P / C's face F_C): for every edge of F_P, if the OTHER parent face
+     * bordering that edge is ALSO occupied by a different fold4 sibling,
+     * that's a real "3 cells meet at this edge" situation (P + C + the
+     * sibling) -- fold4.ts's edgeClosingCorrection gives the rotation
+     * (around that edge, through its midpoint, in P's own local frame)
+     * that closes C's half of the real angular defect at `t=1`, none of
+     * it at `t=0`. Multiple contributing edges (a child bordering more
+     * than one occupied sibling) compose sequentially into one combined
+     * rotation. Converted from the parent's local frame to world, then
+     * into the CHILD's own local frame, since that's the frame its own
+     * `foldGroup` (nested inside its own, never-changing `object`)
+     * operates in.
      */
-    const registerFoldNode = (
-      childNodeId: string,
-      childPlaced: PlacedShape,
-      childSpec: PolyhedronSpec,
-      childFaceIndex: number,
-    ) => {
-      const angleRad = foldAngleRad(childSpec);
-      if (angleRad === null) return; // isValidAssembly already guards against this in practice
-      const connector = buildFaceConnectors(childSpec)[childFaceIndex];
-      childPlaced.foldGroup.matrixAutoUpdate = false;
-      const entry: FoldNode = {
-        foldGroup: childPlaced.foldGroup,
-        pivot: new THREE.Vector3(...connector.pos),
-        axis: new THREE.Vector3(...connector.normal).normalize(),
-        angleRad,
-      };
-      applyFoldToNode(entry, foldAmountRef.current);
-      const hadAny = foldNodesRef.current.size > 0;
-      foldNodesRef.current.set(childNodeId, entry);
-      if (!hadAny) onFoldConnectionsChangeRef.current?.(true);
+    const recomputeAllFolds = (t: number) => {
+      for (const placed of placedRef.current) {
+        placed.foldGroup.matrixAutoUpdate = false;
+        placed.foldGroup.matrix.identity();
+        // vertexGroup stays a separate sibling (see PlacedShape's own doc
+        // comment for why), but its own local matrix is kept numerically
+        // in sync with foldGroup's -- otherwise a folded node's vertex
+        // markers stay at their ORIGINAL unfolded spot while the mesh
+        // visually rotates, so hovering near the now-rotated surface can
+        // land on a stray, visually-detached vertex sphere instead (real
+        // user report: "vertex attachment was triggering during assembly").
+        placed.vertexGroup.matrixAutoUpdate = false;
+        placed.vertexGroup.matrix.identity();
+      }
+
+      const nodeById = new Map(graphRef.current.nodes.map((n) => [n.id, n]));
+      const occupiedByParent = new Map<string, Map<number, string>>();
+      for (const conn of graphRef.current.connections) {
+        if (conn.orphaned || conn.kind !== 'face' || !conn.fold4) continue;
+        if (!occupiedByParent.has(conn.nodeA)) occupiedByParent.set(conn.nodeA, new Map());
+        occupiedByParent.get(conn.nodeA)!.set(conn.vertexA, conn.nodeB);
+      }
+      if (occupiedByParent.size === 0) return;
+
+      scene.updateMatrixWorld(true);
+
+      for (const conn of graphRef.current.connections) {
+        if (conn.orphaned || conn.kind !== 'face' || !conn.fold4) continue;
+        const parentNode = nodeById.get(conn.nodeA);
+        const parentPlaced = findPlaced(conn.nodeA);
+        const childPlaced = findPlaced(conn.nodeB);
+        if (!parentNode || !parentPlaced || !childPlaced) continue;
+        const siblingsOnThisParent = occupiedByParent.get(conn.nodeA);
+        if (!siblingsOnThisParent) continue;
+
+        const parentSpec = POLYHEDRA[parentNode.shape];
+        const parentFaceIndex = conn.vertexA;
+        const faceCycle = parentSpec.faces[parentFaceIndex];
+        const combined = new THREE.Matrix4();
+        let anyContribution = false;
+
+        for (let k = 0; k < faceCycle.length; k++) {
+          const vi = faceCycle[k];
+          const vj = faceCycle[(k + 1) % faceCycle.length];
+          const otherFace = otherFaceAcrossEdge(parentSpec, parentFaceIndex, vi, vj);
+          if (otherFace === null || !siblingsOnThisParent.has(otherFace)) continue;
+
+          const corr = edgeClosingCorrection(parentSpec, parentFaceIndex, otherFace);
+          if (!corr) continue;
+
+          const pivotWorld = new THREE.Vector3(...corr.pivot).applyMatrix4(parentPlaced.object.matrixWorld);
+          const axisWorld = new THREE.Vector3(...corr.axis).transformDirection(parentPlaced.object.matrixWorld).normalize();
+
+          const childInverse = childPlaced.object.matrixWorld.clone().invert();
+          const pivotLocal = pivotWorld.clone().applyMatrix4(childInverse);
+          const axisLocal = axisWorld.clone().transformDirection(childInverse).normalize();
+
+          const edgeMatrix = new THREE.Matrix4()
+            .makeTranslation(pivotLocal.x, pivotLocal.y, pivotLocal.z)
+            .multiply(new THREE.Matrix4().makeRotationAxis(axisLocal, corr.angleRad * t))
+            .multiply(new THREE.Matrix4().makeTranslation(-pivotLocal.x, -pivotLocal.y, -pivotLocal.z));
+          combined.premultiply(edgeMatrix);
+          anyContribution = true;
+        }
+
+        if (anyContribution) {
+          childPlaced.foldGroup.matrix.copy(combined);
+          childPlaced.vertexGroup.matrix.copy(combined);
+        }
+      }
+
+      scene.updateMatrixWorld(true);
     };
 
-    /** Undoes registerFoldNode -- called whenever a folded node is removed. */
-    const unregisterFoldNode = (nodeId: string) => {
-      if (!foldNodesRef.current.delete(nodeId)) return;
-      if (foldNodesRef.current.size === 0) {
-        foldAmountRef.current = 1; // see foldAmountRef's own doc comment
-        onFoldConnectionsChangeRef.current?.(false);
-      }
+    /** Recomputes whether any real fold4 connection currently exists, firing onFoldConnectionsChange only on a real transition. */
+    const refreshFoldConnectionsFlag = () => {
+      const has = graphRef.current.connections.some((c) => !c.orphaned && c.kind === 'face' && c.fold4);
+      if (has === hasFoldConnectionsRef.current) return;
+      hasFoldConnectionsRef.current = has;
+      if (!has) foldAmountRef.current = 0; // see foldAmountRef's own doc comment
+      onFoldConnectionsChangeRef.current?.(has);
     };
 
     const clearSelection = () => {
@@ -731,9 +793,9 @@ export default function ShapeViewer({
         lastAddedNodeIdRef.current = null;
         onCanUndoChangeRef.current?.(false);
       }
-      if (foldNodesRef.current.size > 0) {
-        foldNodesRef.current.clear();
-        foldAmountRef.current = 1;
+      if (hasFoldConnectionsRef.current) {
+        hasFoldConnectionsRef.current = false;
+        foldAmountRef.current = 0;
         onFoldConnectionsChangeRef.current?.(false);
       }
     };
@@ -789,12 +851,6 @@ export default function ShapeViewer({
         if (conn.kind === 'face') {
           if (a) a.faceOccupied[conn.vertexA] = true;
           if (b) b.faceOccupied[conn.vertexB] = true;
-          // nodeB is always the newly-attached side (see FoldNode's own
-          // doc comment) -- the one the fold, if any, actually applies to.
-          if (conn.fold4 && b) {
-            const childSpec = POLYHEDRA[assembly.nodes.find((n) => n.id === conn.nodeB)!.shape];
-            registerFoldNode(conn.nodeB, b, childSpec, conn.vertexB);
-          }
           continue;
         }
         const sphereA = a?.vertexGroup.children[conn.vertexA] as THREE.Mesh | undefined;
@@ -812,6 +868,8 @@ export default function ShapeViewer({
       for (const placed of placedRef.current) applyNodeAppearance(placed, false);
 
       graphRef.current = assembly;
+      refreshFoldConnectionsFlag();
+      recomputeAllFolds(foldAmountRef.current);
       onSelectionChangeRef.current?.(null);
       reportCageStatus();
     };
@@ -916,9 +974,18 @@ export default function ShapeViewer({
       const targetFaceConnector = buildFaceConnectors(targetSpec)[targetFaceIndex];
       const incomingFaceConnector = buildFaceConnectors(spec)[incomingFaceIndex];
 
-      const targetWorldPos = new THREE.Vector3(...targetFaceConnector.pos).applyMatrix4(targetPlaced.object.matrixWorld);
+      // Read the target face's CURRENT position/normal through its own
+      // foldGroup, not its outer `object` -- if the target itself is a
+      // fold4 node with a nonzero closing rotation applied right now
+      // (the slider isn't at 0), its rendered face has moved from the
+      // outer object's own unfolded baseline. Using `object.matrixWorld`
+      // here would compute a flush position for where the face WOULD be
+      // at t=0, while the visible mesh sits somewhere else -- a real bug
+      // found live (a newly-attached piece rendering detached from the
+      // surface it was just attached to, "floating away").
+      const targetWorldPos = new THREE.Vector3(...targetFaceConnector.pos).applyMatrix4(targetPlaced.foldGroup.matrixWorld);
       const targetWorldQuat = new THREE.Quaternion();
-      targetPlaced.object.getWorldQuaternion(targetWorldQuat);
+      targetPlaced.foldGroup.getWorldQuaternion(targetWorldQuat);
       const targetWorldNormal = new THREE.Vector3(...targetFaceConnector.normal).applyQuaternion(targetWorldQuat).normalize();
 
       const Cg = new THREE.Vector3(...incomingFaceConnector.pos);
@@ -934,7 +1001,7 @@ export default function ShapeViewer({
       // where target's face-vertex-0 needs it, in the shared plane.
       const targetFaceVertexIndices = targetSpec.faces[targetFaceIndex];
       const targetV0World = new THREE.Vector3(...targetSpec.vertices[targetFaceVertexIndices[0]]).applyMatrix4(
-        targetPlaced.object.matrixWorld,
+        targetPlaced.foldGroup.matrixWorld,
       );
       const dTargetWorld = targetV0World.clone().sub(targetWorldPos).normalize();
       const dTargetLocal = dTargetWorld.clone().applyQuaternion(baseQuat.clone().invert());
@@ -1053,7 +1120,8 @@ export default function ShapeViewer({
           ...(pending.fold4 ? { fold4: true as const } : {}),
         });
         if (pending.fold4) {
-          registerFoldNode(pending.nodeId, pending.placed, POLYHEDRA[newSpecId], pending.incomingFaceIndex);
+          refreshFoldConnectionsFlag();
+          recomputeAllFolds(foldAmountRef.current);
         }
       }
 
@@ -1197,7 +1265,6 @@ export default function ShapeViewer({
         disposePlacedShape(placed);
         const idx = placedRef.current.indexOf(placed);
         if (idx !== -1) placedRef.current.splice(idx, 1);
-        unregisterFoldNode(id);
 
         if (hoveredNodeRef.current === placed) hoveredNodeRef.current = null;
         if (selectedNodeRef.current === placed) selectedNodeRef.current = null;
@@ -1223,6 +1290,9 @@ export default function ShapeViewer({
         }
         if (parentPlaced) applyNodeAppearance(parentPlaced, parentPlaced === selectedNodeRef.current);
       }
+
+      refreshFoldConnectionsFlag();
+      recomputeAllFolds(foldAmountRef.current);
 
       // If the node being removed (or anything in its subtree) was the
       // tracked "most recently added" node, there's nothing left for
@@ -1297,12 +1367,7 @@ export default function ShapeViewer({
 
     const setFoldAmount = (t: number) => {
       foldAmountRef.current = t;
-      for (const entry of foldNodesRef.current.values()) applyFoldToNode(entry, t);
-      // Immediate, not just next render -- a slider drag can fire a
-      // pointer-move raycast (hover/face-highlight) before the next
-      // animation frame would otherwise have propagated foldGroup's new
-      // local matrix into matrixWorld.
-      scene.updateMatrixWorld(true);
+      recomputeAllFolds(t); // its own trailing updateMatrixWorld(true) covers the immediate-raycast concern too
     };
 
     onReadyRef.current?.({
