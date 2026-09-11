@@ -340,6 +340,15 @@ function resolveSlots(
       CATALAN: [4],
       PRISMS: [2],
       ANTIPRISMS: [6],
+      // 4D-Capable (fourD.ts) deliberately claims NO wheel face -- all 12
+      // are already spoken for, and direct user decision after being
+      // shown the real registry: every 4D-capable shape today is already
+      // a Platonic solid, so a dedicated face wasn't worth reallocating
+      // one from Deltahedra/Johnson for. It's still a real FamilyKey
+      // (Full Catalog section, search, the existing cross-family "+N"
+      // badge), just not one the wheel itself navigates to -- the empty
+      // array means the loop below simply assigns it no face.
+      FOURD: [],
     };
     FAMILIES.forEach((f, i) => {
       // Real user report, confirmed by directly checking every RD

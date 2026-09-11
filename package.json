@@ -22,6 +22,8 @@
     "verify:face-connectors": "tsx scripts/verify-face-connectors.ts",
     "verify:face-attach": "tsx scripts/verify-face-attach.ts",
     "verify:face-twist": "tsx scripts/verify-face-twist.ts",
+    "verify:4d-closure": "tsx scripts/verify-4d-closure.ts",
+    "verify:fold4": "tsx scripts/verify-fold4.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

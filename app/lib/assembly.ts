@@ -6,6 +6,7 @@
  */
 
 import { POLYHEDRA } from './polyhedra';
+import { FOURD_CAPABLE_IDS } from './polyhedra/fourD';
 
 export interface AssemblyNode {
   id: string;
@@ -39,6 +40,18 @@ export interface AssemblyConnection {
   // occupied-vertex bookkeeping on load. (Rewrite only ever produces
   // 'vertex' connections — the D10<->D12 rule doesn't touch faces.)
   orphaned?: boolean;
+  // 4D extension: this face-attach used the real 4D dihedral fold
+  // (app/lib/polyhedra/fold4.ts) instead of an ordinary flush-3D join.
+  // Additive optional field, same proven pattern as `kind`/`orphaned`
+  // before it — old saves keep validating with zero migration. Only
+  // ever true for a 'face' connection between two nodes of the SAME
+  // FOURD_CAPABLE_IDS shape (Stage-1 scope: a genuine two-different-
+  // 4D-shape attach raises "whose dihedral angle governs the fold" with
+  // no single clean answer — deferred). The angle/axis of the fold are
+  // never stored here — both are always re-derived at render time from
+  // `node.shape` + this connection's own face index, matching fourD.ts's
+  // own "derive, don't duplicate" rule.
+  fold4?: true;
 }
 
 export interface Assembly {
@@ -79,7 +92,12 @@ function isConnection(v: unknown): v is AssemblyConnection {
     return false;
   }
   if (c.kind !== undefined && c.kind !== 'vertex' && c.kind !== 'face') return false;
-  return c.orphaned === undefined || typeof c.orphaned === 'boolean';
+  if (c.orphaned !== undefined && typeof c.orphaned !== 'boolean') return false;
+  // Structural check only (no node/shape cross-reference here -- that
+  // needs isValidAssembly below, which has nodeById available): fold4
+  // can only ever accompany a face-kind connection.
+  if (c.fold4 !== undefined && (c.fold4 !== true || c.kind !== 'face')) return false;
+  return true;
 }
 
 /** Structural validation for untrusted input (the API route body, a fetch response). */
@@ -114,6 +132,12 @@ export function isValidAssembly(v: unknown): v is Assembly {
     const countB = conn.kind === 'face' ? POLYHEDRA[b.shape].faces.length : POLYHEDRA[b.shape].vertices.length;
     if (conn.vertexA < 0 || conn.vertexA >= countA) return false;
     if (conn.vertexB < 0 || conn.vertexB >= countB) return false;
+    // 4D extension, Stage-1 scope: fold4 only ever means something for a
+    // self-attach (same shape both sides) of a shape that's actually
+    // FOURD_CAPABLE_IDS-eligible -- cross-referencing both nodes here is
+    // exactly why this lives in isValidAssembly, not the structural-only
+    // isConnection above.
+    if (conn.fold4 && (a.shape !== b.shape || !FOURD_CAPABLE_IDS.includes(a.shape))) return false;
   }
   return true;
 }

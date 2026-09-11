@@ -45,6 +45,11 @@ export default function ShapePreviewCard({
   const fam = primaryFamilyFor(specId, activeFamilies);
   const catalogNumber = fam ? catalogByFamily(fam)[specId] : undefined;
   const displayName = spec.name.replaceAll('_', ' ');
+  // 4D extension: a real, distinct badge for the 4 shapes in FOURD, not
+  // just the generic "+N also in..." cross-family indicator below --
+  // direct user request for a "clear 4D additional highlighted label for
+  // clarity," separate from and more prominent than the plain count.
+  const isFourD = families.includes('FOURD');
 
   return (
     <div
@@ -98,6 +103,32 @@ export default function ShapePreviewCard({
         </span>
         {catalogNumber !== undefined && <span style={{ fontFamily: 'monospace', opacity: 0.7 }}>[{catalogNumber}]</span>}
       </div>
+      {/* 4D extension: a distinct, highlighted corner badge -- deliberately
+          NOT the same green pill as the generic "+N also in..." indicator
+          above, so a 4D-capable shape reads as a clearly different, more
+          significant fact at a glance, not just another cross-family
+          overlap. Direct user request. */}
+      {isFourD && (
+        <span
+          style={{
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            fontSize: 9,
+            fontWeight: 800,
+            letterSpacing: '.03em',
+            color: '#1a1400',
+            background: '#ffd54a',
+            border: '1px solid #04140a',
+            borderRadius: 999,
+            padding: '2px 6px',
+            boxShadow: '0 0 4px rgba(255,213,74,.6)',
+          }}
+          title={t('fourD.badgeTitle', lang)}
+        >
+          4D
+        </span>
+      )}
       <ShapePreview specId={specId} size={CARD_PREVIEW_SIZE} />
       <div style={{ fontSize: 11, textAlign: 'center', color: '#a9f795', lineHeight: 1.25 }}>{displayName}</div>
       <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>

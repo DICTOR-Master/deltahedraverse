@@ -24,6 +24,7 @@ import {
   PRISM_ANTIPRISM_ADDITION_IDS,
   type PolyhedronSpec,
 } from './index';
+import { FOURD_CAPABLE_IDS } from './fourD';
 
 export type FamilyKey =
   | 'DELTAHEDRA'
@@ -32,7 +33,8 @@ export type FamilyKey =
   | 'JOHNSON'
   | 'CATALAN'
   | 'PRISMS'
-  | 'ANTIPRISMS';
+  | 'ANTIPRISMS'
+  | 'FOURD';
 
 export const FAMILY_ORDER: FamilyKey[] = [
   'DELTAHEDRA',
@@ -42,6 +44,7 @@ export const FAMILY_ORDER: FamilyKey[] = [
   'CATALAN',
   'PRISMS',
   'ANTIPRISMS',
+  'FOURD',
 ];
 
 // Single source of truth for both PolyhedralWheel and the ShapeBrowser
@@ -75,6 +78,13 @@ export const FAMILY_META: Record<FamilyKey, { label: string; symbol: string }> =
   CATALAN: { label: 'Catalan', symbol: '⬢' },
   PRISMS: { label: 'Prisms', symbol: '▭' },
   ANTIPRISMS: { label: 'Antiprisms', symbol: '▬' },
+  // 4D extension (fourD.ts): shapes that can be a "cell" of some convex
+  // 4-polytope, per closureClass's own dihedral-angle-defect math -- a
+  // real, computed cross-cutting family (every member also keeps its
+  // original family membership), not a hand-curated list. "Two joined
+  // squares" evokes a tesseract's own classic projection, distinct from
+  // every other symbol here.
+  FOURD: { label: '4D-Capable', symbol: '⧉' },
 };
 
 // Base membership, derived (never hand-copied) from the registry's own
@@ -90,6 +100,15 @@ const BASE_IDS: Record<FamilyKey, string[]> = {
   CATALAN: CATALAN_ADDITION_IDS,
   PRISMS: PRISM_ANTIPRISM_ADDITION_IDS.filter((id) => id.startsWith('PRISM_')),
   ANTIPRISMS: PRISM_ANTIPRISM_ADDITION_IDS.filter((id) => id.startsWith('ANTIPRISM_')),
+  // Unlike every family above, FOURD's own membership genuinely IS just
+  // this computed list from the start -- there's no separate "FOURD
+  // registry file" the way DELTAHEDRON_IDS/PLATONIC_ADDITION_IDS/etc.
+  // are each their own family's real data file; every 4D-capable shape
+  // is already a full member of one of those. EXTRA_MEMBERSHIP below is
+  // reserved for documented, one-off overlaps between the natural
+  // per-family data files -- this is the base membership itself, so it
+  // belongs here, not there.
+  FOURD: FOURD_CAPABLE_IDS,
 };
 
 // Explicit, documented cross-family overlap patch -- encodes facts that

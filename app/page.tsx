@@ -18,6 +18,7 @@ const ShapeViewer = dynamic(() => import('./components/ShapeViewer'), {
 
 interface Pending {
   specId: string;
+  fold4?: boolean;
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -76,7 +77,20 @@ export default function Home() {
   // reset(). Each is set only when opened via that specific trigger, so
   // it's naturally gone the next time the picker opens from anywhere
   // else. Shared by both the wheel and the browser.
-  const [wheelMode, setWheelMode] = useState<'reset' | 'faceAttach' | 'vertexAttach'>('reset');
+  // 'faceAttachFold4': same as 'faceAttach' but the resulting attach uses
+  // the real 4D fold (see fold4.ts) instead of an ordinary flush join --
+  // only ever reachable via the "Attach via 4D fold…" button, itself only
+  // shown when nodeSelection.faceFold4Eligible (this node's own shape is
+  // FOURD_CAPABLE_IDS-eligible and the selected face is free). Filtered
+  // to just the node's own shape (self-attach only, Stage-1 scope), not
+  // nodeSelection.faceAttachOptions' full congruent-face list.
+  const [wheelMode, setWheelMode] = useState<'reset' | 'faceAttach' | 'faceAttachFold4' | 'vertexAttach'>('reset');
+  // 4D extension, Stage E: the slider itself only ever renders once the
+  // assembly has at least one real fold4 connection (contextual, not a
+  // permanent control) -- foldPercent is 0-100 for the <input type="range">
+  // UI, converted to fold4.ts's own 0..1 `t` before reaching ShapeViewer.
+  const [hasFoldConnections, setHasFoldConnections] = useState(false);
+  const [foldPercent, setFoldPercent] = useState(100);
   const [changelogOpen, setChangelogOpen] = useState(false);
   // Real user request: "a little x in the corner so you can clear the
   // space" -- the default-state instruction pill has no way to dismiss
@@ -104,7 +118,7 @@ export default function Home() {
     setWelcomeDismissedThisSession(true);
   };
 
-  const openPicker = (mode: 'reset' | 'faceAttach' | 'vertexAttach') => {
+  const openPicker = (mode: 'reset' | 'faceAttach' | 'faceAttachFold4' | 'vertexAttach') => {
     setWheelMode(mode);
     setBrowserOpen(true);
   };
@@ -238,6 +252,41 @@ export default function Home() {
           )}
           {saveStatus === 'saved' && <span className="text-xs text-emerald-400">Saved</span>}
           {saveStatus === 'error' && <span className="text-xs text-red-400">Save failed</span>}
+          {hasFoldConnections && (
+            // 4D extension, Stage E, trigger point 2: this control only
+            // ever mounts once the assembly has at least one real fold4
+            // connection -- its own presence IS the signal one exists, so
+            // it's never a permanent header fixture. Clearly labeled per
+            // direct user request ("as long as the slider is clearly
+            // labeled") -- both endpoints spelled out, not just a bare 0-
+            // 100 range, and the live percentage always visible.
+            <div
+              className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium"
+              style={{ background: '#0e1209', border: '1px solid #ffd54a' }}
+              title="Fold amount: 100% is the true 4D embedding (flush); dragging toward 0% projects into ordinary 3D, revealing the real separation gap"
+            >
+              <span style={{ color: '#ffd54a' }}>4D ⧉ Fold</span>
+              <span className="text-xs" style={{ color: '#5ee233', opacity: 0.8 }}>
+                3D
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={foldPercent}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  setFoldPercent(value);
+                  handleRef.current?.setFoldAmount(value / 100);
+                }}
+                className="h-1 w-24 accent-[#ffd54a]"
+              />
+              <span className="text-xs" style={{ color: '#5ee233', opacity: 0.8 }}>
+                4D
+              </span>
+              <span style={{ color: '#ffd54a' }}>{foldPercent}%</span>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setChangelogOpen(true)}
@@ -300,7 +349,8 @@ export default function Home() {
         {pending ? (
           <>
             <span className="text-xs uppercase tracking-wide text-pink-400">
-              Placing {pending.specId} — drag to rotate it, then:
+              Placing {pending.specId}
+              {pending.fold4 ? ' via 4D fold' : ''} — drag to rotate it, then:
             </span>
             <button
               type="button"
@@ -353,6 +403,23 @@ export default function Home() {
                 Attach via face…
               </button>
             )}
+            {nodeSelection.faceFold4Eligible && (
+              // 4D extension, trigger point 1: only ever shown for a free
+              // face on one of the 4 gold-badge FOURD_CAPABLE shapes --
+              // never a permanent option. Gold, matching the "4D" shape-
+              // card badge (ShapePreviewCard.tsx) rather than reusing the
+              // ordinary face-attach amber, so the real-4D-fold nature of
+              // this specific attach reads as visually distinct.
+              <button
+                type="button"
+                onClick={() => openPicker('faceAttachFold4')}
+                title="Self-attach with the real 4D dihedral fold instead of an ordinary flush join"
+                className="rounded-full px-4 py-1.5 text-sm font-medium text-black transition-colors"
+                style={{ background: '#ffd54a' }}
+              >
+                Attach via 4D fold…
+              </button>
+            )}
           </>
         ) : selection ? (
           <>
@@ -395,6 +462,10 @@ export default function Home() {
           onNodeSelectionChange={setNodeSelection}
           onCageClosedChange={setCageClosed}
           onCanUndoChange={setCanUndo}
+          onFoldConnectionsChange={(has) => {
+            setHasFoldConnections(has);
+            if (!has) setFoldPercent(100); // matches ShapeViewer's own foldAmountRef reset
+          }}
           onReady={(handle) => {
             handleRef.current = handle;
           }}
@@ -404,9 +475,16 @@ export default function Home() {
       <PolyhedralWheel
         open={wheelOpen}
         onClose={() => setWheelOpen(false)}
-        filterIds={wheelMode === 'faceAttach' ? nodeSelection?.faceAttachOptions : undefined}
+        filterIds={
+          wheelMode === 'faceAttach'
+            ? nodeSelection?.faceAttachOptions
+            : wheelMode === 'faceAttachFold4' && nodeSelection
+              ? [nodeSelection.specId]
+              : undefined
+        }
         onSelect={(id) => {
-          if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
+          if (wheelMode === 'faceAttachFold4') handleRef.current?.beginFaceAttach(id, true);
+          else if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
           else if (wheelMode === 'vertexAttach') handleRef.current?.beginAttach(id);
           else handleRef.current?.reset(id);
         }}
@@ -437,13 +515,20 @@ export default function Home() {
       <ShapeBrowser
         open={browserOpen}
         onClose={() => setBrowserOpen(false)}
-        filterIds={wheelMode === 'faceAttach' ? nodeSelection?.faceAttachOptions : undefined}
+        filterIds={
+          wheelMode === 'faceAttach'
+            ? nodeSelection?.faceAttachOptions
+            : wheelMode === 'faceAttachFold4' && nodeSelection
+              ? [nodeSelection.specId]
+              : undefined
+        }
         fullCatalogRequestId={fullCatalogRequestId}
         fullCatalogFocusSection={fullCatalogFocusSection}
         searchRequestId={searchRequestId}
         onSelect={(id) => {
           setBrowserOpen(false);
-          if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
+          if (wheelMode === 'faceAttachFold4') handleRef.current?.beginFaceAttach(id, true);
+          else if (wheelMode === 'faceAttach') handleRef.current?.beginFaceAttach(id);
           else if (wheelMode === 'vertexAttach') handleRef.current?.beginAttach(id);
           else handleRef.current?.reset(id);
         }}

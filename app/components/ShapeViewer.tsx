@@ -16,6 +16,8 @@ import { DELTAHEDRA } from '../lib/polyhedra/deltahedra';
 import { emptyAssembly, isValidAssembly, type Assembly } from '../lib/assembly';
 import { matchRewriteVertices, REWRITE_TARGET } from '../lib/polyhedra/rewrite';
 import { collectSubtree, findParentConnection, hasCycle } from '../lib/graph';
+import { FOURD_CAPABLE_IDS } from '../lib/polyhedra/fourD';
+import { foldAngleRad, foldMatrix4RowMajor } from '../lib/polyhedra/fold4';
 
 const VERTEX_RADIUS = 0.06; // relative to unit edge length
 const COLOR_FREE = 0xffcc33;
@@ -47,11 +49,45 @@ interface ShapeObjectUserData {
 }
 
 interface PlacedShape {
-  object: THREE.Group; // holds mesh + edge lines + vertexGroup; positioned/oriented directly in world space
+  object: THREE.Group; // holds foldGroup + vertexGroup; positioned/oriented directly in world space
+  // 4D extension, Stage D: mesh + edge lines live one level deeper, inside
+  // this group, so a fold4-attached node's visual squish (see
+  // registerFoldNode/applyFoldToNode below) can be applied as this
+  // group's own local matrix without ever touching `object`'s own
+  // position/quaternion (which stays the ordinary flush pose the graph
+  // itself stores). vertexGroup deliberately stays a DIRECT child of
+  // `object`, a sibling of foldGroup rather than nested inside it --
+  // vertex-attach code elsewhere assumes exactly `sphere.parent.parent
+  // === object` (see placedOwningVertexSphere/beginAttach), and a folded
+  // node can never be the target of a NEW vertex-attach in this pass
+  // anyway (fold4 is face-only, and attaching further onto an already-
+  // folded node's own other faces is explicitly out of scope for now --
+  // see the project plan's "Notes carried forward"). For every node
+  // without an incoming fold4 connection, foldGroup's matrix is simply
+  // identity and this is invisible.
+  foldGroup: THREE.Group;
   mesh: THREE.Mesh;
   vertexGroup: THREE.Group;
   triangleToFaceIndex: number[]; // maps a raycast hit's mesh triangle index back to the original polygon face index
   faceOccupied: boolean[]; // one per spec.faces entry — face-attach's counterpart to vertex "occupied"
+}
+
+/**
+ * Bookkeeping for one node with an incoming fold4 face-attach connection --
+ * the CHILD side of that connection (see PendingFaceAttach/confirmAttach:
+ * nodeB, the newly-attached node, always plays this role; nodeA is always
+ * the pre-existing parent it attached to). `pivot`/`axis` are the child's
+ * own incoming face connector's local centroid/normal -- fully derived
+ * from `node.shape` + the connection's own face index, matching fold4.ts's
+ * own "derive, don't duplicate" rule, so nothing about the fold itself is
+ * ever separately stored on the node or the connection beyond `fold4:
+ * true`.
+ */
+interface FoldNode {
+  foldGroup: THREE.Group;
+  pivot: THREE.Vector3;
+  axis: THREE.Vector3;
+  angleRad: number;
 }
 
 interface PendingVertexAttach {
@@ -81,6 +117,12 @@ interface PendingFaceAttach {
   registrationCount: number;
   registration: number; // current discrete rotational registration, 0..registrationCount-1
   dragAccumPx: number;
+  // 4D extension, Stage D, trigger point 1: set only when beginFaceAttach
+  // was explicitly called with fold4 requested AND actually eligible
+  // (self-attach of a FOURD_CAPABLE_IDS shape) -- confirmAttach reads
+  // this to decide whether to tag the resulting connection `fold4: true`
+  // and register it for the fold slider.
+  fold4: boolean;
 }
 
 type PendingAttach = PendingVertexAttach | PendingFaceAttach;
@@ -101,8 +143,16 @@ export interface ShapeViewerHandle {
   reset(specId: string): void;
   /** Places `specId` at the currently selected target vertex as a pending (draggable) attach. */
   beginAttach(specId: string): void;
-  /** Places `specId` at the currently selected target face as a pending (draggable) face-to-face attach. */
-  beginFaceAttach(specId: string): void;
+  /**
+   * Places `specId` at the currently selected target face as a pending
+   * (draggable) face-to-face attach. `fold4` requests the real 4D fold
+   * (see fold4.ts) instead of an ordinary flush join -- silently ignored
+   * (falls back to an ordinary attach) unless `specId` matches the
+   * target's own shape and that shape is FOURD_CAPABLE_IDS-eligible;
+   * `isValidAssembly` is the actual authority this defers to, this is
+   * just the UI-facing request.
+   */
+  beginFaceAttach(specId: string, fold4?: boolean): void;
   /** Locks the pending attach (vertex or face) in place. */
   confirmAttach(): void;
   /** Removes the pending attach and frees its target vertex/face again. */
@@ -127,6 +177,14 @@ export interface ShapeViewerHandle {
   getAssembly(): Assembly;
   /** Sets the render mode (opaque / translucent / skeleton-ish) for every placed shape. */
   setViewMode(mode: ViewMode): void;
+  /**
+   * The 4D fold slider position, 0 (pure 3D projection -- the real
+   * geometric separation gap) to 1 (pure 4D -- flush, matching the
+   * ordinary stored pose). Only ever visibly affects nodes with an
+   * incoming fold4 connection; a no-op otherwise. See
+   * onFoldConnectionsChange for when the UI should even show this control.
+   */
+  setFoldAmount(t: number): void;
 }
 
 export interface ShapeSelection {
@@ -144,6 +202,14 @@ export interface NodeSelection {
   faceOccupied: boolean;
   /** Spec ids with a matching face size — empty unless faceIndex is set and free. */
   faceAttachOptions: string[];
+  /**
+   * 4D extension, Stage D, trigger point 1: true iff this node's own
+   * shape is FOURD_CAPABLE_IDS-eligible AND the selected face is free --
+   * the UI's signal for whether to additionally offer "attach via 4D
+   * fold" (self-attach only) alongside the ordinary face-attach picker,
+   * never as a separate always-visible control.
+   */
+  faceFold4Eligible: boolean;
 }
 
 function buildFaceGeometry(spec: PolyhedronSpec): { geometry: THREE.BufferGeometry; triangleToFaceIndex: number[] } {
@@ -217,19 +283,25 @@ function buildPlacedShape(spec: PolyhedronSpec, nodeId: string): PlacedShape {
     // touches opacity/side/depthWrite, never the base color itself.
     new THREE.MeshStandardMaterial({ color: 0x47cc24, flatShading: true, side: THREE.FrontSide }),
   );
-  object.add(mesh);
+
+  // See PlacedShape's own doc comment for why mesh + lines live inside
+  // this extra group rather than directly under `object`.
+  const foldGroup = new THREE.Group();
+  foldGroup.add(mesh);
 
   const lines = new THREE.LineSegments(
     buildEdgeGeometry(spec),
     new THREE.LineBasicMaterial({ color: 0xffffff }),
   );
-  object.add(lines);
+  foldGroup.add(lines);
+  object.add(foldGroup);
 
   const vertexGroup = buildVertexGroup(spec);
   object.add(vertexGroup);
 
   return {
     object,
+    foldGroup,
     mesh,
     vertexGroup,
     triangleToFaceIndex,
@@ -341,14 +413,24 @@ export default function ShapeViewer({
   onNodeSelectionChange,
   onCageClosedChange,
   onCanUndoChange,
+  onFoldConnectionsChange,
   onReady,
 }: {
   initialShapeId: string;
   onSelectionChange?: (selection: ShapeSelection | null) => void;
-  onPendingChange?: (pending: { specId: string } | null) => void;
+  onPendingChange?: (pending: { specId: string; fold4?: boolean } | null) => void;
   onNodeSelectionChange?: (selection: NodeSelection | null) => void;
   onCageClosedChange?: (closed: boolean) => void;
   onCanUndoChange?: (canUndo: boolean) => void;
+  /**
+   * Fires whenever the current assembly's own count of real fold4
+   * connections crosses the zero/nonzero boundary -- the UI's own signal
+   * for whether the 4D fold slider should be visible at all (trigger
+   * point 2 of the contextual design: the slider only ever appears once
+   * at least one fold4 attachment genuinely exists, never as a permanent
+   * control).
+   */
+  onFoldConnectionsChange?: (hasFoldConnections: boolean) => void;
   onReady?: (handle: ShapeViewerHandle) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -370,6 +452,18 @@ export default function ShapeViewer({
   // specific node gets removed some other way (an explicit delete
   // covering it).
   const lastAddedNodeIdRef = useRef<string | null>(null);
+  // 4D extension, Stage D. foldAmountRef is the slider's own `t` (0 = pure
+  // 3D projection, 1 = pure 4D/flush) -- starts at 1 so a freshly
+  // confirmed fold4 attach looks exactly like an ordinary flush attach
+  // until the player actually drags the slider toward 0 themselves; reset
+  // back to 1 whenever the assembly's last fold4 connection is removed,
+  // so a later, unrelated fold4 attach doesn't inherit a stale scrub
+  // position. foldNodesRef holds one entry per node with an incoming
+  // fold4 connection, keyed by that node's own id -- see FoldNode's own
+  // doc comment for what pivot/axis/angleRad mean.
+  const foldAmountRef = useRef<number>(1);
+  const foldNodesRef = useRef<Map<string, FoldNode>>(new Map());
+  const onFoldConnectionsChangeRef = useRef(onFoldConnectionsChange);
   const onSelectionChangeRef = useRef(onSelectionChange);
   const onPendingChangeRef = useRef(onPendingChange);
   const onNodeSelectionChangeRef = useRef(onNodeSelectionChange);
@@ -396,6 +490,10 @@ export default function ShapeViewer({
   useEffect(() => {
     onCanUndoChangeRef.current = onCanUndoChange;
   }, [onCanUndoChange]);
+
+  useEffect(() => {
+    onFoldConnectionsChangeRef.current = onFoldConnectionsChange;
+  }, [onFoldConnectionsChange]);
 
   useEffect(() => {
     onReadyRef.current = onReady;
@@ -519,6 +617,60 @@ export default function ShapeViewer({
       onCageClosedChangeRef.current?.(hasCycle(graphRef.current));
     };
 
+    /** Applies (or re-applies, after a slider change) one node's fold squish. */
+    const applyFoldToNode = (entry: FoldNode, t: number) => {
+      entry.foldGroup.matrix.set(
+        ...(foldMatrix4RowMajor(
+          entry.pivot.toArray() as [number, number, number],
+          entry.axis.toArray() as [number, number, number],
+          entry.angleRad,
+          t,
+        ) as [
+          number, number, number, number, number, number, number, number,
+          number, number, number, number, number, number, number, number,
+        ]),
+      );
+    };
+
+    /**
+     * Registers `childNodeId` (always the newly-attached side of a fold4
+     * connection -- see FoldNode's own doc comment) so future
+     * setFoldAmount calls affect it. `childSpec`/`childFaceIndex` are the
+     * child's OWN shape and its own face index at the join -- pivot/axis
+     * are derived from those alone, matching fold4.ts's "derive, don't
+     * duplicate" rule, never separately stored.
+     */
+    const registerFoldNode = (
+      childNodeId: string,
+      childPlaced: PlacedShape,
+      childSpec: PolyhedronSpec,
+      childFaceIndex: number,
+    ) => {
+      const angleRad = foldAngleRad(childSpec);
+      if (angleRad === null) return; // isValidAssembly already guards against this in practice
+      const connector = buildFaceConnectors(childSpec)[childFaceIndex];
+      childPlaced.foldGroup.matrixAutoUpdate = false;
+      const entry: FoldNode = {
+        foldGroup: childPlaced.foldGroup,
+        pivot: new THREE.Vector3(...connector.pos),
+        axis: new THREE.Vector3(...connector.normal).normalize(),
+        angleRad,
+      };
+      applyFoldToNode(entry, foldAmountRef.current);
+      const hadAny = foldNodesRef.current.size > 0;
+      foldNodesRef.current.set(childNodeId, entry);
+      if (!hadAny) onFoldConnectionsChangeRef.current?.(true);
+    };
+
+    /** Undoes registerFoldNode -- called whenever a folded node is removed. */
+    const unregisterFoldNode = (nodeId: string) => {
+      if (!foldNodesRef.current.delete(nodeId)) return;
+      if (foldNodesRef.current.size === 0) {
+        foldAmountRef.current = 1; // see foldAmountRef's own doc comment
+        onFoldConnectionsChangeRef.current?.(false);
+      }
+    };
+
     const clearSelection = () => {
       if (selectedRef.current) {
         paintVertex(selectedRef.current, {});
@@ -579,6 +731,11 @@ export default function ShapeViewer({
         lastAddedNodeIdRef.current = null;
         onCanUndoChangeRef.current?.(false);
       }
+      if (foldNodesRef.current.size > 0) {
+        foldNodesRef.current.clear();
+        foldAmountRef.current = 1;
+        onFoldConnectionsChangeRef.current?.(false);
+      }
     };
 
     const placeRoot = (specId: string) => {
@@ -632,6 +789,12 @@ export default function ShapeViewer({
         if (conn.kind === 'face') {
           if (a) a.faceOccupied[conn.vertexA] = true;
           if (b) b.faceOccupied[conn.vertexB] = true;
+          // nodeB is always the newly-attached side (see FoldNode's own
+          // doc comment) -- the one the fold, if any, actually applies to.
+          if (conn.fold4 && b) {
+            const childSpec = POLYHEDRA[assembly.nodes.find((n) => n.id === conn.nodeB)!.shape];
+            registerFoldNode(conn.nodeB, b, childSpec, conn.vertexB);
+          }
           continue;
         }
         const sphereA = a?.vertexGroup.children[conn.vertexA] as THREE.Mesh | undefined;
@@ -726,7 +889,7 @@ export default function ShapeViewer({
      * 360/n from zero" was always already correct, which turned out false
      * for most pairs (confirmed empirically, not assumed).
      */
-    const beginFaceAttach = (specId: string) => {
+    const beginFaceAttach = (specId: string, wantFold4 = false) => {
       const targetPlaced = selectedNodeRef.current;
       const targetFaceIndex = selectedFaceIndexRef.current;
       const spec = POLYHEDRA[specId];
@@ -735,6 +898,12 @@ export default function ShapeViewer({
 
       const { specId: targetSpecId } = targetPlaced.object.userData as ShapeObjectUserData;
       const targetSpec = POLYHEDRA[targetSpecId];
+      // See beginFaceAttach's own doc comment on ShapeViewerHandle: a
+      // fold4 request only ever takes effect for a same-shape,
+      // FOURD_CAPABLE_IDS-eligible self-attach -- silently degrades to an
+      // ordinary flush attach otherwise rather than erroring, since the
+      // real gate is isValidAssembly at save/load time regardless.
+      const fold4 = wantFold4 && specId === targetSpecId && FOURD_CAPABLE_IDS.includes(specId);
       const targetFaceVerts = targetSpec.faces[targetFaceIndex];
       // Real congruence (edge lengths + angles), not just matching vertex
       // count — see the onClick filter above for why this matters once
@@ -808,10 +977,11 @@ export default function ShapeViewer({
         registrationCount,
         registration: 0,
         dragAccumPx: 0,
+        fold4,
       };
       controls.enabled = false;
       clearNodeSelection();
-      onPendingChangeRef.current?.({ specId });
+      onPendingChangeRef.current?.(fold4 ? { specId, fold4: true } : { specId });
 
       // Show the registration counter immediately, not only once a drag
       // begins — essential once irregular-faced (Catalan) shapes exist:
@@ -880,7 +1050,11 @@ export default function ShapeViewer({
           nodeB: pending.nodeId,
           vertexB: pending.incomingFaceIndex,
           kind: 'face',
+          ...(pending.fold4 ? { fold4: true as const } : {}),
         });
+        if (pending.fold4) {
+          registerFoldNode(pending.nodeId, pending.placed, POLYHEDRA[newSpecId], pending.incomingFaceIndex);
+        }
       }
 
       lastAddedNodeIdRef.current = pending.nodeId;
@@ -1023,6 +1197,7 @@ export default function ShapeViewer({
         disposePlacedShape(placed);
         const idx = placedRef.current.indexOf(placed);
         if (idx !== -1) placedRef.current.splice(idx, 1);
+        unregisterFoldNode(id);
 
         if (hoveredNodeRef.current === placed) hoveredNodeRef.current = null;
         if (selectedNodeRef.current === placed) selectedNodeRef.current = null;
@@ -1120,6 +1295,16 @@ export default function ShapeViewer({
       if (pendingRef.current) applyViewMode(pendingRef.current.placed, mode);
     };
 
+    const setFoldAmount = (t: number) => {
+      foldAmountRef.current = t;
+      for (const entry of foldNodesRef.current.values()) applyFoldToNode(entry, t);
+      // Immediate, not just next render -- a slider drag can fire a
+      // pointer-move raycast (hover/face-highlight) before the next
+      // animation frame would otherwise have propagated foldGroup's new
+      // local matrix into matrixWorld.
+      scene.updateMatrixWorld(true);
+    };
+
     onReadyRef.current?.({
       reset: placeRoot,
       beginAttach,
@@ -1132,6 +1317,7 @@ export default function ShapeViewer({
       undo,
       getAssembly,
       setViewMode,
+      setFoldAmount,
     });
 
     let cancelled = false;
@@ -1423,6 +1609,7 @@ export default function ShapeViewer({
               POLYHEDRA[id].faces.some((f) => facesCongruent(targetVertices, targetFace, POLYHEDRA[id].vertices, f)),
             )
           : [];
+      const faceFold4Eligible = faceIndex !== null && !faceOccupied && FOURD_CAPABLE_IDS.includes(specId);
 
       onNodeSelectionChangeRef.current?.({
         nodeId,
@@ -1432,6 +1619,7 @@ export default function ShapeViewer({
         faceSize,
         faceOccupied,
         faceAttachOptions,
+        faceFold4Eligible,
       });
     };
 
