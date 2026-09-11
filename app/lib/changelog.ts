@@ -15,8 +15,19 @@ export interface ChangelogDay {
 
 export const CHANGELOG: ChangelogDay[] = [
   {
+    date: '2026-09-11',
+    entries: [
+      'Added a real 4D extension: 4 shapes (tetrahedron, octahedron, cube, dodecahedron) are recognized as valid "cells" of a convex 4-polytope and gathered into a new 4D-Capable family, marked with a distinct gold "4D" badge on their cards.',
+      'Selecting a free face on one of those 4 shapes now offers a second option, "Attach via 4D fold…", alongside the ordinary face-attach — self-attaching with the real 4D dihedral fold instead of a flush 3D join.',
+      'Once a 4D-fold attachment exists anywhere in the scene, a labeled 0–100% slider appears letting you continuously scrub between the true 4D view (flush) and an ordinary 3D projection, revealing the real geometric separation gap along the way.',
+    ],
+  },
+  {
     date: '2026-09-10',
     entries: [
+      'Gave the 4 star polyhedra a real full-screen viewer (matching the main Scene, starfield included) instead of a cramped 300px box crowded next to the stats/buttons.',
+      'Face-attach\'s compatible-shape filtering now also applies to ShapeBrowser\'s Home and Favorites tabs, not just the wheel and Search — every screen now hides shapes/families that could never actually attach.',
+      'Fixed two real corner-HUD collisions: the star-polyhedra detail drawer\'s Favorite/Compare buttons and ShapeBrowser\'s bottom-nav Favorites tab were both getting silently covered by the always-on-top corner medallion.',
       'Shapes belonging to more than one family now show a small "+N" badge right on their card, not just a hover-only tooltip — much easier to notice at a glance (and works on touch, where hover never did).',
       'Added a "Search" face to the wheel, jumping straight to the browser\'s Search tab (name search + face-shape filters) as an alternative to browsing family by family.',
       'The wheel can now jump straight to a specific section of Full Catalog instead of always drilling through per-shape pages: a new "Star Polyhedra" face for those 4 solids, and a "View all" face on every large family (Archimedean, Johnson, Catalan) once it spans more than one wheel page.',

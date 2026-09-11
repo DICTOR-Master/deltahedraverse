@@ -240,6 +240,35 @@ Since then:
   picking a face-attach target. Actions (augment/diminish) and
   Spherical/X-Ray view modes are still deferred — see
   `docs/build-plan.md`'s own sections for the full design record.
+- **A real 4D extension** (`app/lib/polyhedra/fourD.ts`,
+  `app/lib/polyhedra/fold4.ts`) — classifies which shapes can be a "cell"
+  of a convex 4-polytope via dihedral-angle-defect math (`k` copies
+  meeting at a shared edge close into 4D when `k × dihedralAngle < 360°`).
+  Checked against the real, known classification of the six regular
+  4-polytopes, not just internal consistency: exactly 4 of the 137
+  registered shapes qualify — tetrahedron (5-cell/16-cell/600-cell),
+  octahedron (24-cell), cube (tesseract), and dodecahedron (120-cell) —
+  gathered into a new 4D-Capable family with a distinct gold "4D" badge
+  on their cards (no dedicated wheel face; reachable via Full Catalog and
+  search like any other family). Selecting a free face on one of those 4
+  shapes offers "Attach via 4D fold..." alongside the ordinary face-attach:
+  a genuine 4D dihedral fold (rotation confined to the plane spanned by
+  the shared face's normal and the new W axis, pivoting about the face
+  itself) rather than a flush 3D join. Once at least one such attachment
+  exists, a labeled 0-100% slider appears (never a permanent control) to
+  continuously scrub between the true 4D view (flush) and an ordinary 3D
+  projection, revealing the real geometric separation gap a rigid 3D
+  construction can't avoid (independently confirmed for the dodecahedron:
+  chaining 3 real cells around one shared edge, using nothing but the
+  shape's own vertex/edge data, leaves a measured ~10.3 degree residual
+  gap, exactly matching the closure formula's own prediction). Sandboxed
+  at two independent layers, not just the UI: `assembly.ts`'s
+  `isValidAssembly` rejects a fold4 connection for anything outside the
+  4 qualifying shapes, and `fold4.ts`'s own `foldAngleRad` refuses to
+  produce an angle for a non-qualifying shape even if asked directly
+  (caught live: the icosahedron has a perfectly well-defined single
+  dihedral angle despite never being 4D-capable at any `k`, which a
+  looser check would have missed).
 
 ## Structure
 
@@ -255,8 +284,10 @@ polyhedraverse/
         johnson.ts       # all 92 Johnson solids -- complete
         catalan.ts       # all 13 of 13 Catalan solids -- complete
         rewrite.ts       # D10<->D12 vertex-matching (pure function, no three.js)
+        fourD.ts         # dihedral-angle-defect classifier -- which shapes are 4D-Capable
+        fold4.ts         # the real 4D dihedral fold/projection math, driven by the scene slider
         index.ts         # combined POLYHEDRA / POLYHEDRON_IDS across every family
-      assembly.ts        # the real {nodes, connections} graph + validation (vertex- and face-kind)
+      assembly.ts        # the real {nodes, connections} graph + validation (vertex-, face-, and fold4-kind)
       graph.ts           # subtree/cycle graph logic (pure, no three.js)
     components/
       ShapeViewer.tsx    # the whole Three.js scene: render, pick, attach/face-attach, twist, rewrite, delete, view modes
