@@ -15,6 +15,7 @@ import {
   buildCellComplex,
   cellVertices,
   dualize,
+  buildRadialProjectionScene,
   dot4,
   bisectingMirror,
   reflectionMatrix,
@@ -182,6 +183,31 @@ for (const [id, params] of Object.entries(FOUR_D_SHAPE_PARAMS)) {
   const radii = dual.cells.flatMap((c) => c.vertices.map((v) => Math.hypot(v[0], v[1], v[2], v[3])));
   const radiusSpread = Math.max(...radii) - Math.min(...radii);
   assert(radiusSpread < 1e-6, `dualize(120-cell): all 600 dual vertices (original cell centroids) are equidistant from the origin (spread=${radiusSpread})`);
+}
+
+// (5) Stage 7's rendering bridge: buildRadialProjectionScene must
+// produce a finite, non-degenerate 3D scene for all 4 real seeds --
+// every projected coordinate finite, and the outer (most negative w)
+// cells visibly larger under perspective than the innermost (most
+// positive w, closest to the viewpoint) cell, matching the plan's own
+// "the projected cell expands dramatically" Stage 2 criterion.
+for (const id of Object.keys(FOUR_D_SHAPE_PARAMS)) {
+  const spec = POLYHEDRA[id];
+  const scene = buildRadialProjectionScene(spec);
+  assert(Number.isFinite(scene.viewDistance) && scene.viewDistance > 0, `${id}: viewDistance is finite and positive, got ${scene.viewDistance}`);
+  const allFinite = scene.cellsVertices3D.every((verts) => verts.every((v) => v.every((c) => Number.isFinite(c))));
+  assert(allFinite, `${id}: every projected vertex across all ${scene.cellsVertices3D.length} cells is finite (no NaN/Infinity)`);
+
+  const cellExtent = (verts: [number, number, number][]) => {
+    const cx = verts.reduce((s, v) => s + v[0], 0) / verts.length;
+    const cy = verts.reduce((s, v) => s + v[1], 0) / verts.length;
+    const cz = verts.reduce((s, v) => s + v[2], 0) / verts.length;
+    return Math.max(...verts.map((v) => Math.hypot(v[0] - cx, v[1] - cy, v[2] - cz)));
+  };
+  const extents = scene.cellsVertices3D.map(cellExtent);
+  const minExtent = Math.min(...extents);
+  const maxExtent = Math.max(...extents);
+  assert(maxExtent > minExtent * 1.05, `${id}: outer cells are visibly larger than the innermost cell under perspective (min=${minExtent.toFixed(4)}, max=${maxExtent.toFixed(4)})`);
 }
 
 console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} FAILURE(S).`);

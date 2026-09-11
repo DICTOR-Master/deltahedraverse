@@ -60,10 +60,11 @@ const en: Dict = {
   'lang.button': 'Language',
   'alsoIn': 'Also in: {list}',
   'star.referenceOnly': 'Reference only — not buildable (self-intersecting star faces)',
-  'fourD.badgeTitle': '4D-capable — can self-attach with a real 4D fold',
-  'duoprism.viewButton': 'View 4D Duoprism',
-  'duoprism.hideButton': 'Hide 4D Duoprism',
+  'fourD.badgeTitle': '4D-capable — extends into its real regular 4-polytope (tesseract, 16-cell, 24-cell, or 120-cell)',
+  'fourD.viewButton': 'View 4D',
+  'fourD.hideButton': 'Hide 4D',
   'duoprism.referenceOnly': 'Reference only — 3D shadow of the 4D duoprism, not buildable here',
+  'radialProjection.referenceOnly': 'Extend a regular 3D cell through its fourth-dimensional continuation, recursively projecting each new cell into 3D',
 };
 
 const ja: Dict = {
@@ -107,10 +108,11 @@ const ja: Dict = {
   'lang.button': '言語',
   'alsoIn': '他の所属: {list}',
   'star.referenceOnly': '参照専用 — 組み立て不可（自己交差する星形の面）',
-  'fourD.badgeTitle': '4D対応 — 実際の4D折りたたみで自身と接続できます',
-  'duoprism.viewButton': '4Dデュオプリズムを見る',
-  'duoprism.hideButton': '4Dデュオプリズムを隠す',
+  'fourD.badgeTitle': '4D対応 — 実際の正多胞体（超立方体・16胞体・24胞体・120胞体）へ拡張できます',
+  'fourD.viewButton': '4Dを見る',
+  'fourD.hideButton': '4Dを隠す',
   'duoprism.referenceOnly': '参照専用 — 4Dデュオプリズムの3D投影（組み立て不可）',
+  'radialProjection.referenceOnly': '正多面体セルを第4次元へ拡張し、新しいセルを再帰的に3Dへ投影したもの',
 };
 
 const es: Dict = {
@@ -154,10 +156,11 @@ const es: Dict = {
   'lang.button': 'Idioma',
   'alsoIn': 'También en: {list}',
   'star.referenceOnly': 'Solo referencia — no se puede construir (caras estelares autointersecantes)',
-  'fourD.badgeTitle': 'Compatible con 4D — puede autoconectarse con un pliegue 4D real',
-  'duoprism.viewButton': 'Ver Duoprisma 4D',
-  'duoprism.hideButton': 'Ocultar Duoprisma 4D',
+  'fourD.badgeTitle': 'Compatible con 4D — se extiende a su verdadero 4-politopo regular (teseracto, 16-celdas, 24-celdas o 120-celdas)',
+  'fourD.viewButton': 'Ver en 4D',
+  'fourD.hideButton': 'Ocultar 4D',
   'duoprism.referenceOnly': 'Solo referencia — sombra 3D del duoprisma 4D, no se puede construir aquí',
+  'radialProjection.referenceOnly': 'Extiende una celda 3D regular a través de su continuación en la cuarta dimensión, proyectando recursivamente cada nueva celda a 3D',
 };
 
 const fr: Dict = {
@@ -201,10 +204,11 @@ const fr: Dict = {
   'lang.button': 'Langue',
   'alsoIn': 'Également dans : {list}',
   'star.referenceOnly': 'Référence uniquement — non assemblable (faces étoilées auto-intersectantes)',
-  'fourD.badgeTitle': 'Compatible 4D — peut s\'auto-assembler avec un vrai pli 4D',
-  'duoprism.viewButton': 'Voir le Duoprisme 4D',
-  'duoprism.hideButton': 'Masquer le Duoprisme 4D',
+  'fourD.badgeTitle': 'Compatible 4D — s\'étend vers son véritable 4-polytope régulier (tesseract, 16-cellules, 24-cellules ou 120-cellules)',
+  'fourD.viewButton': 'Voir en 4D',
+  'fourD.hideButton': 'Masquer le 4D',
   'duoprism.referenceOnly': 'Référence uniquement — ombre 3D du duoprisme 4D, non assemblable ici',
+  'radialProjection.referenceOnly': 'Étend une cellule 3D régulière à travers sa continuation en quatrième dimension, en projetant récursivement chaque nouvelle cellule en 3D',
 };
 
 const I18N: Record<LangCode, Dict> = { en, ja, es, fr };

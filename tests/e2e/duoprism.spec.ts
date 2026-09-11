@@ -130,9 +130,13 @@ test('a non-4D-capable shape (RHOMBIC_DODECAHEDRON) never offers Duoprism self-a
  * ones that get real BUILD support) -- checked here on a Johnson solid,
  * deliberately NOT one of the 4, to confirm the reference-only preview
  * genuinely doesn't depend on FOURD_CAPABLE_IDS eligibility the way
- * BUILD's own button does.
+ * BUILD's own button does. The button itself is the SAME uniform "View
+ * 4D" toggle every shape gets (see radial-projection.spec.ts for the
+ * FOURD_CAPABLE case, which shows a different construction under that
+ * identical label) -- deciding which construction to show is an
+ * internal, per-shape decision, never surfaced as a user choice.
  */
-test('View 4D Duoprism is available on a non-FOURD-capable shape\'s detail drawer, reference-only', async ({ page }) => {
+test('View 4D is available on a non-FOURD-capable shape\'s detail drawer, showing the duoprism preview', async ({ page }) => {
   await page.getByRole('button', { name: /^Start over with/ }).click();
   await openBrowserWheel(page);
   await clickWheelLabel(page, exactLabel('Full Catalog'));
@@ -142,12 +146,12 @@ test('View 4D Duoprism is available on a non-FOURD-capable shape\'s detail drawe
   await card.click();
 
   const drawer = page.getByRole('dialog', { name: 'cuboctahedron' });
-  await expect(drawer.getByRole('button', { name: 'View 4D Duoprism' })).toBeVisible();
-  await drawer.getByRole('button', { name: 'View 4D Duoprism' }).click();
+  await expect(drawer.getByRole('button', { name: 'View 4D' })).toBeVisible();
+  await drawer.getByRole('button', { name: 'View 4D' }).click();
 
   await expect(drawer.locator('text=/Reference only.*3D shadow of the 4D duoprism/i')).toBeVisible();
   await expect(drawer.getByLabel('Draggable 4D duoprism preview')).toBeVisible();
 
-  await drawer.getByRole('button', { name: 'Hide 4D Duoprism' }).click();
+  await drawer.getByRole('button', { name: 'Hide 4D' }).click();
   await expect(drawer.locator('text=/Reference only.*3D shadow of the 4D duoprism/i')).toHaveCount(0);
 });

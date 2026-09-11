@@ -240,54 +240,59 @@ Since then:
   picking a face-attach target. Actions (augment/diminish) and
   Spherical/X-Ray view modes are still deferred — see
   `docs/build-plan.md`'s own sections for the full design record.
-- **A 4D fold extension** (`app/lib/polyhedra/fourD.ts`,
-  `app/lib/polyhedra/fold4.ts`) — classifies which shapes can be a "cell"
-  of a convex 4-polytope via dihedral-angle-defect math (`k` copies
-  meeting at a shared edge close into 4D when `k × dihedralAngle < 360°`).
-  Checked against the real, known classification of the six regular
-  4-polytopes, not just internal consistency: exactly 4 of the 137
-  registered shapes qualify — tetrahedron (5-cell/16-cell/600-cell),
-  octahedron (24-cell), cube (tesseract), and dodecahedron (120-cell) —
-  gathered into a new 4D-Capable family with a distinct gold "4D" badge
-  on their cards (no dedicated wheel face; reachable via Full Catalog and
-  search like any other family). Selecting a free face on one of those 4
-  shapes offers "Attach via 4D fold..." alongside the ordinary face-attach:
-  the resulting pair can then be rotated, via a labeled 0-100% slider
-  (never a permanent control), between the ordinary rigid 3D construction
-  (0%, a real ~10.3° angular gap between two dodecahedra sharing a parent
-  edge — independently confirmed against the closure formula's own
-  prediction, not eyeballed) and a corrected pose that closes that gap
-  (100%) — exact for a single attached pair. **Known limitation, not yet
-  solved**: once 3 or more copies share a single edge (unavoidable at
-  higher density — e.g. filling every face of a central dodecahedron),
-  no combination of ordinary 3D rotations can close every shared-edge gap
-  simultaneously — that's a real mathematical consequence of approximating
-  a genuinely 4-dimensional structure inside a 3D scene, not an
-  implementation bug still to be found. Sandboxed at two independent
-  layers regardless: `assembly.ts`'s `isValidAssembly` rejects a fold4
-  connection for anything outside the 4 qualifying shapes, and
-  `fold4.ts`'s own angle helpers refuse to produce an angle for a
-  non-qualifying shape even if asked directly (caught live: the
-  icosahedron has a perfectly well-defined single dihedral angle despite
-  never being 4D-capable at any `k`, which a looser check would have
-  missed).
+- **4D radial cell projection** (`app/lib/polyhedra/fourD.ts`,
+  `app/lib/polyhedra/radialProjection.ts`) — the real 4D system.
+  `fourD.ts` classifies which shapes can be a "cell" of a convex
+  4-polytope via dihedral-angle-defect math (`k` copies meeting at a
+  shared edge close into 4D when `k × dihedralAngle < 360°`); checked
+  against the real, known classification of the six regular 4-polytopes,
+  not just internal consistency, exactly 4 of the 137 registered shapes
+  qualify — tetrahedron, octahedron, cube, and dodecahedron — gathered
+  into a 4D-Capable family with a distinct gold "4D" badge on their
+  cards. `radialProjection.ts` then builds each one's *actual* regular
+  4-polytope (tesseract, 16-cell, 24-cell, 120-cell) via the real
+  Wythoff/Coxeter construction: a BFS of hyperplane reflections in true
+  4D coordinates, not a per-pair 3D correction — reflections in a finite
+  Coxeter group compose exactly and the orbit is *guaranteed* to close,
+  unlike an earlier per-pair-rotation approach (`fold4.ts`, still loaded
+  for backward compatibility with old saves but no longer reachable from
+  the UI) which could only ever handle an isolated pair before
+  oscillating. Verified against the app's own real, normalized
+  polyhedron data for all 4 shapes: exact cell counts (8/16/24/120),
+  exact adjacency degrees, exact cell-to-cell angles, and — the decisive
+  check — that adjacent cells' shared faces coincide vertex-for-vertex,
+  not just share the right angle. `dualize()` additionally implements
+  4-polytope duality as a generic operation (checked on 120-cell →
+  600-cell, reproducing all 600 tetrahedral cells exactly). Deliberately
+  reference-view-only, not scene-buildable: past the first cell, a real
+  4D→3D perspective projection renders every other cell as a visibly
+  skewed, non-regular copy of the seed (correct and expected — that's
+  what a true 4D projection looks like — but not a good building block
+  the way an undistorted duoprism piece is), and the point of this view
+  is to reveal one complete, closed 4-polytope at once rather than
+  assemble it fragment by fragment.
 - **The 4D Prism (duoprism) construction** (`app/lib/polyhedra/duoprism.ts`)
-  — literally "shape × interval", exactly how a tesseract is a cube
-  extruded into a 4th dimension, generalized to any polyhedron: two
+  — a structurally different, always-exact 4D construction: literally
+  "shape × interval" (a tesseract is *also* describable as a cube
+  extruded into a 4th dimension), generalized to any polyhedron. Two
   identical-orientation copies of a shape (a pure translation, not a
-  mirrored flush join — there's no registration/twist choice to make)
-  connected by one real 3D wall-prism cell per face. Exactly correct in
-  ordinary 3D for any shape, at any chaining depth — verified against
-  the 4D Euler characteristic (`V-E+F-C=0`, which reduces to nothing
-  more than the base shape's own `V-E+F=2`) across all 137 registered
+  mirrored flush join) connected by one real 3D wall-prism cell per
+  face. Exactly correct in ordinary 3D for any shape, at any chaining
+  depth — verified against the 4D Euler characteristic (`V-E+F-C=0`,
+  reducing to the base shape's own `V-E+F=2`) across all 137 registered
   shapes, real winding/non-degeneracy checks, and a direct, computed
-  proof that chaining a second duoprism onto a different face of the
-  same parent never disturbs the first or the two siblings' own
-  positions. "View 4D Duoprism" on any shape's detail card shows a
-  reference-only 3D preview (all 137 shapes); the same 4 gold-badge
-  FOURD-capable shapes additionally get a real, scene-buildable "Attach
-  via Duoprism…" option with no picker step (there's no shape or
-  orientation choice left to make), chainable into groups.
+  proof that multiple duoprism attaches on different faces of the same
+  parent all share ONE far copy (no gap between siblings, unlike an
+  earlier version that created a separate one per face). Every shape's
+  detail card offers one "View 4D" toggle, deciding the math
+  automatically rather than exposing a choice: the 4 FOURD-capable
+  shapes show radial projection (their real named 4-polytope), every
+  other shape falls back to this duoprism preview (the only 4D
+  construction defined for it). The same 4 gold-badge shapes
+  additionally get a real, scene-buildable "Attach via Duoprism…"
+  option in the main scene with no picker step, chainable into groups —
+  the one 4D construction that's actually buildable, since duoprism
+  pieces stay undistorted at any depth.
 
 ## Structure
 
@@ -304,7 +309,8 @@ polyhedraverse/
         catalan.ts       # all 13 of 13 Catalan solids -- complete
         rewrite.ts       # D10<->D12 vertex-matching (pure function, no three.js)
         fourD.ts         # dihedral-angle-defect classifier -- which shapes are 4D-Capable
-        fold4.ts         # the real 4D dihedral fold/projection math, driven by the scene slider
+        radialProjection.ts # the real 4D system: generic Wythoff/Coxeter reflection engine + dualize()
+        fold4.ts         # superseded by radialProjection.ts; kept only for backward-compat load/render of old saves
         duoprism.ts      # the 4D Prism (duoprism) construction -- always-exact, any shape, any chaining depth
         index.ts         # combined POLYHEDRA / POLYHEDRON_IDS across every family
       assembly.ts        # the real {nodes, connections} graph + validation (vertex-, face-, and fold4-kind)

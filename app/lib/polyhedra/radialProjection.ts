@@ -263,6 +263,35 @@ export function cellVertices(complex: FourDCellComplex, cell: FourDCell): Vec4[]
   return complex.seedEmbedding.map((v) => matVec(cell.transform, v));
 }
 
+export interface RadialProjectionScene {
+  viewDistance: number;
+  // One entry per cell, in complex.cells order; each is that cell's own
+  // vertices (same indexing as spec.vertices / spec.faces, so callers
+  // triangulate with the seed's own unchanged face list) already
+  // perspective-projected to 3D.
+  cellsVertices3D: Vec3[][];
+}
+
+/**
+ * Stage 7's rendering bridge: builds the full cell complex for `spec`
+ * and perspective-projects every cell's vertices to 3D in one pass, per
+ * the plan's own formula `(x,y,z,w) -> (x/(d-w), y/(d-w), z/(d-w))`.
+ * `viewDistance` is chosen automatically as `maxAbsW * viewMargin` --
+ * comfortably past every generated vertex's own w-extent so the
+ * near-viewpoint clamp in projectVec4ToVec3 is never the thing doing
+ * the work, while still being close enough that outer cells visibly
+ * expand under the perspective, matching the plan's own Stage 2 "done
+ * when" description.
+ */
+export function buildRadialProjectionScene(spec: PolyhedronSpec, viewMargin = 1.6): RadialProjectionScene {
+  const complex = buildCellComplex(spec);
+  const allVertices = complex.cells.flatMap((cell) => cellVertices(complex, cell));
+  const maxAbsW = Math.max(...allVertices.map((v) => Math.abs(v[3])), 1e-6);
+  const viewDistance = maxAbsW * viewMargin;
+  const cellsVertices3D = complex.cells.map((cell) => cellVertices(complex, cell).map((v) => projectVec4ToVec3(v, viewDistance)));
+  return { viewDistance, cellsVertices3D };
+}
+
 export interface DualCell {
   id: number;
   vertices: Vec4[]; // this dual cell's own embedded vertices (one per original polytope CELL incident to the corresponding original VERTEX)

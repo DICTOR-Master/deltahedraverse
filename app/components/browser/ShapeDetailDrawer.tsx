@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import { getAnySpec, isStarPolyhedron } from '../../lib/polyhedra/lookup';
+import { FOURD_CAPABLE_IDS } from '../../lib/polyhedra/fourD';
 import { t, type LangCode } from '../../lib/i18n';
 import ShapePreview from './ShapePreview';
 import ShapeStatsBlock from './ShapeStatsBlock';
 import StarShapeViewer from './StarShapeViewer';
 import DuoprismShapeViewer from './DuoprismShapeViewer';
+import RadialProjectionViewer from './RadialProjectionViewer';
 
 export interface ShapeDetailDrawerProps {
   specId: string;
@@ -30,10 +32,22 @@ export default function ShapeDetailDrawer({
   onToggleCompare,
 }: ShapeDetailDrawerProps) {
   const spec = getAnySpec(specId);
-  const [showDuoprism, setShowDuoprism] = useState(false);
+  // One "View 4D" toggle, not two competing buttons -- simplest possible
+  // UX regardless of the underlying math being two genuinely different
+  // constructions (radial cell-tiling vs. a duoprism product). Which one
+  // renders is decided automatically by the shape, never exposed as a
+  // user choice: the 4 FOURD_CAPABLE shapes (D4, CUBE, D8, DODECAHEDRON)
+  // get radial projection, since that builds the actual named regular
+  // 4-polytope (tesseract/16-cell/24-cell/120-cell) -- duoprism for
+  // those same 4 shapes would show a DIFFERENT, less iconic 4-polytope
+  // (tetrahedron x interval is not the 16-cell). Every other shape,
+  // which has no verified theta and so no radial-projection closure at
+  // all, gets duoprism -- the only 4D construction defined for it.
+  const [showFourD, setShowFourD] = useState(false);
   if (!spec) return null;
   const displayName = spec.name.replaceAll('_', ' ');
   const isStar = isStarPolyhedron(specId);
+  const isFourDCapable = FOURD_CAPABLE_IDS.includes(specId);
 
   // Real user complaint (2026-09-10): the shared stacked-column layout
   // below crowded the star viewer into a fixed 300px card next to the
@@ -147,28 +161,30 @@ export default function ShapeDetailDrawer({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 20px 20px', gap: 14 }}>
-        {showDuoprism ? (
+        {showFourD ? (
           <div style={{ width: '100%', maxWidth: 380 }}>
-            <DuoprismShapeViewer specId={specId} height={260} />
+            {isFourDCapable ? <RadialProjectionViewer specId={specId} height={260} /> : <DuoprismShapeViewer specId={specId} height={260} />}
           </div>
         ) : (
           <ShapePreview specId={specId} size={220} spin />
         )}
         <h2 style={{ color: '#a9f795', fontSize: 18, textAlign: 'center', margin: 0 }}>{displayName}</h2>
 
-        {showDuoprism && (
+        {showFourD && (
           <div
             style={{
               fontSize: 11,
-              color: '#2ad6c9',
+              color: isFourDCapable ? '#ffd54a' : '#2ad6c9',
               opacity: 0.9,
               background: 'rgba(10,14,8,.78)',
-              border: '1px dashed rgba(42,214,201,.4)',
+              border: `1px dashed ${isFourDCapable ? 'rgba(255,213,74,.4)' : 'rgba(42,214,201,.4)'}`,
               borderRadius: 999,
               padding: '6px 16px',
+              maxWidth: 380,
+              textAlign: 'center',
             }}
           >
-            {t('duoprism.referenceOnly', lang)}
+            {isFourDCapable ? t('radialProjection.referenceOnly', lang) : t('duoprism.referenceOnly', lang)}
           </div>
         )}
 
@@ -200,11 +216,18 @@ export default function ShapeDetailDrawer({
           </button>
           <button
             type="button"
-            onClick={() => setShowDuoprism((v) => !v)}
-            aria-pressed={showDuoprism}
-            style={{ background: 'none', border: '1px solid rgba(42,214,201,.4)', color: '#2ad6c9', borderRadius: 999, padding: '8px 18px', cursor: 'pointer' }}
+            onClick={() => setShowFourD((v) => !v)}
+            aria-pressed={showFourD}
+            style={{
+              background: 'none',
+              border: `1px solid ${isFourDCapable ? 'rgba(255,213,74,.4)' : 'rgba(42,214,201,.4)'}`,
+              color: isFourDCapable ? '#ffd54a' : '#2ad6c9',
+              borderRadius: 999,
+              padding: '8px 18px',
+              cursor: 'pointer',
+            }}
           >
-            {showDuoprism ? t('duoprism.hideButton', lang) : t('duoprism.viewButton', lang)}
+            {showFourD ? t('fourD.hideButton', lang) : t('fourD.viewButton', lang)}
           </button>
         </div>
       </div>
