@@ -61,6 +61,9 @@ const en: Dict = {
   'alsoIn': 'Also in: {list}',
   'star.referenceOnly': 'Reference only — not buildable (self-intersecting star faces)',
   'fourD.badgeTitle': '4D-capable — can self-attach with a real 4D fold',
+  'duoprism.viewButton': 'View 4D Duoprism',
+  'duoprism.hideButton': 'Hide 4D Duoprism',
+  'duoprism.referenceOnly': 'Reference only — 3D shadow of the 4D duoprism, not buildable here',
 };
 
 const ja: Dict = {
@@ -105,6 +108,9 @@ const ja: Dict = {
   'alsoIn': '他の所属: {list}',
   'star.referenceOnly': '参照専用 — 組み立て不可（自己交差する星形の面）',
   'fourD.badgeTitle': '4D対応 — 実際の4D折りたたみで自身と接続できます',
+  'duoprism.viewButton': '4Dデュオプリズムを見る',
+  'duoprism.hideButton': '4Dデュオプリズムを隠す',
+  'duoprism.referenceOnly': '参照専用 — 4Dデュオプリズムの3D投影（組み立て不可）',
 };
 
 const es: Dict = {
@@ -149,6 +155,9 @@ const es: Dict = {
   'alsoIn': 'También en: {list}',
   'star.referenceOnly': 'Solo referencia — no se puede construir (caras estelares autointersecantes)',
   'fourD.badgeTitle': 'Compatible con 4D — puede autoconectarse con un pliegue 4D real',
+  'duoprism.viewButton': 'Ver Duoprisma 4D',
+  'duoprism.hideButton': 'Ocultar Duoprisma 4D',
+  'duoprism.referenceOnly': 'Solo referencia — sombra 3D del duoprisma 4D, no se puede construir aquí',
 };
 
 const fr: Dict = {
@@ -193,6 +202,9 @@ const fr: Dict = {
   'alsoIn': 'Également dans : {list}',
   'star.referenceOnly': 'Référence uniquement — non assemblable (faces étoilées auto-intersectantes)',
   'fourD.badgeTitle': 'Compatible 4D — peut s\'auto-assembler avec un vrai pli 4D',
+  'duoprism.viewButton': 'Voir le Duoprisme 4D',
+  'duoprism.hideButton': 'Masquer le Duoprisme 4D',
+  'duoprism.referenceOnly': 'Référence uniquement — ombre 3D du duoprisme 4D, non assemblable ici',
 };
 
 const I18N: Record<LangCode, Dict> = { en, ja, es, fr };

@@ -19,6 +19,7 @@ const ShapeViewer = dynamic(() => import('./components/ShapeViewer'), {
 interface Pending {
   specId: string;
   fold4?: boolean;
+  duoprism?: boolean;
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -354,7 +355,8 @@ export default function Home() {
           <>
             <span className="text-xs uppercase tracking-wide text-pink-400">
               Placing {pending.specId}
-              {pending.fold4 ? ' via 4D fold' : ''} — drag to rotate it, then:
+              {pending.fold4 ? ' via 4D fold' : pending.duoprism ? ' via Duoprism' : ''}
+              {pending.duoprism ? ' — then:' : ' — drag to rotate it, then:'}
             </span>
             <button
               type="button"
@@ -422,6 +424,26 @@ export default function Home() {
                 style={{ background: '#ffd54a' }}
               >
                 Attach via 4D fold…
+              </button>
+            )}
+            {nodeSelection.faceDuoprismEligible && (
+              // 4D Prism (duoprism) construction: same eligibility as
+              // 4D fold, but a structurally different, always-exact
+              // attach (a flat extrusion, no angular defect to close —
+              // see duoprism.ts's own header comment). Distinct teal
+              // accent so it reads as a third, visually separate attach
+              // mode, not a variant of either amber (ordinary) or gold
+              // (4D fold). No wheel/browser picker: there's no shape or
+              // registration choice to make, so this calls straight
+              // through to beginDuoprismAttach.
+              <button
+                type="button"
+                onClick={() => handleRef.current?.beginDuoprismAttach()}
+                title="Attach an identical, translated copy connected by a real 3D wall-prism cell — the 4D Prism (duoprism) construction, always exact"
+                className="rounded-full px-4 py-1.5 text-sm font-medium text-black transition-colors"
+                style={{ background: '#2ad6c9' }}
+              >
+                Attach via Duoprism…
               </button>
             )}
           </>

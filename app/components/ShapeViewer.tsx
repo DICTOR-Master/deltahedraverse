@@ -18,6 +18,7 @@ import { matchRewriteVertices, REWRITE_TARGET } from '../lib/polyhedra/rewrite';
 import { collectSubtree, findParentConnection, hasCycle } from '../lib/graph';
 import { FOURD_CAPABLE_IDS } from '../lib/polyhedra/fourD';
 import { edgeClosingCorrection } from '../lib/polyhedra/fold4';
+import { buildWallPrism, DUOPRISM_DEPTH } from '../lib/polyhedra/duoprism';
 
 const VERTEX_RADIUS = 0.06; // relative to unit edge length
 const COLOR_FREE = 0xffcc33;
@@ -104,7 +105,22 @@ interface PendingFaceAttach {
   fold4: boolean;
 }
 
-type PendingAttach = PendingVertexAttach | PendingFaceAttach;
+interface PendingDuoprismAttach {
+  kind: 'duoprism';
+  placed: PlacedShape;
+  nodeId: string;
+  targetPlaced: PlacedShape;
+  targetFaceIndex: number;
+  // The connecting wall-prism cell -- built once at begin time (its own
+  // geometry never changes before confirm, since there's no registration/
+  // twist step to drag through unlike ordinary/fold4 face-attach) and
+  // added to the scene as a plain extra mesh, not part of either node's
+  // own PlacedShape. Removed on cancel, kept (and re-derived on load) on
+  // confirm -- see duoprismMeshesRef.
+  wallMesh: THREE.Mesh;
+}
+
+type PendingAttach = PendingVertexAttach | PendingFaceAttach | PendingDuoprismAttach;
 
 export interface RewriteResult {
   fromSpecId: string;
@@ -132,6 +148,17 @@ export interface ShapeViewerHandle {
    * just the UI-facing request.
    */
   beginFaceAttach(specId: string, fold4?: boolean): void;
+  /**
+   * Places a same-shape, identical-orientation TRANSLATED copy at the
+   * currently selected target face, connected by a real 3D wall-prism
+   * cell (see duoprism.ts) -- the 4D Prism / duoprism construction.
+   * Unlike beginFaceAttach, there is no shape choice and no registration/
+   * twist step: the incoming shape and orientation are entirely
+   * determined by the target (silently no-ops if nothing selected, or
+   * the target isn't FOURD_CAPABLE_IDS-eligible -- `isValidAssembly` is
+   * the actual authority this defers to).
+   */
+  beginDuoprismAttach(): void;
   /** Locks the pending attach (vertex or face) in place. */
   confirmAttach(): void;
   /** Removes the pending attach and frees its target vertex/face again. */
@@ -189,6 +216,17 @@ export interface NodeSelection {
    * never as a separate always-visible control.
    */
   faceFold4Eligible: boolean;
+  /**
+   * Same eligibility condition as faceFold4Eligible (this node's own
+   * shape is FOURD_CAPABLE_IDS-eligible AND the selected face is free) --
+   * the UI's signal for whether to additionally offer "Attach via
+   * Duoprism…" alongside the ordinary face-attach and 4D-fold options.
+   * Always true/false together with faceFold4Eligible for the 4
+   * qualifying shapes; kept as its own field (not reusing
+   * faceFold4Eligible directly) so the two features can diverge in
+   * scope later without an implicit coupling.
+   */
+  faceDuoprismEligible: boolean;
 }
 
 function buildFaceGeometry(spec: PolyhedronSpec): { geometry: THREE.BufferGeometry; triangleToFaceIndex: number[] } {
@@ -397,7 +435,7 @@ export default function ShapeViewer({
 }: {
   initialShapeId: string;
   onSelectionChange?: (selection: ShapeSelection | null) => void;
-  onPendingChange?: (pending: { specId: string; fold4?: boolean } | null) => void;
+  onPendingChange?: (pending: { specId: string; fold4?: boolean; duoprism?: boolean } | null) => void;
   onNodeSelectionChange?: (selection: NodeSelection | null) => void;
   onCageClosedChange?: (closed: boolean) => void;
   onCanUndoChange?: (canUndo: boolean) => void;
@@ -448,6 +486,11 @@ export default function ShapeViewer({
   // correction, which incremental per-node registration got wrong).
   const foldAmountRef = useRef<number>(0);
   const hasFoldConnectionsRef = useRef<boolean>(false);
+  // Duoprism wall-prism meshes, keyed by their own CHILD node's id (see
+  // confirmAttach's own duoprism branch) -- plain extra scene meshes,
+  // never part of either node's own PlacedShape, since a wall-prism
+  // isn't itself an assembly node.
+  const duoprismMeshesRef = useRef<Map<string, THREE.Mesh>>(new Map());
   const onFoldConnectionsChangeRef = useRef(onFoldConnectionsChange);
   const onSelectionChangeRef = useRef(onSelectionChange);
   const onPendingChangeRef = useRef(onPendingChange);
@@ -766,6 +809,11 @@ export default function ShapeViewer({
       } else {
         pending.targetPlaced.faceOccupied[pending.targetFaceIndex] = false;
         applyNodeAppearance(pending.targetPlaced, pending.targetPlaced === selectedNodeRef.current);
+        if (pending.kind === 'duoprism') {
+          scene.remove(pending.wallMesh);
+          pending.wallMesh.geometry.dispose();
+          (pending.wallMesh.material as THREE.Material).dispose();
+        }
       }
 
       pendingRef.current = null;
@@ -781,6 +829,12 @@ export default function ShapeViewer({
         disposePlacedShape(placed);
       }
       placedRef.current = [];
+      for (const mesh of duoprismMeshesRef.current.values()) {
+        scene.remove(mesh);
+        mesh.geometry.dispose();
+        (mesh.material as THREE.Material).dispose();
+      }
+      duoprismMeshesRef.current.clear();
       graphRef.current = emptyAssembly();
       hoveredRef.current = null;
       selectedRef.current = null;
@@ -851,6 +905,31 @@ export default function ShapeViewer({
         if (conn.kind === 'face') {
           if (a) a.faceOccupied[conn.vertexA] = true;
           if (b) b.faceOccupied[conn.vertexB] = true;
+          continue;
+        }
+        if (conn.kind === 'duoprism') {
+          if (a) a.faceOccupied[conn.vertexA] = true;
+          if (b) b.faceOccupied[conn.vertexB] = true;
+          if (a && b) {
+            // Re-derive the wall-prism mesh from the two nodes' own
+            // baked transforms, never stored -- same "derive, don't
+            // duplicate" rule fold4 already follows. The offset is
+            // read back from B's actual position relative to A's,
+            // rather than reusing DUOPRISM_DEPTH directly, so this
+            // stays correct even if that constant ever changes later.
+            scene.updateMatrixWorld(true);
+            const aSpec = POLYHEDRA[assembly.nodes.find((n) => n.id === conn.nodeA)!.shape];
+            const faceVertsWorld = aSpec.faces[conn.vertexA].map((i) =>
+              new THREE.Vector3(...aSpec.vertices[i]).applyMatrix4(a.object.matrixWorld).toArray(),
+            ) as [number, number, number][];
+            const aOriginWorld = new THREE.Vector3(0, 0, 0).applyMatrix4(a.object.matrixWorld);
+            const bOriginWorld = new THREE.Vector3(0, 0, 0).applyMatrix4(b.object.matrixWorld);
+            const offsetWorld = bOriginWorld.clone().sub(aOriginWorld).toArray() as [number, number, number];
+            const wall = buildWallPrism(faceVertsWorld, offsetWorld);
+            const wallMesh = buildWallPrismMesh(wall);
+            scene.add(wallMesh);
+            duoprismMeshesRef.current.set(conn.nodeB, wallMesh);
+          }
           continue;
         }
         const sphereA = a?.vertexGroup.children[conn.vertexA] as THREE.Mesh | undefined;
@@ -1064,6 +1143,95 @@ export default function ShapeViewer({
       label.style.display = 'block';
     };
 
+    /** Builds a renderable mesh for a raw {verts, faces} structure (a wall-prism, not a full PolyhedronSpec). */
+    const buildWallPrismMesh = (wall: { verts: [number, number, number][]; faces: number[][] }): THREE.Mesh => {
+      const positions: number[] = [];
+      for (const face of wall.faces) {
+        for (const [i, j, k] of triangulateFace(face)) {
+          positions.push(...wall.verts[i], ...wall.verts[j], ...wall.verts[k]);
+        }
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.computeVertexNormals();
+      // Distinct teal accent (matches the "Attach via Duoprism…" button's
+      // own color in page.tsx) so a wall-prism cell reads as visually
+      // different from an ordinary solid or a fold4 pair, not just an
+      // unlabeled extra shape.
+      const material = new THREE.MeshStandardMaterial({ color: 0x2ad6c9, flatShading: true, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
+      return new THREE.Mesh(geometry, material);
+    };
+
+    /**
+     * The 4D Prism (duoprism) attach: see beginDuoprismAttach's own doc
+     * comment on ShapeViewerHandle. Unlike beginFaceAttach, the incoming
+     * node is always the SAME shape as the target, at the SAME
+     * orientation (a pure translation, not a mirrored flush join) --
+     * see duoprism.ts's own header comment for why that's correct, not
+     * a shortcut. No registration/twist step exists to drag through, so
+     * this goes straight from "begin" to a ready-to-confirm pending
+     * state with its own wall-prism mesh already built.
+     */
+    const beginDuoprismAttach = () => {
+      const targetPlaced = selectedNodeRef.current;
+      const targetFaceIndex = selectedFaceIndexRef.current;
+      if (!targetPlaced || targetFaceIndex === null || pendingRef.current) return;
+      if (targetPlaced.faceOccupied[targetFaceIndex]) return;
+
+      const { specId: targetSpecId } = targetPlaced.object.userData as ShapeObjectUserData;
+      if (!FOURD_CAPABLE_IDS.includes(targetSpecId)) return; // UI should only ever offer this for eligible shapes
+      const spec = POLYHEDRA[targetSpecId];
+
+      scene.updateMatrixWorld(true);
+
+      const targetFaceConnector = buildFaceConnectors(spec)[targetFaceIndex];
+      // Same "read through foldGroup, not object" reasoning as
+      // beginFaceAttach: the target's CURRENT rendered position/
+      // orientation, not its unfolded baseline.
+      const targetWorldQuat = new THREE.Quaternion();
+      targetPlaced.foldGroup.getWorldQuaternion(targetWorldQuat);
+      const targetWorldNormal = new THREE.Vector3(...targetFaceConnector.normal).applyQuaternion(targetWorldQuat).normalize();
+      const targetOriginWorld = new THREE.Vector3(0, 0, 0).applyMatrix4(targetPlaced.foldGroup.matrixWorld);
+      const offsetWorld = targetWorldNormal.clone().multiplyScalar(DUOPRISM_DEPTH);
+
+      const nodeId = crypto.randomUUID();
+      const placed = buildPlacedShape(spec, nodeId);
+      // Identical orientation, pure translation -- the defining property
+      // of a duoprism's far cap (see duoprism.ts). No setFromUnitVectors
+      // mirroring, no twist search: there is no discrete rotational
+      // choice to make.
+      placed.object.quaternion.copy(targetWorldQuat);
+      placed.object.position.copy(targetOriginWorld).add(offsetWorld);
+      applyViewMode(placed, viewModeRef.current);
+
+      const faceVertsWorld = spec.faces[targetFaceIndex].map((i) =>
+        new THREE.Vector3(...spec.vertices[i]).applyMatrix4(targetPlaced.foldGroup.matrixWorld).toArray(),
+      ) as [number, number, number][];
+      const wall = buildWallPrism(faceVertsWorld, offsetWorld.toArray() as [number, number, number]);
+      const wallMesh = buildWallPrismMesh(wall);
+
+      scene.add(placed.object);
+      scene.add(wallMesh);
+      applyNodeAppearance(placed, false);
+
+      targetPlaced.faceOccupied[targetFaceIndex] = true; // reserved while pending; cancelAttach restores this
+      applyNodeAppearance(targetPlaced, targetPlaced === selectedNodeRef.current);
+      placed.faceOccupied[targetFaceIndex] = true; // same face role on both sides -- see AssemblyConnection's own doc comment
+
+      pendingRef.current = {
+        kind: 'duoprism',
+        placed,
+        nodeId,
+        targetPlaced,
+        targetFaceIndex,
+        wallMesh,
+      };
+      controls.enabled = false;
+      clearNodeSelection();
+      onPendingChangeRef.current?.({ specId: targetSpecId, duoprism: true });
+      label.style.display = 'none'; // no registration counter -- nothing to drag/cycle
+    };
+
     const confirmAttach = () => {
       const pending = pendingRef.current;
       if (!pending) return;
@@ -1098,7 +1266,7 @@ export default function ShapeViewer({
           nodeB: pending.nodeId,
           vertexB: ATTACH_VERTEX_INDEX,
         });
-      } else {
+      } else if (pending.kind === 'face') {
         const { nodeId: parentNodeId } = pending.targetPlaced.object.userData as ShapeObjectUserData;
         const { specId: newSpecId } = pending.placed.object.userData as ShapeObjectUserData;
         applyNodeAppearance(pending.targetPlaced, pending.targetPlaced === selectedNodeRef.current);
@@ -1123,6 +1291,33 @@ export default function ShapeViewer({
           refreshFoldConnectionsFlag();
           recomputeAllFolds(foldAmountRef.current);
         }
+      } else {
+        const { nodeId: parentNodeId } = pending.targetPlaced.object.userData as ShapeObjectUserData;
+        const { specId: newSpecId } = pending.placed.object.userData as ShapeObjectUserData;
+        applyNodeAppearance(pending.targetPlaced, pending.targetPlaced === selectedNodeRef.current);
+
+        graphRef.current.nodes.push({
+          id: pending.nodeId,
+          shape: newSpecId,
+          transform: {
+            position: pending.placed.object.position.toArray() as [number, number, number],
+            quaternion: pending.placed.object.quaternion.toArray() as [number, number, number, number],
+          },
+        });
+        graphRef.current.connections.push({
+          nodeA: parentNodeId,
+          vertexA: pending.targetFaceIndex,
+          nodeB: pending.nodeId,
+          vertexB: pending.targetFaceIndex,
+          kind: 'duoprism',
+        });
+        // Keyed by the child node's own id -- matches fold4's own
+        // per-child-node convention (see refreshFoldConnectionsFlag's
+        // analog); a duoprism wall-prism is derived from, and lifecycle-
+        // tied to, its own CHILD node, never the parent (a node can be
+        // the PARENT side of many duoprism connections at once, one per
+        // free face, but is only ever the CHILD side of exactly one).
+        duoprismMeshesRef.current.set(pending.nodeId, pending.wallMesh);
       }
 
       lastAddedNodeIdRef.current = pending.nodeId;
@@ -1266,6 +1461,14 @@ export default function ShapeViewer({
         const idx = placedRef.current.indexOf(placed);
         if (idx !== -1) placedRef.current.splice(idx, 1);
 
+        const wallMesh = duoprismMeshesRef.current.get(id);
+        if (wallMesh) {
+          scene.remove(wallMesh);
+          wallMesh.geometry.dispose();
+          (wallMesh.material as THREE.Material).dispose();
+          duoprismMeshesRef.current.delete(id);
+        }
+
         if (hoveredNodeRef.current === placed) hoveredNodeRef.current = null;
         if (selectedNodeRef.current === placed) selectedNodeRef.current = null;
         if (hoveredRef.current && placedOwningVertexSphere(hoveredRef.current) === placed) hoveredRef.current = null;
@@ -1279,7 +1482,7 @@ export default function ShapeViewer({
 
       if (parentConn && !parentConn.orphaned) {
         const parentPlaced = findPlaced(parentConn.nodeA);
-        if (parentConn.kind === 'face') {
+        if (parentConn.kind === 'face' || parentConn.kind === 'duoprism') {
           if (parentPlaced) parentPlaced.faceOccupied[parentConn.vertexA] = false;
         } else {
           const parentSphere = parentPlaced?.vertexGroup.children[parentConn.vertexA] as THREE.Mesh | undefined;
@@ -1374,6 +1577,7 @@ export default function ShapeViewer({
       reset: placeRoot,
       beginAttach,
       beginFaceAttach,
+      beginDuoprismAttach,
       confirmAttach,
       cancelAttach,
       save: saveAssembly,
@@ -1543,7 +1747,9 @@ export default function ShapeViewer({
 
             const degrees = THREE.MathUtils.radToDeg(pending.twistAngle) % 360;
             label.textContent = `twist ${degrees.toFixed(0)}°`;
-          } else {
+            positionLabel(event, rect);
+            label.style.display = 'block';
+          } else if (pending.kind === 'face') {
             pending.dragAccumPx += dragDeltaX;
             while (pending.dragAccumPx >= FACE_REGISTRATION_DRAG_PX) {
               pending.dragAccumPx -= FACE_REGISTRATION_DRAG_PX;
@@ -1558,9 +1764,13 @@ export default function ShapeViewer({
             pending.placed.object.quaternion.copy(pending.baseQuaternion).multiply(twistQuat);
 
             label.textContent = `registration ${pending.registration + 1}/${pending.registrationCount}`;
+            positionLabel(event, rect);
+            label.style.display = 'block';
           }
-          positionLabel(event, rect);
-          label.style.display = 'block';
+          // 'duoprism': no drag/registration behavior at all -- there is
+          // no rotational freedom to cycle through (see
+          // beginDuoprismAttach's own doc comment), so a drag here is
+          // simply inert.
         }
         return; // selection/hover raycasting is locked while a piece is pending
       }
@@ -1675,6 +1885,7 @@ export default function ShapeViewer({
             )
           : [];
       const faceFold4Eligible = faceIndex !== null && !faceOccupied && FOURD_CAPABLE_IDS.includes(specId);
+      const faceDuoprismEligible = faceFold4Eligible;
 
       onNodeSelectionChangeRef.current?.({
         nodeId,
@@ -1685,6 +1896,7 @@ export default function ShapeViewer({
         faceOccupied,
         faceAttachOptions,
         faceFold4Eligible,
+        faceDuoprismEligible,
       });
     };
 

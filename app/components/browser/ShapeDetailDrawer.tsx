@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { getAnySpec, isStarPolyhedron } from '../../lib/polyhedra/lookup';
 import { t, type LangCode } from '../../lib/i18n';
 import ShapePreview from './ShapePreview';
 import ShapeStatsBlock from './ShapeStatsBlock';
 import StarShapeViewer from './StarShapeViewer';
+import DuoprismShapeViewer from './DuoprismShapeViewer';
 
 export interface ShapeDetailDrawerProps {
   specId: string;
@@ -28,6 +30,7 @@ export default function ShapeDetailDrawer({
   onToggleCompare,
 }: ShapeDetailDrawerProps) {
   const spec = getAnySpec(specId);
+  const [showDuoprism, setShowDuoprism] = useState(false);
   if (!spec) return null;
   const displayName = spec.name.replaceAll('_', ' ');
   const isStar = isStarPolyhedron(specId);
@@ -144,8 +147,30 @@ export default function ShapeDetailDrawer({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 20px 20px', gap: 14 }}>
-        <ShapePreview specId={specId} size={220} spin />
+        {showDuoprism ? (
+          <div style={{ width: '100%', maxWidth: 380 }}>
+            <DuoprismShapeViewer specId={specId} height={260} />
+          </div>
+        ) : (
+          <ShapePreview specId={specId} size={220} spin />
+        )}
         <h2 style={{ color: '#a9f795', fontSize: 18, textAlign: 'center', margin: 0 }}>{displayName}</h2>
+
+        {showDuoprism && (
+          <div
+            style={{
+              fontSize: 11,
+              color: '#2ad6c9',
+              opacity: 0.9,
+              background: 'rgba(10,14,8,.78)',
+              border: '1px dashed rgba(42,214,201,.4)',
+              borderRadius: 999,
+              padding: '6px 16px',
+            }}
+          >
+            {t('duoprism.referenceOnly', lang)}
+          </div>
+        )}
 
         <div style={{ width: '100%', maxWidth: 380 }}>
           <ShapeStatsBlock specId={specId} lang={lang} />
@@ -172,6 +197,14 @@ export default function ShapeDetailDrawer({
             style={{ background: 'none', border: '1px solid rgba(71,204,36,.3)', color: inCompare ? '#47cc24' : '#5ee233', borderRadius: 999, padding: '8px 18px', cursor: 'pointer' }}
           >
             {inCompare ? '✓' : '+'} {t('action.compare', lang)}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowDuoprism((v) => !v)}
+            aria-pressed={showDuoprism}
+            style={{ background: 'none', border: '1px solid rgba(42,214,201,.4)', color: '#2ad6c9', borderRadius: 999, padding: '8px 18px', cursor: 'pointer' }}
+          >
+            {showDuoprism ? t('duoprism.hideButton', lang) : t('duoprism.viewButton', lang)}
           </button>
         </div>
       </div>

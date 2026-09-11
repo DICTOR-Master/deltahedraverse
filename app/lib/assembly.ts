@@ -27,11 +27,17 @@ export interface AssemblyConnection {
   // vertex indices, the original ball-joint connection. 'face' means
   // they're face indices instead — a face-to-face join, only valid
   // between two faces of the same size (see app/lib/polyhedra/core.ts's
-  // FaceConnector / buildFaceConnectors). Reusing vertexA/vertexB rather
-  // than adding separate faceA/faceB fields keeps exactly one pair of
-  // "which connector on each side" fields, disambiguated by this tag,
-  // instead of two pairs where only one is ever meaningful at a time.
-  kind?: 'vertex' | 'face';
+  // FaceConnector / buildFaceConnectors). 'duoprism' also uses face
+  // indices, but for a structurally different join (see duoprism.ts):
+  // nodeB is an identical-orientation TRANSLATED copy of nodeA (not a
+  // mirrored flush attach), connected by a real 3D wall-prism cell —
+  // vertexA and vertexB are always the SAME face index (the two nodes
+  // share the same shape by construction), never independently chosen.
+  // Reusing vertexA/vertexB rather than adding separate faceA/faceB
+  // fields keeps exactly one pair of "which connector on each side"
+  // fields, disambiguated by this tag, instead of two pairs where only
+  // one is ever meaningful at a time.
+  kind?: 'vertex' | 'face' | 'duoprism';
   // Set by Stage 7's rewrite rule when a node's shape changes and no
   // compatible vertex exists on the new shape for this connection's side.
   // vertexA/vertexB then keep their last-known (possibly now out-of-range
@@ -91,7 +97,7 @@ function isConnection(v: unknown): v is AssemblyConnection {
   ) {
     return false;
   }
-  if (c.kind !== undefined && c.kind !== 'vertex' && c.kind !== 'face') return false;
+  if (c.kind !== undefined && c.kind !== 'vertex' && c.kind !== 'face' && c.kind !== 'duoprism') return false;
   if (c.orphaned !== undefined && typeof c.orphaned !== 'boolean') return false;
   // Structural check only (no node/shape cross-reference here -- that
   // needs isValidAssembly below, which has nodeById available): fold4
@@ -128,8 +134,9 @@ export function isValidAssembly(v: unknown): v is Assembly {
     // Orphaned connections keep a deliberately stale vertex index (see
     // AssemblyConnection.orphaned) — only the node references matter for them.
     if (conn.orphaned) continue;
-    const countA = conn.kind === 'face' ? POLYHEDRA[a.shape].faces.length : POLYHEDRA[a.shape].vertices.length;
-    const countB = conn.kind === 'face' ? POLYHEDRA[b.shape].faces.length : POLYHEDRA[b.shape].vertices.length;
+    const isFaceLike = conn.kind === 'face' || conn.kind === 'duoprism';
+    const countA = isFaceLike ? POLYHEDRA[a.shape].faces.length : POLYHEDRA[a.shape].vertices.length;
+    const countB = isFaceLike ? POLYHEDRA[b.shape].faces.length : POLYHEDRA[b.shape].vertices.length;
     if (conn.vertexA < 0 || conn.vertexA >= countA) return false;
     if (conn.vertexB < 0 || conn.vertexB >= countB) return false;
     // 4D extension, Stage-1 scope: fold4 only ever means something for a
@@ -138,6 +145,15 @@ export function isValidAssembly(v: unknown): v is Assembly {
     // exactly why this lives in isValidAssembly, not the structural-only
     // isConnection above.
     if (conn.fold4 && (a.shape !== b.shape || !FOURD_CAPABLE_IDS.includes(a.shape))) return false;
+    // Duoprism: same restriction as fold4 (self-attach only, FOURD-
+    // capable shapes only — see duoprism.ts's own header comment for why
+    // it's still gated to these 4 even though the geometry itself would
+    // work for any shape: a deliberate scope match with the other 4D
+    // feature, not a mathematical requirement), PLUS vertexA must equal
+    // vertexB — a duoprism's far node is a translated copy of the near
+    // one, so there's only ever one "the same face on both sides" role,
+    // never two independently-chosen face indices.
+    if (conn.kind === 'duoprism' && (a.shape !== b.shape || !FOURD_CAPABLE_IDS.includes(a.shape) || conn.vertexA !== conn.vertexB)) return false;
   }
   return true;
 }
