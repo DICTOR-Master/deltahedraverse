@@ -58,6 +58,27 @@ export interface AssemblyConnection {
   // `node.shape` + this connection's own face index, matching fourD.ts's
   // own "derive, don't duplicate" rule.
   fold4?: true;
+  // 4D Prism (duoprism): a REAL duoprism has exactly ONE far copy total
+  // (like a tesseract has 2 cubes, not one per face) — additional faces
+  // of the SAME near node ALSO connected to this SAME far copy (via
+  // their own wall-prism cell) are recorded here, rather than as
+  // separate AssemblyConnections to separate far-copy nodes. That
+  // alternative was tried first and was WRONG: it silently violates
+  // this app's own foundational tree invariant (every node has at most
+  // one incoming connection — see app/lib/graph.ts's own
+  // findParentConnection/hasCycle doc comments) and, worse, produces a
+  // visibly broken result — 3 independently-extruded siblings, one per
+  // face, with nothing making them meet, leaving a real gap between
+  // them (confirmed live: "three added dodecahedra have a triangle of
+  // space between them"). Recording extra faces on the ORIGINAL single
+  // connection instead preserves the tree invariant exactly (still one
+  // AssemblyConnection, one incoming edge, `findParentConnection`/
+  // `collectSubtree`/delete/undo all keep working unchanged) while
+  // correctly modeling "one shared far copy, many wall-prisms." Only
+  // ever present alongside `kind: 'duoprism'`; each entry is a face
+  // index on the SAME shape as `vertexA`/`vertexB` (never repeating
+  // vertexA itself or any other entry).
+  duoprismExtraFaces?: number[];
 }
 
 export interface Assembly {
@@ -103,6 +124,10 @@ function isConnection(v: unknown): v is AssemblyConnection {
   // needs isValidAssembly below, which has nodeById available): fold4
   // can only ever accompany a face-kind connection.
   if (c.fold4 !== undefined && (c.fold4 !== true || c.kind !== 'face')) return false;
+  if (c.duoprismExtraFaces !== undefined) {
+    if (c.kind !== 'duoprism') return false;
+    if (!Array.isArray(c.duoprismExtraFaces) || !c.duoprismExtraFaces.every((f) => typeof f === 'number' && Number.isInteger(f) && f >= 0)) return false;
+  }
   return true;
 }
 
@@ -153,7 +178,15 @@ export function isValidAssembly(v: unknown): v is Assembly {
     // vertexB — a duoprism's far node is a translated copy of the near
     // one, so there's only ever one "the same face on both sides" role,
     // never two independently-chosen face indices.
-    if (conn.kind === 'duoprism' && (a.shape !== b.shape || !FOURD_CAPABLE_IDS.includes(a.shape) || conn.vertexA !== conn.vertexB)) return false;
+    if (conn.kind === 'duoprism') {
+      if (a.shape !== b.shape || !FOURD_CAPABLE_IDS.includes(a.shape) || conn.vertexA !== conn.vertexB) return false;
+      const faceCount = POLYHEDRA[a.shape].faces.length;
+      const extras = conn.duoprismExtraFaces ?? [];
+      const allFaces = [conn.vertexA, ...extras];
+      const uniqueFaces = new Set(allFaces);
+      if (uniqueFaces.size !== allFaces.length) return false; // no duplicate/repeated face indices
+      if (extras.some((f) => f < 0 || f >= faceCount)) return false;
+    }
   }
   return true;
 }

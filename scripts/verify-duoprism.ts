@@ -26,6 +26,7 @@ function assert(cond: boolean, msg: string) {
 
 const near = (a: number, b: number, tol = 1e-9) => Math.abs(a - b) < tol;
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const dot = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm = (a: Vec3): Vec3 => { const l = Math.hypot(...a); return [a[0] / l, a[1] / l, a[2] / l]; };
@@ -186,36 +187,66 @@ for (const id of POLYHEDRON_IDS) {
 }
 assert(duoprismViewDepth(POLYHEDRA.DODECAHEDRON) > 0, 'duoprismViewDepth is positive for a real shape');
 
-// (6) Chaining / no-sibling-gap claim, computed directly: a DODECAHEDRON
-// with TWO duoprism wall-prisms on two DIFFERENT faces must not disturb
-// the shared parent's own geometry, and the two resulting offsets must
-// differ (two different faces of a convex polyhedron never share an
-// outward normal).
+// (6) Multi-face / shared-far-copy claim, computed directly on the REAL
+// user-reported scenario: 3 faces of ONE parent DODECAHEDRON, each
+// given its own duoprism wall-prism. A real duoprism has exactly ONE
+// far copy total (like a tesseract has 2 cubes, not one per face) -- an
+// earlier version of this app created a SEPARATE, independent far copy
+// per face, each pushed outward along that face's own normal, with
+// nothing making the resulting siblings meet -- confirmed live ("three
+// added dodecahedra have a triangle of space between them") and fixed
+// by having every additional face share the SAME single far copy (see
+// assembly.ts's own duoprismExtraFaces). This check builds all 3
+// wall-prisms against that ONE shared offset (computed once, from the
+// first face) and confirms: the parent's own geometry is untouched,
+// every wall-prism is individually well-formed (only the first is a
+// right prism -- the other two are generally oblique relative to the
+// shared offset, exactly like VIEW's own multi-face case), and --
+// directly answering "is there a gap" -- the far cap position implied
+// by each of the 3 wall-prisms is EXACTLY the same point, since they
+// all share one copy by construction, not three independently-placed
+// ones with no relationship to each other.
 {
   const spec = POLYHEDRA.DODECAHEDRON;
   const connectors = buildFaceConnectors(spec);
-  const facesToTest = [0, 1]; // any two distinct faces suffice; verified adjacent-or-not doesn't matter for this claim
+  const facesToTest = [0, 1, 2]; // any 3 distinct faces suffice; verified adjacent-or-not doesn't matter for this claim
   const verticesBefore = spec.vertices.map((v) => [...v]);
 
-  const offsets = facesToTest.map((f) => {
-    const n = connectors[f].normal as Vec3;
-    const depth = duoprismBuildDepth(spec, f);
-    return [n[0] * depth, n[1] * depth, n[2] * depth] as Vec3;
-  });
-  const walls = facesToTest.map((f, idx) => {
+  const baseNormal = connectors[facesToTest[0]].normal as Vec3;
+  const depth = duoprismBuildDepth(spec, facesToTest[0]);
+  const sharedOffset: Vec3 = [baseNormal[0] * depth, baseNormal[1] * depth, baseNormal[2] * depth];
+
+  const walls = facesToTest.map((f) => {
     const faceVerts = spec.faces[f].map((i) => spec.vertices[i]) as Vec3[];
-    return buildWallPrism(faceVerts, offsets[idx]);
+    return buildWallPrism(faceVerts, sharedOffset);
   });
-  facesToTest.forEach((f, idx) => checkCapsDontOverlap(`chained sibling ${idx}`, spec, offsets[idx]));
+  checkCapsDontOverlap('shared far copy (BUILD, all 3 faces)', spec, sharedOffset);
 
   const verticesAfter = spec.vertices;
   assert(
     verticesBefore.every((v, i) => v[0] === verticesAfter[i][0] && v[1] === verticesAfter[i][1] && v[2] === verticesAfter[i][2]),
-    'building two duoprism wall-prisms on different faces leaves the shared parent DODECAHEDRON node byte-identical',
+    'building 3 duoprism wall-prisms on different faces of one parent leaves the shared parent DODECAHEDRON node byte-identical',
   );
-  const offsetDist = Math.hypot(...sub(offsets[0], offsets[1]));
-  assert(offsetDist > 0.1, `the two siblings' translation offsets genuinely differ (dist=${offsetDist.toFixed(4)}) -- no coincidence between two different faces' attaches`);
-  walls.forEach((wall, idx) => checkWallPrism(`chained sibling ${idx}`, wall, offsets[idx], true));
+  facesToTest.forEach((f, idx) => checkWallPrism(`shared-far-copy face ${f}`, walls[idx], sharedOffset, idx === 0));
+
+  // The decisive check: every wall-prism's far cap represents the SAME
+  // physical copy -- i.e. `faceCentroid + sharedOffset` for face f, and
+  // `farCap centroid of face f's own wall` must land on that one
+  // consistent copy of the shape (checked via: does translating the
+  // ENTIRE original spec by sharedOffset reproduce every wall's own far
+  // cap exactly, for all 3 faces at once -- a single shared far copy,
+  // not 3 unrelated ones).
+  const farCopyVerts = spec.vertices.map((v) => add(v as Vec3, sharedOffset));
+  facesToTest.forEach((f, idx) => {
+    const wall = walls[idx];
+    const n = wall.verts.length / 2;
+    const farCapVerts = wall.verts.slice(n);
+    const expectedFaceVerts = spec.faces[f].map((i) => farCopyVerts[i]);
+    for (const fv of farCapVerts) {
+      const matchesOne = expectedFaceVerts.some((ev) => near(ev[0], fv[0], 1e-9) && near(ev[1], fv[1], 1e-9) && near(ev[2], fv[2], 1e-9));
+      assert(matchesOne, `face ${f}'s wall-prism far cap vertex matches the ONE shared far copy's own corresponding face (no separate, disconnected sibling)`);
+    }
+  });
 }
 
 // (7) isValidAssembly gating for the new 'duoprism' connection kind.

@@ -29,10 +29,10 @@ test('a DODECAHEDRON face offers Duoprism self-attach with no picker step, and p
   await page.mouse.click(cx, cy);
   await expect(page.locator('text=/Selected DODECAHEDRON node/')).toBeVisible();
 
-  // All three attach options coexist -- duoprism is an additional
-  // choice, never a replacement for the ordinary flush attach or 4D fold.
+  // Duoprism coexists with the ordinary flush attach -- an additional
+  // choice, not a replacement (4D fold's own "Attach via 4D fold…" entry
+  // point was removed separately; see fold4.spec.ts).
   await expect(page.getByRole('button', { name: 'Attach via face…' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Attach via 4D fold…' })).toBeVisible();
   const duoprismBtn = page.getByRole('button', { name: 'Attach via Duoprism…' });
   await expect(duoprismBtn).toBeVisible();
 
@@ -61,6 +61,57 @@ test('a DODECAHEDRON face offers Duoprism self-attach with no picker step, and p
   const savedAfterUndo = await page.evaluate(() => fetch('/api/assemblies').then((r) => r.json()));
   expect(savedAfterUndo.nodes).toHaveLength(1);
   expect(savedAfterUndo.connections).toHaveLength(0);
+});
+
+/**
+ * The real user-reported bug this app shipped and then fixed: attaching
+ * a duoprism to a SECOND (and third) face of the same parent must NOT
+ * create a separate, independent far copy per face -- a real duoprism
+ * has exactly ONE far copy total (like a tesseract has 2 cubes, not one
+ * per face). scripts/verify-duoprism.ts already proves the underlying
+ * geometry directly (one shared offset produces zero gap by
+ * construction); this checks the persisted GRAPH shape survives a full
+ * save/load round trip: still exactly 2 nodes (not 4) after 3 faces of
+ * the same parent are connected, all recorded on ONE connection via
+ * duoprismExtraFaces, and the page renders it (multiple wall-prisms
+ * sharing one far copy) with no console error.
+ */
+test('three faces of one parent sharing a single duoprism far copy survive a save/load round trip', async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+  const assembly = {
+    nodes: [
+      { id: 'a', shape: 'DODECAHEDRON', transform: { position: [0, 0, 0], quaternion: [0, 0, 0, 1] } },
+      { id: 'b', shape: 'DODECAHEDRON', transform: { position: [0, 0, 3], quaternion: [0, 0, 0, 1] } },
+    ],
+    connections: [{ nodeA: 'a', vertexA: 0, nodeB: 'b', vertexB: 0, kind: 'duoprism', duoprismExtraFaces: [1, 2] }],
+  };
+  await page.evaluate(
+    (a) => fetch('/api/assemblies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(a) }),
+    assembly,
+  );
+  await page.reload();
+  await page.waitForTimeout(500);
+
+  // Renders without throwing: the corrected loadAssembly loop builds 3
+  // wall-prism meshes (one per face in [vertexA, ...duoprismExtraFaces])
+  // off a single shared offset, none of it crashing the scene.
+  expect(pageErrors).toEqual([]);
+  await expect(page.getByRole('main').locator('canvas')).toBeVisible();
+
+  // Re-save and re-fetch: the graph is still exactly 2 nodes and 1
+  // connection carrying all 3 face indices -- proves the shared-far-copy
+  // shape is what's actually persisted, not silently expanded into one
+  // node per face on the way through load/save.
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('text=Saved')).toBeVisible();
+  const roundTripped = await page.evaluate(() => fetch('/api/assemblies').then((r) => r.json()));
+  expect(roundTripped.nodes).toHaveLength(2);
+  expect(roundTripped.connections).toHaveLength(1);
+  expect(roundTripped.connections[0].kind).toBe('duoprism');
+  expect(roundTripped.connections[0].vertexA).toBe(0);
+  expect(new Set(roundTripped.connections[0].duoprismExtraFaces)).toEqual(new Set([1, 2]));
 });
 
 test('a non-4D-capable shape (RHOMBIC_DODECAHEDRON) never offers Duoprism self-attach', async ({ page }) => {

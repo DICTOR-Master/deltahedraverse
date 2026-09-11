@@ -107,8 +107,16 @@ interface PendingFaceAttach {
 
 interface PendingDuoprismAttach {
   kind: 'duoprism';
+  // The far-copy node -- EITHER a brand-new one (isNewNode: true, the
+  // first duoprism attach on this parent) OR an already-placed, already-
+  // confirmed one being reused (isNewNode: false). A real duoprism has
+  // exactly ONE far copy total (like a tesseract has 2 cubes, not one
+  // per face) -- see assembly.ts's own duoprismExtraFaces doc comment
+  // for why reuse, not a fresh node, is the correct model for a SECOND+
+  // face attached from the same parent.
   placed: PlacedShape;
   nodeId: string;
+  isNewNode: boolean;
   targetPlaced: PlacedShape;
   targetFaceIndex: number;
   // The connecting wall-prism cell -- built once at begin time (its own
@@ -797,8 +805,16 @@ export default function ShapeViewer({
       const pending = pendingRef.current;
       if (!pending) return;
 
-      scene.remove(pending.placed.object);
-      disposePlacedShape(pending.placed);
+      // A duoprism pending attach reusing an EXISTING far copy (see
+      // beginDuoprismAttach) must NOT remove/dispose `pending.placed` --
+      // that node already existed before this pending attach began.
+      const shouldRemovePlaced = pending.kind !== 'duoprism' || pending.isNewNode;
+      if (shouldRemovePlaced) {
+        scene.remove(pending.placed.object);
+        disposePlacedShape(pending.placed);
+      } else {
+        pending.placed.faceOccupied[pending.targetFaceIndex] = false;
+      }
 
       if (pending.kind === 'vertex') {
         const targetData = pending.targetSphere.userData as VertexUserData;
@@ -908,27 +924,34 @@ export default function ShapeViewer({
           continue;
         }
         if (conn.kind === 'duoprism') {
-          if (a) a.faceOccupied[conn.vertexA] = true;
-          if (b) b.faceOccupied[conn.vertexB] = true;
           if (a && b) {
-            // Re-derive the wall-prism mesh from the two nodes' own
+            // Re-derive every wall-prism mesh from the two nodes' own
             // baked transforms, never stored -- same "derive, don't
             // duplicate" rule fold4 already follows. The offset is
             // read back from B's actual position relative to A's,
             // rather than recomputing duoprismBuildDepth, so this stays
             // correct even if that formula's own margin ever changes.
+            // One wall-prism per face in [vertexA, ...duoprismExtraFaces]
+            // -- a real duoprism's single far copy can have several,
+            // all sharing this same pair of nodes (see assembly.ts's
+            // own duoprismExtraFaces doc comment).
             scene.updateMatrixWorld(true);
             const aSpec = POLYHEDRA[assembly.nodes.find((n) => n.id === conn.nodeA)!.shape];
-            const faceVertsWorld = aSpec.faces[conn.vertexA].map((i) =>
-              new THREE.Vector3(...aSpec.vertices[i]).applyMatrix4(a.object.matrixWorld).toArray(),
-            ) as [number, number, number][];
             const aOriginWorld = new THREE.Vector3(0, 0, 0).applyMatrix4(a.object.matrixWorld);
             const bOriginWorld = new THREE.Vector3(0, 0, 0).applyMatrix4(b.object.matrixWorld);
             const offsetWorld = bOriginWorld.clone().sub(aOriginWorld).toArray() as [number, number, number];
-            const wall = buildWallPrism(faceVertsWorld, offsetWorld);
-            const wallMesh = buildWallPrismMesh(wall);
-            scene.add(wallMesh);
-            duoprismMeshesRef.current.set(conn.nodeB, wallMesh);
+            const allFaces = [conn.vertexA, ...(conn.duoprismExtraFaces ?? [])];
+            for (const faceIndex of allFaces) {
+              a.faceOccupied[faceIndex] = true;
+              b.faceOccupied[faceIndex] = true;
+              const faceVertsWorld = aSpec.faces[faceIndex].map((i) =>
+                new THREE.Vector3(...aSpec.vertices[i]).applyMatrix4(a.object.matrixWorld).toArray(),
+              ) as [number, number, number][];
+              const wall = buildWallPrism(faceVertsWorld, offsetWorld);
+              const wallMesh = buildWallPrismMesh(wall);
+              scene.add(wallMesh);
+              duoprismMeshesRef.current.set(`${conn.nodeA}:${faceIndex}`, wallMesh);
+            }
           }
           continue;
         }
@@ -1178,50 +1201,80 @@ export default function ShapeViewer({
       if (!targetPlaced || targetFaceIndex === null || pendingRef.current) return;
       if (targetPlaced.faceOccupied[targetFaceIndex]) return;
 
-      const { specId: targetSpecId } = targetPlaced.object.userData as ShapeObjectUserData;
+      const { specId: targetSpecId, nodeId: targetNodeId } = targetPlaced.object.userData as ShapeObjectUserData;
       if (!FOURD_CAPABLE_IDS.includes(targetSpecId)) return; // UI should only ever offer this for eligible shapes
       const spec = POLYHEDRA[targetSpecId];
 
       scene.updateMatrixWorld(true);
 
-      const targetFaceConnector = buildFaceConnectors(spec)[targetFaceIndex];
-      // Same "read through foldGroup, not object" reasoning as
-      // beginFaceAttach: the target's CURRENT rendered position/
-      // orientation, not its unfolded baseline.
-      const targetWorldQuat = new THREE.Quaternion();
-      targetPlaced.foldGroup.getWorldQuaternion(targetWorldQuat);
-      const targetWorldNormal = new THREE.Vector3(...targetFaceConnector.normal).applyQuaternion(targetWorldQuat).normalize();
       const targetOriginWorld = new THREE.Vector3(0, 0, 0).applyMatrix4(targetPlaced.foldGroup.matrixWorld);
-      const offsetWorld = targetWorldNormal.clone().multiplyScalar(duoprismBuildDepth(spec, targetFaceIndex));
-
-      const nodeId = crypto.randomUUID();
-      const placed = buildPlacedShape(spec, nodeId);
-      // Identical orientation, pure translation -- the defining property
-      // of a duoprism's far cap (see duoprism.ts). No setFromUnitVectors
-      // mirroring, no twist search: there is no discrete rotational
-      // choice to make.
-      placed.object.quaternion.copy(targetWorldQuat);
-      placed.object.position.copy(targetOriginWorld).add(offsetWorld);
-      applyViewMode(placed, viewModeRef.current);
-
       const faceVertsWorld = spec.faces[targetFaceIndex].map((i) =>
         new THREE.Vector3(...spec.vertices[i]).applyMatrix4(targetPlaced.foldGroup.matrixWorld).toArray(),
       ) as [number, number, number][];
+
+      // A real duoprism has exactly ONE far copy total (see
+      // assembly.ts's own duoprismExtraFaces doc comment) -- if this
+      // parent already has a duoprism far copy (from an earlier attach
+      // on a DIFFERENT face), reuse it and just add another wall-prism,
+      // rather than creating a second, unrelated copy (which produced a
+      // real, confirmed-live bug: independent copies pushed out along
+      // different face normals have nothing making them meet, leaving a
+      // visible gap between them).
+      const existingConn = graphRef.current.connections.find(
+        (c) => !c.orphaned && c.kind === 'duoprism' && c.nodeA === targetNodeId,
+      );
+
+      let placed: PlacedShape;
+      let nodeId: string;
+      let isNewNode: boolean;
+      let offsetWorld: THREE.Vector3;
+
+      if (existingConn) {
+        const existingChild = findPlaced(existingConn.nodeB);
+        if (!existingChild) return; // shouldn't happen; defensive
+        placed = existingChild;
+        nodeId = existingConn.nodeB;
+        isNewNode = false;
+        offsetWorld = existingChild.object.position.clone().sub(targetOriginWorld);
+      } else {
+        const targetFaceConnector = buildFaceConnectors(spec)[targetFaceIndex];
+        // Same "read through foldGroup, not object" reasoning as
+        // beginFaceAttach: the target's CURRENT rendered position/
+        // orientation, not its unfolded baseline.
+        const targetWorldQuat = new THREE.Quaternion();
+        targetPlaced.foldGroup.getWorldQuaternion(targetWorldQuat);
+        const targetWorldNormal = new THREE.Vector3(...targetFaceConnector.normal).applyQuaternion(targetWorldQuat).normalize();
+        offsetWorld = targetWorldNormal.clone().multiplyScalar(duoprismBuildDepth(spec, targetFaceIndex));
+
+        nodeId = crypto.randomUUID();
+        const newPlaced = buildPlacedShape(spec, nodeId);
+        // Identical orientation, pure translation -- the defining
+        // property of a duoprism's far cap (see duoprism.ts). No
+        // setFromUnitVectors mirroring, no twist search: there is no
+        // discrete rotational choice to make.
+        newPlaced.object.quaternion.copy(targetWorldQuat);
+        newPlaced.object.position.copy(targetOriginWorld).add(offsetWorld);
+        applyViewMode(newPlaced, viewModeRef.current);
+        scene.add(newPlaced.object);
+        applyNodeAppearance(newPlaced, false);
+        placed = newPlaced;
+        isNewNode = true;
+      }
+
       const wall = buildWallPrism(faceVertsWorld, offsetWorld.toArray() as [number, number, number]);
       const wallMesh = buildWallPrismMesh(wall);
-
-      scene.add(placed.object);
       scene.add(wallMesh);
-      applyNodeAppearance(placed, false);
 
       targetPlaced.faceOccupied[targetFaceIndex] = true; // reserved while pending; cancelAttach restores this
       applyNodeAppearance(targetPlaced, targetPlaced === selectedNodeRef.current);
       placed.faceOccupied[targetFaceIndex] = true; // same face role on both sides -- see AssemblyConnection's own doc comment
+      applyNodeAppearance(placed, placed === selectedNodeRef.current);
 
       pendingRef.current = {
         kind: 'duoprism',
         placed,
         nodeId,
+        isNewNode,
         targetPlaced,
         targetFaceIndex,
         wallMesh,
@@ -1236,8 +1289,14 @@ export default function ShapeViewer({
       const pending = pendingRef.current;
       if (!pending) return;
 
-      placedRef.current.push(pending.placed);
-      applyNodeAppearance(pending.placed, false);
+      // A duoprism reuse of an EXISTING far copy (see beginDuoprismAttach)
+      // must NOT be pushed again -- it's already in placedRef.current
+      // from its own original confirm.
+      const isReusedDuoprismNode = pending.kind === 'duoprism' && !pending.isNewNode;
+      if (!isReusedDuoprismNode) {
+        placedRef.current.push(pending.placed);
+        applyNodeAppearance(pending.placed, false);
+      }
 
       if (pending.kind === 'vertex') {
         paintVertex(pending.targetSphere, {});
@@ -1293,35 +1352,57 @@ export default function ShapeViewer({
         }
       } else {
         const { nodeId: parentNodeId } = pending.targetPlaced.object.userData as ShapeObjectUserData;
-        const { specId: newSpecId } = pending.placed.object.userData as ShapeObjectUserData;
         applyNodeAppearance(pending.targetPlaced, pending.targetPlaced === selectedNodeRef.current);
 
-        graphRef.current.nodes.push({
-          id: pending.nodeId,
-          shape: newSpecId,
-          transform: {
-            position: pending.placed.object.position.toArray() as [number, number, number],
-            quaternion: pending.placed.object.quaternion.toArray() as [number, number, number, number],
-          },
-        });
-        graphRef.current.connections.push({
-          nodeA: parentNodeId,
-          vertexA: pending.targetFaceIndex,
-          nodeB: pending.nodeId,
-          vertexB: pending.targetFaceIndex,
-          kind: 'duoprism',
-        });
-        // Keyed by the child node's own id -- matches fold4's own
-        // per-child-node convention (see refreshFoldConnectionsFlag's
-        // analog); a duoprism wall-prism is derived from, and lifecycle-
-        // tied to, its own CHILD node, never the parent (a node can be
-        // the PARENT side of many duoprism connections at once, one per
-        // free face, but is only ever the CHILD side of exactly one).
-        duoprismMeshesRef.current.set(pending.nodeId, pending.wallMesh);
+        // Wall-prism meshes are keyed by (parent node, face index) --
+        // NOT by the child node's id -- since a real duoprism's single
+        // far copy can now have several wall-prisms (one per attached
+        // face), all sharing the same child. See assembly.ts's own
+        // duoprismExtraFaces doc comment.
+        duoprismMeshesRef.current.set(`${parentNodeId}:${pending.targetFaceIndex}`, pending.wallMesh);
+
+        if (pending.isNewNode) {
+          const { specId: newSpecId } = pending.placed.object.userData as ShapeObjectUserData;
+          graphRef.current.nodes.push({
+            id: pending.nodeId,
+            shape: newSpecId,
+            transform: {
+              position: pending.placed.object.position.toArray() as [number, number, number],
+              quaternion: pending.placed.object.quaternion.toArray() as [number, number, number, number],
+            },
+          });
+          graphRef.current.connections.push({
+            nodeA: parentNodeId,
+            vertexA: pending.targetFaceIndex,
+            nodeB: pending.nodeId,
+            vertexB: pending.targetFaceIndex,
+            kind: 'duoprism',
+          });
+        } else {
+          // Reusing an already-confirmed far copy: no new node, just
+          // record this face on the EXISTING connection's own
+          // duoprismExtraFaces (mutated in place, matching how rewrite
+          // already mutates `connection.orphaned` elsewhere in this
+          // file). Undo intentionally does not target this specific
+          // action -- "undo the single most recently confirmed attach"
+          // means deleting a whole node/subtree (see undo()'s own doc
+          // comment), which would be a bigger, surprising removal here
+          // (the entire shared far copy, including every other face
+          // attached to it) rather than "just this one extra face" --
+          // left as a known, documented gap rather than guessed at.
+          const existingConn = graphRef.current.connections.find(
+            (c) => !c.orphaned && c.kind === 'duoprism' && c.nodeA === parentNodeId && c.nodeB === pending.nodeId,
+          );
+          if (existingConn) {
+            existingConn.duoprismExtraFaces = [...(existingConn.duoprismExtraFaces ?? []), pending.targetFaceIndex];
+          }
+        }
       }
 
-      lastAddedNodeIdRef.current = pending.nodeId;
-      onCanUndoChangeRef.current?.(true);
+      if (pending.kind !== 'duoprism' || pending.isNewNode) {
+        lastAddedNodeIdRef.current = pending.nodeId;
+        onCanUndoChangeRef.current?.(true);
+      }
 
       pendingRef.current = null;
       controls.enabled = true;
@@ -1461,12 +1542,25 @@ export default function ShapeViewer({
         const idx = placedRef.current.indexOf(placed);
         if (idx !== -1) placedRef.current.splice(idx, 1);
 
-        const wallMesh = duoprismMeshesRef.current.get(id);
-        if (wallMesh) {
-          scene.remove(wallMesh);
-          wallMesh.geometry.dispose();
-          (wallMesh.material as THREE.Material).dispose();
-          duoprismMeshesRef.current.delete(id);
+        // This node's OWN incoming connection (if duoprism) may own
+        // several wall-prism meshes -- one per [vertexA,
+        // ...duoprismExtraFaces] -- all keyed by (that connection's own
+        // parent id, face index), not by this child's own id (see
+        // assembly.ts's own duoprismExtraFaces doc comment for why one
+        // shared far copy can have more than one).
+        const ownIncomingConn = findParentConnection(graphRef.current.connections, id);
+        if (ownIncomingConn && !ownIncomingConn.orphaned && ownIncomingConn.kind === 'duoprism') {
+          const facesToClean = [ownIncomingConn.vertexA, ...(ownIncomingConn.duoprismExtraFaces ?? [])];
+          for (const faceIndex of facesToClean) {
+            const key = `${ownIncomingConn.nodeA}:${faceIndex}`;
+            const wallMesh = duoprismMeshesRef.current.get(key);
+            if (wallMesh) {
+              scene.remove(wallMesh);
+              wallMesh.geometry.dispose();
+              (wallMesh.material as THREE.Material).dispose();
+              duoprismMeshesRef.current.delete(key);
+            }
+          }
         }
 
         if (hoveredNodeRef.current === placed) hoveredNodeRef.current = null;
@@ -1482,7 +1576,17 @@ export default function ShapeViewer({
 
       if (parentConn && !parentConn.orphaned) {
         const parentPlaced = findPlaced(parentConn.nodeA);
-        if (parentConn.kind === 'face' || parentConn.kind === 'duoprism') {
+        if (parentConn.kind === 'duoprism') {
+          // Free EVERY face this shared far copy was using on the
+          // parent, not just vertexA -- a real duoprism's single far
+          // copy can have several wall-prisms (see assembly.ts's own
+          // duoprismExtraFaces doc comment).
+          if (parentPlaced) {
+            for (const faceIndex of [parentConn.vertexA, ...(parentConn.duoprismExtraFaces ?? [])]) {
+              parentPlaced.faceOccupied[faceIndex] = false;
+            }
+          }
+        } else if (parentConn.kind === 'face') {
           if (parentPlaced) parentPlaced.faceOccupied[parentConn.vertexA] = false;
         } else {
           const parentSphere = parentPlaced?.vertexGroup.children[parentConn.vertexA] as THREE.Mesh | undefined;
