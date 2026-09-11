@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }) => {
 test('a FOURD_CAPABLE shape (dodecahedron) shows the real 120-cell radial projection under "View 4D"', async ({ page }) => {
   await page.getByRole('button', { name: /^Start over with/ }).click();
   await openBrowserWheel(page);
-  await clickWheelLabel(page, exactLabel('Platonic'));
+  await clickWheelLabel(page, exactLabel('Full Catalog'));
 
   const card = page.locator('text=/^dodecahedron$/i').first();
   await card.scrollIntoViewIfNeeded();
@@ -52,7 +52,7 @@ test('every FOURD_CAPABLE shape shows its own real cell count under "View 4D"', 
   for (const [cardText, cellCountText] of expected) {
     await page.getByRole('button', { name: /^Start over with/ }).click();
     await openBrowserWheel(page);
-    await clickWheelLabel(page, exactLabel('Platonic'));
+    await clickWheelLabel(page, exactLabel('Full Catalog'));
 
     const card = page.locator(`text=/^${cardText}$/i`).first();
     await card.scrollIntoViewIfNeeded();
@@ -62,5 +62,6 @@ test('every FOURD_CAPABLE shape shows its own real cell count under "View 4D"', 
     await drawer.getByRole('button', { name: 'View 4D' }).click();
     await expect(drawer.locator(`text=/${cellCountText}/`)).toBeVisible();
     await drawer.getByRole('button', { name: 'Close' }).click();
+    await expect(drawer).toHaveCount(0);
   }
 });

@@ -283,7 +283,12 @@ export interface RadialProjectionScene {
  * expand under the perspective, matching the plan's own Stage 2 "done
  * when" description.
  */
-export function buildRadialProjectionScene(spec: PolyhedronSpec, viewMargin = 1.6): RadialProjectionScene {
+// 1.6 (barely past the outermost vertex) made the near/far size ratio
+// too extreme -- reported live as an anisotropic "sausage" blob rather
+// than a legible nested structure. A larger margin is a gentler
+// perspective (still the same formula, just farther from the object),
+// keeping outer/inner cells within a readable size range.
+export function buildRadialProjectionScene(spec: PolyhedronSpec, viewMargin = 5): RadialProjectionScene {
   const complex = buildCellComplex(spec);
   const allVertices = complex.cells.flatMap((cell) => cellVertices(complex, cell));
   const maxAbsW = Math.max(...allVertices.map((v) => Math.abs(v[3])), 1e-6);
