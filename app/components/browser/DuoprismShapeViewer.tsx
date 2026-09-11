@@ -38,12 +38,12 @@ export interface DuoprismShapeViewerProps {
   height?: number | string;
 }
 
-function capGeometry(spec: PolyhedronSpec, scale: number, offset: THREE.Vector3): THREE.BufferGeometry {
+function capGeometry(spec: PolyhedronSpec, vertices: readonly (readonly number[])[], scale: number, offset: THREE.Vector3): THREE.BufferGeometry {
   const positions: number[] = [];
   for (const face of spec.faces) {
     for (const [i, j, k] of triangulateFace(face)) {
       for (const idx of [i, j, k]) {
-        const v = spec.vertices[idx];
+        const v = vertices[idx];
         positions.push(v[0] * scale + offset.x, v[1] * scale + offset.y, v[2] * scale + offset.z);
       }
     }
@@ -124,10 +124,7 @@ export default function DuoprismShapeViewer({ specId, height = 260 }: DuoprismSh
     // StarShapeViewer/ShapePreview, but measured across the WHOLE
     // duoprism (both caps + walls combined, not just the base shape) so
     // the offset direction's own extent is accounted for in the fit.
-    const allPoints: [number, number, number][] = [
-      ...spec.vertices,
-      ...spec.vertices.map((v) => [v[0] + shadow.offset[0], v[1] + shadow.offset[1], v[2] + shadow.offset[2]] as [number, number, number]),
-    ];
+    const allPoints: [number, number, number][] = [...spec.vertices, ...shadow.farVertices] as [number, number, number][];
     const cx = allPoints.reduce((s, v) => s + v[0], 0) / allPoints.length;
     const cy = allPoints.reduce((s, v) => s + v[1], 0) / allPoints.length;
     const cz = allPoints.reduce((s, v) => s + v[2], 0) / allPoints.length;
@@ -137,14 +134,13 @@ export default function DuoprismShapeViewer({ specId, height = 260 }: DuoprismSh
 
     const disposables: (THREE.BufferGeometry | THREE.Material)[] = [];
 
-    const nearGeom = capGeometry(spec, scale, centerOffset.clone().multiplyScalar(scale));
-    // Both caps use the SAME scale+recenter transform: nearGeom already
-    // applies it directly to spec's raw vertices; farGeom needs the same
-    // recenter offset PLUS the duoprism's own far-cap offset, both scaled
-    // consistently (uniform scaling commutes with the extrusion, so this
-    // stays a correctly-proportioned duoprism, just resized to fit view).
-    const farOffset = new THREE.Vector3(...shadow.offset).add(centerOffset).multiplyScalar(scale);
-    const farGeom = capGeometry(spec, scale, farOffset);
+    const recenterScaled = centerOffset.clone().multiplyScalar(scale);
+    const nearGeom = capGeometry(spec, spec.vertices, scale, recenterScaled);
+    // farVertices already has the far cap's real position AND orientation
+    // baked in (a 180deg-flipped copy, not a plain translation -- see
+    // buildDuoprismShadow's own comment); apply the SAME recenter+scale
+    // as near, with no extra offset added on top.
+    const farGeom = capGeometry(spec, shadow.farVertices, scale, recenterScaled);
     const capMaterial = new THREE.MeshStandardMaterial({ color: CAP_COLOR, flatShading: true, side: THREE.DoubleSide });
     disposables.push(nearGeom, farGeom, capMaterial);
     scene.add(new THREE.Mesh(nearGeom, capMaterial));

@@ -27,6 +27,18 @@ const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const scale = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s];
 const norm = (a: Vec3): Vec3 => scale(a, 1 / Math.hypot(...a));
+const dotv = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+/**
+ * Rotates `v` by 180deg about unit axis `a`: v' = 2(v.a)a - v. For any
+ * v perpendicular to a, this simply negates v -- the general fact this
+ * whole module leans on to make the far copy's connecting face point
+ * BACK toward the near copy (see buildDuoprismShadow's own comment).
+ */
+function rotate180(v: Vec3, axis: Vec3): Vec3 {
+  const d = dotv(v, axis);
+  return sub(scale(axis, 2 * d), v);
+}
 
 /**
  * The minimum depth needed for the near and far copies to NOT overlap
@@ -74,6 +86,42 @@ export function duoprismBuildDepth(spec: PolyhedronSpec, faceIndex: number): num
   return minNonOverlapDepth(spec, normal) * 1.15;
 }
 
+export interface DuoprismFarCopyPlan {
+  /** Local-frame translation from near's own center to far's own center. */
+  offsetLocal: Vec3;
+  /** A unit axis IN the connecting face's own plane (perpendicular to its normal), local frame. */
+  flipAxisLocal: Vec3;
+}
+
+/**
+ * The raw ingredients (local frame, no THREE.js) for placing a
+ * duoprism's far copy for `faceIndex`: it must sit `offsetLocal` away
+ * from near's own center, and be ROTATED 180deg about `flipAxisLocal`
+ * (not left at the SAME orientation as near) so its own connecting
+ * face points BACK toward near -- confirmed wrong live as a plain
+ * translated copy ("top faces pointing the same way is wrong... they
+ * should be facing opposite ways"; a plain translation made the far
+ * cap extend the shape into an elongated "sausage" instead of closing
+ * back into a legible duoprism). A caller with a real world transform
+ * (ShapeViewer.tsx) rotates both vectors by near's own world
+ * quaternion to place the real node; a caller working purely in local
+ * coordinates (verification, or VIEW mode via a fixed shared axis
+ * instead of a specific face) can apply rotate180 directly.
+ */
+export function duoprismFarCopyPlan(spec: PolyhedronSpec, faceIndex: number): DuoprismFarCopyPlan {
+  const fc = buildFaceConnectors(spec)[faceIndex];
+  const vertex0 = spec.vertices[spec.faces[faceIndex][0]];
+  const flipAxisLocal = norm(sub(vertex0, fc.pos));
+  const depth = duoprismBuildDepth(spec, faceIndex);
+  const offsetLocal = scale(fc.normal, depth);
+  return { offsetLocal, flipAxisLocal };
+}
+
+/** `spec.vertices`, rotated 180deg about `plan.flipAxisLocal` and translated by `plan.offsetLocal` -- the far copy's own LOCAL vertex positions (as if near sat at the identity transform). Used directly by verification; ShapeViewer.tsx applies its own world transform on top via the real quaternion instead (a mesh needs a real transform, not custom per-instance vertices). */
+export function duoprismFarCopyVerticesLocal(spec: PolyhedronSpec, plan: DuoprismFarCopyPlan): Vec3[] {
+  return spec.vertices.map((v) => add(rotate180(v, plan.flipAxisLocal), plan.offsetLocal));
+}
+
 export interface WallPrismRaw {
   /** 2n verts: [0..n-1] = near cap (face's own order, REVERSED), [n..2n-1] = far cap (face's own order, direct). */
   verts: Vec3[];
@@ -115,10 +163,43 @@ export interface WallPrismRaw {
  * far-direct (the original derivation); when negative, it's the mirror
  * image, near-direct/far-reversed.
  */
-export function buildWallPrism(faceVerts: Vec3[], offset: Vec3): WallPrismRaw {
-  const n = faceVerts.length;
-  const nearVerts = faceVerts;
-  const farVerts = faceVerts.map((v) => add(v, offset));
+export function buildWallPrism(nearFaceVerts: Vec3[], farFaceVerts: Vec3[]): WallPrismRaw {
+  const n = nearFaceVerts.length;
+  const nearVerts = nearFaceVerts;
+
+  const nearCentroid = nearVerts.reduce((s, v) => add(s, v), [0, 0, 0] as Vec3).map((c) => c / n) as Vec3;
+  const rawFarCentroid = farFaceVerts.reduce((s, v) => add(s, v), [0, 0, 0] as Vec3).map((c) => c / n) as Vec3;
+  const offsetEstimate = sub(rawFarCentroid, nearCentroid);
+
+  // Which far vertex is actually "across from" each near vertex -- NOT
+  // necessarily the same array index. A plain translated far copy keeps
+  // index k across from index k, but a REORIENTED far copy (the 180deg
+  // flip this module now uses so the far cap points back toward near,
+  // not away from it) also PERMUTES which vertex ends up across from
+  // which: flipping a pentagon 180deg about the axis through its own
+  // vertex 0 fixes vertex 0's own position but SWAPS vertices 1<->4 and
+  // 2<->3 (confirmed live: connecting same-index vertices directly
+  // produced exactly the self-crossing "twisted"/bowtie geometry
+  // reported -- the earlier same-index assumption was only ever valid
+  // for a pure translation). Matching each near vertex to its nearest
+  // far vertex (after accounting for the overall near-to-far offset) is
+  // the correct, general rule regardless of how the far cap got
+  // oriented -- a real duoprism's far cap is never so skewed that its
+  // OWN vertices are closer to the WRONG near vertex.
+  const farIndexForNear: number[] = nearVerts.map((nv) => {
+    const expected = add(nv, offsetEstimate);
+    let bestJ = 0;
+    let bestDist = Infinity;
+    farFaceVerts.forEach((fv, j) => {
+      const d = Math.hypot(...sub(fv, expected));
+      if (d < bestDist) {
+        bestDist = d;
+        bestJ = j;
+      }
+    });
+    return bestJ;
+  });
+  const farVerts = farIndexForNear.map((j) => farFaceVerts[j]);
   const verts = [...nearVerts, ...farVerts];
 
   const edges: [number, number][] = [];
@@ -128,39 +209,45 @@ export function buildWallPrism(faceVerts: Vec3[], offset: Vec3): WallPrismRaw {
     edges.push([k, n + k]);
   }
 
-  const e1 = sub(faceVerts[1], faceVerts[0]);
-  const e2 = sub(faceVerts[2], faceVerts[0]);
-  const naturalNormal = cross(e1, e2);
-  const agreesWithOffset = dot(naturalNormal, offset) > 0;
+  const farCentroid = farVerts.reduce((s, v) => add(s, v), [0, 0, 0] as Vec3).map((c) => c / n) as Vec3;
+  const spineMid = scale(add(nearCentroid, farCentroid), 0.5);
+
+  // Winding: build every face's vertex loop, then FIX UP its direction
+  // by checking whether it actually points outward from the prism's own
+  // spine midpoint -- reverse it if not. Predicting the right direction
+  // in advance from a single "does offset agree with the near face's own
+  // normal" test (an earlier version's approach) assumed the far cap is
+  // a plain translated copy of the near one; it stopped being reliable
+  // once the far cap could be independently reoriented (a 180deg flip,
+  // not just a translation -- confirmed live: a flipped far cap can wind
+  // its own vertex loop in the OPPOSITE cyclic direction from a simple
+  // translation, breaking that prediction). Checking the real outward
+  // direction directly, per face, is correct regardless of how the far
+  // cap got where it is.
+  const direct: number[] = Array.from({ length: n }, (_, k) => n + k);
+
+  const orientFace = (loop: number[], allVerts: Vec3[], reference: Vec3): number[] => {
+    const pts = loop.map((i) => allVerts[i]);
+    const c = pts.reduce((s, v) => add(s, v), [0, 0, 0] as Vec3).map((x) => x / pts.length) as Vec3;
+    const e1v = sub(pts[1], pts[0]);
+    const e2v = sub(pts[2], pts[0]);
+    const faceN = cross(e1v, e2v);
+    const outward = sub(c, reference);
+    return dot(faceN, outward) > 0 ? loop : [...loop].reverse();
+  };
 
   const faces: number[][] = [];
-  const reversed: number[] = [];
-  for (let k = 0; k < n; k++) reversed.push((n - k) % n);
-  const direct: number[] = [];
-  for (let k = 0; k < n; k++) direct.push(n + k);
-  const reversedFar: number[] = [];
-  for (let k = 0; k < n; k++) reversedFar.push(n + ((n - k) % n));
-  const directNear: number[] = Array.from({ length: n }, (_, k) => k);
-
-  if (agreesWithOffset) {
-    faces.push(reversed); // near cap
-    faces.push(direct); // far cap
-    for (let k = 0; k < n; k++) {
-      const k2 = (k + 1) % n;
-      faces.push([k, k2, n + k2, n + k]);
-    }
-  } else {
-    faces.push(directNear); // near cap
-    faces.push(reversedFar); // far cap
-    // Lateral quads reverse too (confirmed live, not assumed: an
-    // earlier version kept the same [k,k2,n+k2,n+k] order unconditionally
-    // and scripts/verify-duoprism.ts caught inverted laterals here via
-    // the same whole-mesh volume check) -- swapping k/k2 flips the
-    // quad's own winding to match the flipped caps.
-    for (let k = 0; k < n; k++) {
-      const k2 = (k + 1) % n;
-      faces.push([k2, k, n + k, n + k2]);
-    }
+  // Caps: a highly oblique far cap can sit closer to the spine midpoint
+  // than to a truly "outward" direction, making spineMid an unreliable
+  // reference for the CAPS specifically (still fine for the lateral
+  // quads below, which stay roughly symmetric around it) -- the far
+  // cap's own natural outward direction is "away from the near cap",
+  // and vice versa, regardless of how oblique the connection is.
+  faces.push(orientFace(Array.from({ length: n }, (_, k) => k), verts, farCentroid)); // near cap
+  faces.push(orientFace(direct, verts, nearCentroid)); // far cap
+  for (let k = 0; k < n; k++) {
+    const k2 = (k + 1) % n;
+    faces.push(orientFace([k, k2, n + k2, n + k], verts, spineMid));
   }
 
   return { verts, edges, faces };
@@ -257,15 +344,34 @@ export function duoprismViewDepth(spec: PolyhedronSpec): number {
 }
 
 export interface DuoprismShadow {
-  /** Translation from the near ("A") cap to the far ("B") cap -- add this to `spec.vertices` for B's own positions. */
+  /** Translation from the near ("A") cap's center to the far ("B") cap's center. */
   offset: Vec3;
+  /**
+   * The far cap's OWN vertex positions (same indexing as spec.vertices).
+   * Unlike BUILD's own far copy (see duoprismFarCopyPlan), this stays a
+   * PLAIN translated copy: BUILD's 180deg flip uses a well-defined axis
+   * (through the specific attaching face's own vertex 0), but VIEW has
+   * no single face to anchor a flip axis to -- DUOPRISM_VIEW_AXIS is a
+   * generic direction unrelated to any one face, so an arbitrary
+   * perpendicular flip axis has no principled vertex correspondence,
+   * confirmed live to produce degenerate/wrongly-wound walls for
+   * several antiprisms when tried. Left as a known, separate limitation
+   * (VIEW's reference preview may still look elongated along the shared
+   * axis for some shapes) rather than shipping a broken flip.
+   */
+  farVertices: Vec3[];
   /** One wall-prism per face of `spec`, same order as `spec.faces`. */
   walls: WallPrismRaw[];
 }
 
-/** The full reference-only "3D shadow" of `spec`'s duoprism: two copies of `spec` (the caller already has spec's own mesh for the near copy; add `offset` for the far one) plus one connecting wall-prism per face. */
+/** The full reference-only "3D shadow" of `spec`'s duoprism: two copies of `spec` (the caller already has spec's own mesh for the near copy; farVertices gives the far one's own positions) plus one connecting wall-prism per face. */
 export function buildDuoprismShadow(spec: PolyhedronSpec): DuoprismShadow {
   const offset = scale(DUOPRISM_VIEW_AXIS, duoprismViewDepth(spec));
-  const walls = spec.faces.map((face) => buildWallPrism(face.map((i) => spec.vertices[i]), offset));
-  return { offset, walls };
+  const farVertices = spec.vertices.map((v) => add(v, offset));
+  const walls = spec.faces.map((face) => {
+    const nearVerts = face.map((i) => spec.vertices[i]);
+    const farVerts = face.map((i) => farVertices[i]);
+    return buildWallPrism(nearVerts, farVerts);
+  });
+  return { offset, farVertices, walls };
 }

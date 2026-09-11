@@ -18,7 +18,7 @@ import { matchRewriteVertices, REWRITE_TARGET } from '../lib/polyhedra/rewrite';
 import { collectSubtree, findParentConnection, hasCycle } from '../lib/graph';
 import { FOURD_CAPABLE_IDS } from '../lib/polyhedra/fourD';
 import { edgeClosingCorrection } from '../lib/polyhedra/fold4';
-import { buildWallPrism, duoprismBuildDepth } from '../lib/polyhedra/duoprism';
+import { buildWallPrism, duoprismFarCopyPlan } from '../lib/polyhedra/duoprism';
 
 const VERTEX_RADIUS = 0.06; // relative to unit edge length
 const COLOR_FREE = 0xffcc33;
@@ -927,27 +927,30 @@ export default function ShapeViewer({
           if (a && b) {
             // Re-derive every wall-prism mesh from the two nodes' own
             // baked transforms, never stored -- same "derive, don't
-            // duplicate" rule fold4 already follows. The offset is
-            // read back from B's actual position relative to A's,
-            // rather than recomputing duoprismBuildDepth, so this stays
-            // correct even if that formula's own margin ever changes.
-            // One wall-prism per face in [vertexA, ...duoprismExtraFaces]
-            // -- a real duoprism's single far copy can have several,
-            // all sharing this same pair of nodes (see assembly.ts's
-            // own duoprismExtraFaces doc comment).
+            // duplicate" rule fold4 already follows. Both near AND far
+            // face vertices are read from each node's OWN real transform
+            // (not "near + a shared offset") -- the far copy's real
+            // orientation is whatever was actually saved, which is no
+            // longer assumed to be a plain identical-orientation
+            // translation (see beginDuoprismAttach's own 180deg-flip
+            // comment for why that assumption was wrong). One wall-prism
+            // per face in [vertexA, ...duoprismExtraFaces] -- a real
+            // duoprism's single far copy can have several, all sharing
+            // this same pair of nodes (see assembly.ts's own
+            // duoprismExtraFaces doc comment).
             scene.updateMatrixWorld(true);
             const aSpec = POLYHEDRA[assembly.nodes.find((n) => n.id === conn.nodeA)!.shape];
-            const aOriginWorld = new THREE.Vector3(0, 0, 0).applyMatrix4(a.object.matrixWorld);
-            const bOriginWorld = new THREE.Vector3(0, 0, 0).applyMatrix4(b.object.matrixWorld);
-            const offsetWorld = bOriginWorld.clone().sub(aOriginWorld).toArray() as [number, number, number];
             const allFaces = [conn.vertexA, ...(conn.duoprismExtraFaces ?? [])];
             for (const faceIndex of allFaces) {
               a.faceOccupied[faceIndex] = true;
               b.faceOccupied[faceIndex] = true;
-              const faceVertsWorld = aSpec.faces[faceIndex].map((i) =>
+              const nearFaceVertsWorld = aSpec.faces[faceIndex].map((i) =>
                 new THREE.Vector3(...aSpec.vertices[i]).applyMatrix4(a.object.matrixWorld).toArray(),
               ) as [number, number, number][];
-              const wall = buildWallPrism(faceVertsWorld, offsetWorld);
+              const farFaceVertsWorld = aSpec.faces[faceIndex].map((i) =>
+                new THREE.Vector3(...aSpec.vertices[i]).applyMatrix4(b.object.matrixWorld).toArray(),
+              ) as [number, number, number][];
+              const wall = buildWallPrism(nearFaceVertsWorld, farFaceVertsWorld);
               const wallMesh = buildWallPrismMesh(wall);
               scene.add(wallMesh);
               duoprismMeshesRef.current.set(`${conn.nodeA}:${faceIndex}`, wallMesh);
@@ -1245,22 +1248,31 @@ export default function ShapeViewer({
         isNewNode = false;
         offsetWorld = existingChild.object.position.clone().sub(targetOriginWorld);
       } else {
-        const targetFaceConnector = buildFaceConnectors(spec)[targetFaceIndex];
         // Same "read through foldGroup, not object" reasoning as
         // beginFaceAttach: the target's CURRENT rendered position/
         // orientation, not its unfolded baseline.
         const targetWorldQuat = new THREE.Quaternion();
         targetPlaced.foldGroup.getWorldQuaternion(targetWorldQuat);
-        const targetWorldNormal = new THREE.Vector3(...targetFaceConnector.normal).applyQuaternion(targetWorldQuat).normalize();
-        offsetWorld = targetWorldNormal.clone().multiplyScalar(duoprismBuildDepth(spec, targetFaceIndex));
+
+        // The far copy's own connecting face must point BACK toward the
+        // near copy, not away from it (a plain translated copy, same
+        // orientation, has its face pointing the SAME way as near's --
+        // confirmed wrong live: "top faces pointing the same way is
+        // wrong... they should be facing opposite ways"). duoprismFarCopyPlan
+        // gives the local-frame offset + in-plane flip axis; rotating
+        // both into world space via near's own quaternion places a REAL
+        // 180deg-flipped node (a mesh needs a real transform, not custom
+        // per-instance vertices -- duoprismFarCopyVerticesLocal is for
+        // verification/VIEW mode instead).
+        const plan = duoprismFarCopyPlan(spec, targetFaceIndex);
+        offsetWorld = new THREE.Vector3(...plan.offsetLocal).applyQuaternion(targetWorldQuat);
+        const flipAxisWorld = new THREE.Vector3(...plan.flipAxisLocal).applyQuaternion(targetWorldQuat).normalize();
+        const flip180 = new THREE.Quaternion().setFromAxisAngle(flipAxisWorld, Math.PI);
+        const farQuat = flip180.multiply(targetWorldQuat);
 
         nodeId = crypto.randomUUID();
         const newPlaced = buildPlacedShape(spec, nodeId);
-        // Identical orientation, pure translation -- the defining
-        // property of a duoprism's far cap (see duoprism.ts). No
-        // setFromUnitVectors mirroring, no twist search: there is no
-        // discrete rotational choice to make.
-        newPlaced.object.quaternion.copy(targetWorldQuat);
+        newPlaced.object.quaternion.copy(farQuat);
         newPlaced.object.position.copy(targetOriginWorld).add(offsetWorld);
         applyViewMode(newPlaced, viewModeRef.current);
         scene.add(newPlaced.object);
@@ -1269,7 +1281,11 @@ export default function ShapeViewer({
         isNewNode = true;
       }
 
-      const wall = buildWallPrism(faceVertsWorld, offsetWorld.toArray() as [number, number, number]);
+      scene.updateMatrixWorld(true);
+      const farFaceVertsWorld = spec.faces[targetFaceIndex].map((i) =>
+        new THREE.Vector3(...spec.vertices[i]).applyMatrix4(placed.foldGroup.matrixWorld).toArray(),
+      ) as [number, number, number][];
+      const wall = buildWallPrism(faceVertsWorld, farFaceVertsWorld);
       const wallMesh = buildWallPrismMesh(wall);
       scene.add(wallMesh);
 
