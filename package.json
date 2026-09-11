@@ -25,6 +25,7 @@
     "verify:4d-closure": "tsx scripts/verify-4d-closure.ts",
     "verify:fold4": "tsx scripts/verify-fold4.ts",
     "verify:duoprism": "tsx scripts/verify-duoprism.ts",
+    "verify:radial-projection": "tsx scripts/verify-radial-projection.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
